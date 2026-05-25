@@ -36,7 +36,18 @@ class AccessControl extends Page
      */
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('view_access_control') ?? false;
+        $user = auth()->user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // Адмін має доступ завжди
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+
+        return $user->can('view_access_control');
     }
 
     /**
@@ -46,7 +57,18 @@ class AccessControl extends Page
      */
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->can('view_access_control') ?? false;
+        $user = auth()->user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // Адмін бачить меню завжди
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+
+        return $user->can('view_access_control');
     }
 
     /**
@@ -56,8 +78,13 @@ class AccessControl extends Page
      */
     public function mount(): void
     {
+        $user = auth()->user();
+
         abort_unless(
-            auth()->user()?->can('view_access_control'),
+            $user && (
+                $user->hasRole('admin')
+                || $user->can('view_access_control')
+            ),
             403
         );
 
@@ -65,8 +92,10 @@ class AccessControl extends Page
          * ---------------------------------------------------------
          * LOAD ROLES
          * ---------------------------------------------------------
+         * ADMIN НЕ ПОКАЗУЄМО В МАТРИЦІ
          */
         $this->roles = Role::query()
+            ->where('name', '!=', 'admin')
             ->orderBy('name')
             ->pluck('name')
             ->toArray();
