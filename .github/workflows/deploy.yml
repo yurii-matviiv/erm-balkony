@@ -1,0 +1,28 @@
+name: Deploy ERM
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to hosting
+        uses: appleboy/ssh-action@v1.0.3
+
+        with:
+          host: balkonio.ftp.tools
+          username: balkonio
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+          script: |
+            cd ~/balkony-vikna.kyiv.ua/erm
+
+            git pull origin main
+
+            composer install --no-dev --optimize-autoloader
+
+            php artisan optimize:clear
