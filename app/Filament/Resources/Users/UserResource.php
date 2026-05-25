@@ -8,7 +8,6 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -16,7 +15,7 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users'; 
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
 
     protected static ?string $navigationLabel = 'Users';
 
@@ -26,34 +25,16 @@ class UserResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
-   public static function canAccess(): bool
-{
-    $user = auth()->user();
-
-    if (!$user) {
-        return false;
-    }
-
-    // Адмін бачить все
-    if ($user->hasRole('admin')) {
-        return true;
-    }
-
-    return $user->can('view_users');
-}
-
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-
                 TextInput::make('name')
                     ->required(),
 
                 TextInput::make('email')
                     ->email()
                     ->required(),
-
             ]);
     }
 
@@ -61,7 +42,6 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-
                 TextColumn::make('id')
                     ->sortable(),
 
@@ -78,7 +58,6 @@ class UserResource extends Resource
 
                 TextColumn::make('created_at')
                     ->dateTime('d.m.Y H:i'),
-
             ])
             ->defaultSort('id', 'desc')
             ->filters([])

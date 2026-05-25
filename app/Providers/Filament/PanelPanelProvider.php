@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -28,19 +29,65 @@ class PanelPanelProvider extends PanelProvider
             ->id('panel')
             ->path('panel')
             ->login()
+            ->favicon(asset('favicon.ico'))
             ->colors([
                 'primary' => Color::Amber,
             ])
-            ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
+
+            /**
+             * ---------------------------------------------------------
+             * AUTO DISCOVER FILAMENT RESOURCES
+             * ---------------------------------------------------------
+             */
+            ->discoverResources(
+                in: app_path('Filament/Resources'),
+                for: 'App\\Filament\\Resources'
+            )
+
+            /**
+             * ---------------------------------------------------------
+             * AUTO DISCOVER FILAMENT PAGES
+             * ---------------------------------------------------------
+             */
+            ->discoverPages(
+                in: app_path('Filament/Pages'),
+                for: 'App\\Filament\\Pages'
+            )
+
+            /**
+             * ---------------------------------------------------------
+             * DEFAULT PAGES
+             * ---------------------------------------------------------
+             */
             ->pages([
                 Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
+
+            /**
+             * ---------------------------------------------------------
+             * AUTO DISCOVER WIDGETS
+             * ---------------------------------------------------------
+             */
+            ->discoverWidgets(
+                in: app_path('Filament/Widgets'),
+                for: 'App\\Filament\\Widgets'
+            )
+
+            /**
+             * ---------------------------------------------------------
+             * DEFAULT WIDGETS
+             * ---------------------------------------------------------
+             */
             ->widgets([
                 AccountWidget::class,
                 FilamentInfoWidget::class,
             ])
+
+            /**
+             * ---------------------------------------------------------
+             * FILAMENT MIDDLEWARE
+             * ---------------------------------------------------------
+             */
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -52,6 +99,21 @@ class PanelPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
+
+            /**
+             * ---------------------------------------------------------
+             * FILAMENT PLUGINS
+             * ---------------------------------------------------------
+             */
+            ->plugins([
+                FilamentShieldPlugin::make(),
+            ])
+
+            /**
+             * ---------------------------------------------------------
+             * AUTH MIDDLEWARE
+             * ---------------------------------------------------------
+             */
             ->authMiddleware([
                 Authenticate::class,
             ]);
