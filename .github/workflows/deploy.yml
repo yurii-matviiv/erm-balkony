@@ -23,6 +23,6 @@ jobs:
 
             git pull origin main
 
-            composer install --no-dev --optimize-autoloader
+            /usr/local/php84/bin/php /usr/local/bin/composer install --no-dev --optimize-autoloader
 
-            php artisan optimize:clear
+            /usr/local/php84/bin/php artisan optimize:clear
