@@ -26,4 +26,3 @@ jobs:
             composer install --no-dev --optimize-autoloader
 
             php artisan optimize:clear
-
