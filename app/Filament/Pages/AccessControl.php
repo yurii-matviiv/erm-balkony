@@ -36,18 +36,9 @@ class AccessControl extends Page
      */
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-
-        if (!$user) {
-            return false;
-        }
-
-        // Адмін має доступ завжди
-        if ($user->hasRole('admin')) {
-            return true;
-        }
-
-        return $user->can('view_access_control');
+        return auth()->user()?->hasRole('admin') || (
+            auth()->user()?->can('view_access_control') ?? false
+        );
     }
 
     /**
@@ -57,18 +48,9 @@ class AccessControl extends Page
      */
     public static function shouldRegisterNavigation(): bool
     {
-        $user = auth()->user();
-
-        if (!$user) {
-            return false;
-        }
-
-        // Адмін бачить меню завжди
-        if ($user->hasRole('admin')) {
-            return true;
-        }
-
-        return $user->can('view_access_control');
+        return auth()->user()?->hasRole('admin') || (
+            auth()->user()?->can('view_access_control') ?? false
+        );
     }
 
     /**
@@ -78,12 +60,9 @@ class AccessControl extends Page
      */
     public function mount(): void
     {
-        $user = auth()->user();
-
         abort_unless(
-            $user && (
-                $user->hasRole('admin')
-                || $user->can('view_access_control')
+            auth()->user()?->hasRole('admin') || (
+                auth()->user()?->can('view_access_control')
             ),
             403
         );
@@ -92,7 +71,6 @@ class AccessControl extends Page
          * ---------------------------------------------------------
          * LOAD ROLES
          * ---------------------------------------------------------
-         * ADMIN НЕ ПОКАЗУЄМО В МАТРИЦІ
          */
         $this->roles = Role::query()
             ->where('name', '!=', 'admin')
@@ -123,6 +101,26 @@ class AccessControl extends Page
 
             $title = $pageClass::getNavigationLabel()
                 ?? class_basename($pageClass);
+
+            $this->permissionLabels[$permission] = $title;
+        }
+
+        /**
+         * ---------------------------------------------------------
+         * AUTO MAP FILAMENT RESOURCES
+         * ---------------------------------------------------------
+         */
+        foreach (Filament::getResources() as $resourceClass) {
+
+            $resourceName = str(class_basename($resourceClass))
+                ->replace('Resource', '')
+                ->snake()
+                ->lower();
+
+            $permission = 'view_' . $resourceName;
+
+            $title = $resourceClass::getNavigationLabel()
+                ?? class_basename($resourceClass);
 
             $this->permissionLabels[$permission] = $title;
         }
