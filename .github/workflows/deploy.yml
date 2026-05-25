@@ -25,4 +25,8 @@ jobs:
 
             /usr/local/php84/bin/php /usr/local/bin/composer install --no-dev --optimize-autoloader
 
+            /usr/local/php84/bin/php artisan shield:generate --all --panel=panel
+
             /usr/local/php84/bin/php artisan optimize:clear
+
+            /usr/local/php84/bin/php artisan filament:cache-components
