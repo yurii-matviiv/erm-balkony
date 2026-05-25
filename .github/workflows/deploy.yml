@@ -16,7 +16,7 @@ jobs:
         with:
           host: balkonio.ftp.tools
           username: balkonio
-          password: ${{ secrets.SSH_PASSWORD }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
 
           script: |
             cd ~/balkony-vikna.kyiv.ua/erm
