@@ -1,6 +1,5 @@
 name: Deploy ERM
 
-
 on:
   push:
     branches:
@@ -15,9 +14,9 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
 
         with:
-  host: balkonio.ftp.tools
-  username: balkonio
-  password: ${{ secrets.SSH_PASSWORD }}
+          host: balkonio.ftp.tools
+          username: balkonio
+          password: ${{ secrets.SSH_PASSWORD }}
 
           script: |
             cd ~/balkony-vikna.kyiv.ua/erm
