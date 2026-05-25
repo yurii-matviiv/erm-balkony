@@ -15,9 +15,9 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
 
         with:
-          host: balkonio.ftp.tools
-          username: balkonio
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+  host: balkonio.ftp.tools
+  username: balkonio
+  password: ${{ secrets.SSH_PASSWORD }}
 
           script: |
             cd ~/balkony-vikna.kyiv.ua/erm
