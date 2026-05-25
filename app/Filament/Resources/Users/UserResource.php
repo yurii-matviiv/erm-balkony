@@ -26,10 +26,21 @@ class UserResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
-    public static function canAccess(): bool
-    {
-        return auth()->user()?->can('view_users');
+   public static function canAccess(): bool
+{
+    $user = auth()->user();
+
+    if (!$user) {
+        return false;
     }
+
+    // Адмін бачить все
+    if ($user->hasRole('admin')) {
+        return true;
+    }
+
+    return $user->can('view_users');
+}
 
     public static function form(Schema $schema): Schema
     {
