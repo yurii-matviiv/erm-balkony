@@ -48,6 +48,27 @@ use Filament\Widgets\Concerns\InteractsWithPageFilters;
  * 4. Фільтри застосовуються до запиту Lead::query() без JOINів,
  *    щоб уникнути дублювання даних через leftJoin з clients та orders
  * ---------------------------------------------------------
+ * 
+ * ВАЖЛИВО ПРО СТАТУСИ ЛІДІВ (оновлено 2026-05-26):
+ * ---------------------------------------------------------
+ * Цільові статуси (потенційно могли купити):
+ * - processing, zamir, vizyt_ofis, accepted, measuring, canceled, for_later
+ * 
+ * Не цільові статуси (відсіяні на старті):
+ * - not_targeted, another_city, reklamatsiya_amtech, reklamatsiya
+ * 
+ * Нові (ще не оброблені):
+ * - new
+ * 
+ * Продані (успішні угоди):
+ * - accepted
+ * 
+ * canceled та for_later додані до цільових, тому що:
+ * - canceled: лід був цільовим, але не дійшов до замовлення
+ * - for_later: лід цільовий, але відкладений на потім
+ * 
+ * Конверсія = (Продані / Всього цільових) * 100%
+ * ---------------------------------------------------------
  */
 
 class LeadStatsWidget extends StatsOverviewWidget
@@ -75,14 +96,14 @@ class LeadStatsWidget extends StatsOverviewWidget
      * ОСНОВНА ЛОГІКА ПІДРАХУНКУ СТАТИСТИКИ
      * ---------------------------------------------------------
      * 
-     * Цільові статуси:
-     * - processing, zamir, vizyt_ofis, accepted, measuring
+     * Цільові статуси (оновлено):
+     * - processing, zamir, vizyt_ofis, accepted, measuring, canceled, for_later
      * 
      * Не цільові статуси:
      * - not_targeted, another_city, reklamatsiya_amtech, reklamatsiya
      * 
-     * Невідомо:
-     * - new, canceled, propushcheno, всі інші статуси
+     * Нові:
+     * - new
      * 
      * Продані:
      * - accepted
@@ -148,21 +169,35 @@ class LeadStatsWidget extends StatsOverviewWidget
         $rows = $query->get();
 
         /**
+         * ПІДРАХУНОК КАТЕГОРІЙ (оновлено)
+         * Цільові тепер включають processing, zamir, vizyt_ofis, accepted, 
+         * measuring, canceled, for_later
+         */
+        $targetCount = $rows->whereIn('status', [
+            'processing',
+            'zamir',
+            'vizyt_ofis',
+            'accepted',
+            'measuring',
+            'canceled',
+            'for_later',
+        ])->count();
+        
+        $soldCount = $rows->where('status', 'accepted')->count();
+        
+        // Конверсія: продані / всі цільові * 100%
+        $conversionRate = $targetCount > 0 ? round(($soldCount / $targetCount) * 100) : 0;
+
+        /**
          * ФОРМУВАННЯ СТАТИСТИКИ
-         * Ключове: використовуємо whereIn для груп статусів
+         * Додано метрику Конверсія
          */
         return [
             Stat::make('Всього лідів', $rows->count()),
             
             Stat::make(
                 'Цільові',
-                $rows->whereIn('status', [
-                    'processing',
-                    'zamir',
-                    'vizyt_ofis',
-                    'accepted',
-                    'measuring',
-                ])->count()
+                $targetCount
             ),
             
             Stat::make(
@@ -176,13 +211,18 @@ class LeadStatsWidget extends StatsOverviewWidget
             ),
             
             Stat::make(
-                'Невідомо',
+                'Нові',
                 $rows->where('status', 'new')->count()
             ),
             
             Stat::make(
                 'Продані',
-                $rows->where('status', 'accepted')->count()
+                $soldCount
+            ),
+            
+            Stat::make(
+                'Продані / Всього цільових ',
+                $conversionRate . '%'
             ),
         ];
     }
