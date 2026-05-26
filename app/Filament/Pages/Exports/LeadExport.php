@@ -90,7 +90,7 @@ class LeadExport extends Page implements HasTable
              * FILTERS
              * ---------------------------------------------------------
              */
-            
+
             ->filters([
 
                 Filter::make('date_range')
@@ -494,9 +494,25 @@ class LeadExport extends Page implements HasTable
              * FILAMENT LOADING STATE
              * ---------------------------------------------------------
              */
-            ->url(
-    fn (): string => route('lead-export.page')
-)
+            ->url(function (): string {
+
+    /**
+     * ---------------------------------------------------------
+     * GET ACTIVE DATE FILTER
+     * ---------------------------------------------------------
+     */
+    $filters = $this->tableFilters['date_range'] ?? [];
+
+    return route('lead-export.page', [
+
+        'preset' => $filters['preset'] ?? null,
+
+        'date_from' => $filters['date_from'] ?? null,
+
+        'date_to' => $filters['date_to'] ?? null,
+
+    ]);
+})
 
 ->openUrlInNewTab(),
 

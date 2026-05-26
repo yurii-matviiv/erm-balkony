@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Exports;
 use App\Http\Controllers\Controller;
 use App\Services\Leads\LeadQueryService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Http\Request;
 
 class LeadExportController extends Controller
 {
@@ -15,11 +16,20 @@ class LeadExportController extends Controller
      * Shows loading screen before CSV download
      * ---------------------------------------------------------
      */
-    public function page()
+    public function page(Request $request)
     {
-        return view(
-            'exports.lead-export-loading'
-        );
+       return view(
+    'exports.lead-export-loading',
+    [
+
+        'preset' => $request->preset,
+
+        'date_from' => $request->date_from,
+
+        'date_to' => $request->date_to,
+
+    ]
+);
     }
 
     /**
@@ -27,11 +37,11 @@ class LeadExportController extends Controller
      * EXPORT CSV
      * ---------------------------------------------------------
      */
-    public function export(): StreamedResponse
+    public function export(Request $request): StreamedResponse
     {
         $fileName = 'lead-export-' . now()->format('Y-m-d-H-i-s') . '.csv';
 
-        return response()->streamDownload(function () {
+        return response()->streamDownload(function () use ($request) {
 
             $handle = fopen('php://output', 'w');
 
@@ -69,8 +79,39 @@ class LeadExportController extends Controller
              * ---------------------------------------------------------
              */
             app(LeadQueryService::class)
-                ->getQuery()
-                ->chunk(500, function ($rows) use ($handle) {
+
+    ->getQuery()
+
+    /**
+     * ---------------------------------------------------------
+     * DATE FILTERS
+     * ---------------------------------------------------------
+     */
+    ->when(
+
+        $request->date_from,
+
+        fn ($query) => $query->whereDate(
+            'leads.created_at',
+            '>=',
+            $request->date_from
+        )
+
+    )
+
+    ->when(
+
+        $request->date_to,
+
+        fn ($query) => $query->whereDate(
+            'leads.created_at',
+            '<=',
+            $request->date_to
+        )
+
+    )
+
+    ->chunk(500, function ($rows) use ($handle) {
 
                     foreach ($rows as $row) {
 

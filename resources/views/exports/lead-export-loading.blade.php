@@ -107,22 +107,16 @@
 
 <script>
 
-    /**
-     * ---------------------------------------------------------
-     * START DOWNLOAD
-     * ---------------------------------------------------------
-     */
     setTimeout(() => {
 
-        window.location.href = "{{ route('lead-export.csv') }}";
+        window.location.href =
+            "{{ route('lead-export.csv') }}"
+            + "?preset={{ $preset }}"
+            + "&date_from={{ $date_from }}"
+            + "&date_to={{ $date_to }}";
 
     }, 300);
 
-    /**
-     * ---------------------------------------------------------
-     * AUTO CLOSE WINDOW
-     * ---------------------------------------------------------
-     */
     setTimeout(() => {
 
         window.close();
