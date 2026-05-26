@@ -81,36 +81,119 @@ class LeadExportController extends Controller
             app(LeadQueryService::class)
 
     ->getQuery()
-
+ 
     /**
-     * ---------------------------------------------------------
-     * DATE FILTERS
-     * ---------------------------------------------------------
-     */
-    ->when(
+ * ---------------------------------------------------------
+ * DATE FILTERS
+ * ---------------------------------------------------------
+ */
+->when(
 
-        $request->date_from,
+    $request->preset === 'today',
 
-        fn ($query) => $query->whereDate(
+    fn ($query) => $query->whereDate(
+        'leads.created_at',
+        today()
+    )
+
+)
+
+->when(
+
+    $request->preset === 'yesterday',
+
+    fn ($query) => $query->whereDate(
+        'leads.created_at',
+        today()->subDay()
+    )
+
+)
+
+->when(
+
+    $request->preset === 'this_month',
+
+    fn ($query) => $query
+        ->whereDate(
             'leads.created_at',
             '>=',
-            $request->date_from
+            now()->startOfMonth()
         )
-
-    )
-
-    ->when(
-
-        $request->date_to,
-
-        fn ($query) => $query->whereDate(
+        ->whereDate(
             'leads.created_at',
             '<=',
-            $request->date_to
+            now()
         )
 
-    )
+)
 
+->when(
+
+    $request->preset === 'last_30_days',
+
+    fn ($query) => $query
+        ->whereDate(
+            'leads.created_at',
+            '>=',
+            now()->subDays(30)
+        )
+        ->whereDate(
+            'leads.created_at',
+            '<=',
+            now()
+        )
+
+)
+
+->when(
+
+    $request->preset === 'this_year',
+
+    fn ($query) => $query
+        ->whereDate(
+            'leads.created_at',
+            '>=',
+            now()->startOfYear()
+        )
+        ->whereDate(
+            'leads.created_at',
+            '<=',
+            now()
+        )
+
+)
+
+->when(
+
+    $request->preset === 'custom',
+
+    fn ($query) => $query
+
+        ->when(
+
+            $request->date_from,
+
+            fn ($query) => $query->whereDate(
+                'leads.created_at',
+                '>=',
+                $request->date_from
+            )
+
+        )
+
+        ->when(
+
+            $request->date_to,
+
+            fn ($query) => $query->whereDate(
+                'leads.created_at',
+                '<=',
+                $request->date_to
+            )
+
+        )
+
+)
     ->chunk(500, function ($rows) use ($handle) {
 
                     foreach ($rows as $row) {
