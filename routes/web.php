@@ -2,6 +2,12 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Exports\LeadExportController;
+
+Route::get(
+    '/lead-export/csv',
+    [LeadExportController::class, 'export']
+)->name('lead-export.csv');
 
 Route::get('/', function () {
     return view('welcome');

@@ -30,6 +30,7 @@ class PanelPanelProvider extends PanelProvider
             ->path('panel')
             ->login()
             ->favicon(asset('favicon.ico'))
+            ->sidebarCollapsibleOnDesktop()
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -59,9 +60,16 @@ class PanelPanelProvider extends PanelProvider
              * DEFAULT PAGES
              * ---------------------------------------------------------
              */
-            ->pages([
-                Dashboard::class,
-            ])
+           ->pages([
+    \App\Filament\Pages\Dashboard\AdminDashboard::class,
+    \App\Filament\Pages\Dashboard\FounderDashboard::class,
+    \App\Filament\Pages\Dashboard\AccountantDashboard::class,
+    \App\Filament\Pages\Dashboard\InstallerDashboard::class,
+    \App\Filament\Pages\Dashboard\ManagerDashboard::class,
+    \App\Filament\Pages\Dashboard\MarketingAgencyDashboard::class,
+    \App\Filament\Pages\Dashboard\MeasurerDashboard::class,
+    \App\Filament\Pages\Dashboard\SalesManagerDashboard::class,
+])
 
             /**
              * ---------------------------------------------------------
