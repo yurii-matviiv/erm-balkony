@@ -1,3 +1,223 @@
+# Контекст проекту
+**Дата збору:** 2026-05-26 13:31:06
+---
+
+## Файл: app/Filament/Widgets/Marketing/LeadLeadsChartWidget.php
+```php
+<?php
+
+namespace App\Filament\Widgets\Marketing;
+
+use App\Models\Lead;
+use Filament\Widgets\ChartWidget;
+
+class LeadLeadsChartWidget extends ChartWidget
+{
+    protected ?string $heading = 'Leads trend';
+
+    /**
+     * ---------------------------------------------------------
+     * ACCESS
+     * ---------------------------------------------------------
+     */
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * CHART DATA
+     * ---------------------------------------------------------
+     */
+    protected function getData(): array
+    {
+        $data = Lead::query()
+
+            ->selectRaw('DATE(created_at) as date')
+            ->selectRaw('COUNT(*) as total')
+
+            ->whereYear('created_at', now()->year)
+
+           ->groupByRaw('DATE(created_at)')
+
+->orderByRaw('DATE(created_at) ASC')
+
+            ->get();
+
+        return [
+
+            'datasets' => [
+                [
+                    'label' => 'Leads',
+                    'data' => $data->pluck('total')->toArray(),
+                ],
+            ],
+
+            'labels' => $data->pluck('date')->toArray(),
+        ];
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * CHART TYPE
+     * ---------------------------------------------------------
+     */
+    protected function getType(): string
+    {
+        return 'line';
+    }
+}```
+
+## Файл: app/Filament/Widgets/Marketing/LeadOrdersChartWidget.php
+```php
+<?php
+
+namespace App\Filament\Widgets\Marketing;
+
+use App\Models\Lead;
+use Filament\Widgets\ChartWidget;
+
+class LeadOrdersChartWidget extends ChartWidget
+{
+    protected ?string $heading = 'Orders trend';
+
+    /**
+     * ---------------------------------------------------------
+     * ACCESS
+     * ---------------------------------------------------------
+     */
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * CHART DATA
+     * ---------------------------------------------------------
+     */
+    protected function getData(): array
+    {
+        $data = Lead::query()
+
+            ->selectRaw('DATE(created_at) as date')
+            ->selectRaw('COUNT(*) as total')
+
+            ->whereYear('created_at', now()->year)
+
+            ->where('status', 'accepted')
+
+          ->groupByRaw('DATE(created_at)')
+
+->orderByRaw('DATE(created_at) ASC')
+
+            ->get();
+
+        return [
+
+            'datasets' => [
+                [
+                    'label' => 'Orders',
+                    'data' => $data->pluck('total')->toArray(),
+                ],
+            ],
+
+            'labels' => $data->pluck('date')->toArray(),
+        ];
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * CHART TYPE
+     * ---------------------------------------------------------
+     */
+    protected function getType(): string
+    {
+        return 'line';
+    }
+}```
+
+## Файл: app/Filament/Widgets/Marketing/LeadStatsWidget.php
+```php
+<?php
+
+namespace App\Filament\Widgets\Marketing;
+
+use App\Models\Lead;
+use Filament\Widgets\StatsOverviewWidget;
+use Filament\Widgets\StatsOverviewWidget\Stat;
+
+class LeadStatsWidget extends StatsOverviewWidget
+{
+    /**
+     * ---------------------------------------------------------
+     * ACCESS
+     * ---------------------------------------------------------
+     */
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * STATS
+     * ---------------------------------------------------------
+     */
+    protected function getStats(): array
+    {
+        $query = Lead::query()
+            ->whereYear('created_at', now()->year);
+
+        return [
+
+            Stat::make(
+                'Всього лідів',
+                $query->count()
+            ),
+
+            Stat::make(
+                'Цільові',
+                Lead::query()
+                    ->whereYear('created_at', now()->year)
+                    ->whereIn('status', [
+                        'processing',
+                        'zamir',
+                        'vizyt_ofis',
+                        'accepted',
+                        'measuring',
+                    ])
+                    ->count()
+            ),
+
+            Stat::make(
+                'Не цільові',
+                Lead::query()
+                    ->whereYear('created_at', now()->year)
+                    ->whereIn('status', [
+                        'not_targeted',
+                        'another_city',
+                        'reklamatsiya_amtech',
+                        'reklamatsiya',
+                    ])
+                    ->count()
+            ),
+
+            Stat::make(
+                'Продані',
+                Lead::query()
+                    ->whereYear('created_at', now()->year)
+                    ->where('status', 'accepted')
+                    ->count()
+            ),
+
+        ];
+    }
+}```
+
+## Файл: app/Filament/Pages/Exports/LeadExport.php
+```php
 <?php
 
 namespace App\Filament\Pages\Exports;
@@ -485,4 +705,81 @@ class LeadExport extends Page implements HasTable
 
         ];
     }
-}
+}```
+
+## Файл: app/Services/Leads/LeadQueryService.php
+```php
+<?php
+
+namespace App\Services\Leads;
+
+use App\Models\Lead;
+use Illuminate\Database\Eloquent\Builder;
+
+class LeadQueryService
+{
+    /**
+     * ---------------------------------------------------------
+     * GET QUERY
+     * ---------------------------------------------------------
+     * ONLY READ DATA
+     * NO INSERT / UPDATE / DELETE
+     * ---------------------------------------------------------
+     */
+    public function getQuery(): Builder
+    {
+        return Lead::query()
+
+            ->from('leads')
+
+            ->leftJoin(
+                'clients',
+                'clients.id',
+                '=',
+                'leads.client_id'
+            )
+
+            ->leftJoin(
+                'orders',
+                'orders.lead_id',
+                '=',
+                'leads.id'
+            )
+
+            ->select([
+
+                'leads.id',
+
+                'leads.source',
+
+                'leads.created_at',
+
+                'leads.status as lead_status',
+
+                'leads.comment',
+
+                'leads.comment_callback',
+
+                'leads.utm_source',
+
+                'leads.utm_campaign',
+
+                'leads.utm_medium',
+
+                'leads.gclid',
+
+                'clients.name',
+
+                'clients.phone',
+
+                'clients.email',
+
+                'orders.total_price',
+
+                'orders.success_date',
+
+                'orders.status as order_status',
+            ]);
+    }
+}```
+

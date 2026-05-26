@@ -14,13 +14,24 @@ class MeasurerDashboard extends Page
 
     protected string $view = 'filament.pages.dashboard.measurer-dashboard';
 
+    /**
+     * ---------------------------------------------------------
+     * FILAMENT SHIELD + SPATIE PERMISSION
+     * ---------------------------------------------------------
+     * ACCESS ONLY THROUGH PERMISSIONS
+     * DO NOT USE hasRole()
+     * ---------------------------------------------------------
+     */
+
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('measurer') ?? false;
+        // Замініть 'view_measurer_dashboard' на назву дозволу, 
+        // який ви створили для цієї сторінки в Filament Shield
+        return auth()->user()?->can('view_measurer_dashboard') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->hasRole('measurer') ?? false;
+        return auth()->user()?->can('view_measurer_dashboard') ?? false;
     }
 }

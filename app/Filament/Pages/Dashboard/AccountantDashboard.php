@@ -14,13 +14,24 @@ class AccountantDashboard extends Page
 
     protected string $view = 'filament.pages.dashboard.accountant-dashboard';
 
+    /**
+     * ---------------------------------------------------------
+     * FILAMENT SHIELD + SPATIE PERMISSION
+     * ---------------------------------------------------------
+     * ACCESS ONLY THROUGH PERMISSIONS
+     * DO NOT USE hasRole()
+     * ---------------------------------------------------------
+     */
+
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('accountant') ?? false;
+        // Перевіряємо наявність дозволу 'view_accountant_dashboard'
+        return auth()->user()?->can('view_accountant_dashboard') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->hasRole('accountant') ?? false;
+        // Перевіряємо наявність дозволу 'view_accountant_dashboard'
+        return auth()->user()?->can('view_accountant_dashboard') ?? false;
     }
 }

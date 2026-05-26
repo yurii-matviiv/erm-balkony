@@ -14,13 +14,24 @@ class InstallerDashboard extends Page
 
     protected string $view = 'filament.pages.dashboard.installer-dashboard';
 
+    /**
+     * ---------------------------------------------------------
+     * FILAMENT SHIELD + SPATIE PERMISSION
+     * ---------------------------------------------------------
+     * ACCESS ONLY THROUGH PERMISSIONS
+     * DO NOT USE hasRole()
+     * ---------------------------------------------------------
+     */
+
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('installer') ?? false;
+        // Перевіряємо наявність дозволу 'view_installer_dashboard'
+        return auth()->user()?->can('view_installer_dashboard') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->hasRole('installer') ?? false;
+        // Перевіряємо наявність дозволу 'view_installer_dashboard'
+        return auth()->user()?->can('view_installer_dashboard') ?? false;
     }
 }

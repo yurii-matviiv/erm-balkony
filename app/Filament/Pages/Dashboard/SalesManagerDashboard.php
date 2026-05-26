@@ -14,13 +14,24 @@ class SalesManagerDashboard extends Page
 
     protected string $view = 'filament.pages.dashboard.sales-manager-dashboard';
 
+    /**
+     * ---------------------------------------------------------
+     * FILAMENT SHIELD + SPATIE PERMISSION
+     * ---------------------------------------------------------
+     * ACCESS ONLY THROUGH PERMISSIONS
+     * DO NOT USE hasRole()
+     * ---------------------------------------------------------
+     */
+
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('sales_manager') ?? false;
+        // Замініть 'view_sales_manager_dashboard' на відповідний дозвіл, 
+        // налаштований у вашому Filament Shield
+        return auth()->user()?->can('view_sales_manager_dashboard') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->hasRole('sales_manager') ?? false;
+        return auth()->user()?->can('view_sales_manager_dashboard') ?? false;
     }
 }

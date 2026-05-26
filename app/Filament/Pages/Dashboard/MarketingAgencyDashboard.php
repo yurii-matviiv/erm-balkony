@@ -2,20 +2,34 @@
 
 namespace App\Filament\Pages\Dashboard;
 
+use App\Filament\Widgets\Marketing\LeadLeadsChartWidget;
+use App\Filament\Widgets\Marketing\LeadOrdersChartWidget;
+use App\Filament\Widgets\Marketing\LeadStatsWidget;
 use Filament\Pages\Page;
-use App\Services\Leads\LeadQueryService;
+use Filament\Support\Enums\Width;
 
 class MarketingAgencyDashboard extends Page
 {
+    /**
+     * ---------------------------------------------------------
+     * FILAMENT SHIELD + SPATIE PERMISSION
+     * ---------------------------------------------------------
+     * ACCESS ONLY THROUGH PERMISSIONS
+     * DO NOT USE hasRole()
+     * ---------------------------------------------------------
+     */
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
 
     protected static ?string $navigationLabel = 'Marketing Agency Dashboard';
 
     protected static ?string $title = 'Marketing Agency Dashboard';
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Dashboard';
+
     protected string $view = 'filament.pages.dashboard.marketing-agency-dashboard';
 
-    public array $leads = [];
+    protected Width|string|null $maxContentWidth = Width::Full;
 
     /**
      * ---------------------------------------------------------
@@ -24,7 +38,7 @@ class MarketingAgencyDashboard extends Page
      */
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('marketing_agency') ?? false;
+        return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
     }
 
     /**
@@ -34,20 +48,24 @@ class MarketingAgencyDashboard extends Page
      */
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->hasRole('marketing_agency') ?? false;
+        return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
     }
 
     /**
      * ---------------------------------------------------------
-     * LOAD DATA
+     * HEADER WIDGETS
      * ---------------------------------------------------------
      */
-    public function mount(
-        LeadQueryService $leadQueryService
-    ): void {
+    protected function getHeaderWidgets(): array
+    {
+        return [
 
-        $this->leads = $leadQueryService
-            ->getLeads()
-            ->toArray();
+            LeadStatsWidget::class,
+
+            LeadLeadsChartWidget::class,
+
+            LeadOrdersChartWidget::class,
+
+        ];
     }
 }

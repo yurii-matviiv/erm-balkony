@@ -3,12 +3,11 @@
 namespace App\Filament\Resources\Users;
 
 use App\Filament\Resources\Users\Pages;
+use App\Filament\Resources\Users\Schemas\UserForm;
+use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
-use Filament\Actions\EditAction;
-use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
 class UserResource extends Resource
@@ -25,53 +24,41 @@ class UserResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
+    /**
+     * ---------------------------------------------------------
+     * FORM
+     * ---------------------------------------------------------
+     */
     public static function form(Schema $schema): Schema
     {
-        return $schema
-            ->components([
-                TextInput::make('name')
-                    ->required(),
-
-                TextInput::make('email')
-                    ->email()
-                    ->required(),
-            ]);
+        return UserForm::configure($schema);
     }
 
+    /**
+     * ---------------------------------------------------------
+     * TABLE
+     * ---------------------------------------------------------
+     */
     public static function table(Table $table): Table
     {
-        return $table
-            ->columns([
-                TextColumn::make('id')
-                    ->sortable(),
-
-                TextColumn::make('name')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('email')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('roles.name')
-                    ->badge(),
-
-                TextColumn::make('created_at')
-                    ->dateTime('d.m.Y H:i'),
-            ])
-            ->defaultSort('id', 'desc')
-            ->filters([])
-            ->recordActions([
-                EditAction::make(),
-            ])
-            ->bulkActions([]);
+        return UsersTable::configure($table);
     }
 
+    /**
+     * ---------------------------------------------------------
+     * RELATIONS
+     * ---------------------------------------------------------
+     */
     public static function getRelations(): array
     {
         return [];
     }
 
+    /**
+     * ---------------------------------------------------------
+     * PAGES
+     * ---------------------------------------------------------
+     */
     public static function getPages(): array
     {
         return [

@@ -14,13 +14,24 @@ class ManagerDashboard extends Page
 
     protected string $view = 'filament.pages.dashboard.manager-dashboard';
 
+    /**
+     * ---------------------------------------------------------
+     * FILAMENT SHIELD + SPATIE PERMISSION
+     * ---------------------------------------------------------
+     * ACCESS ONLY THROUGH PERMISSIONS
+     * DO NOT USE hasRole()
+     * ---------------------------------------------------------
+     */
+
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('manager') ?? false;
+        // Перевіряємо наявність дозволу 'view_manager_dashboard'
+        return auth()->user()?->can('view_manager_dashboard') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->hasRole('manager') ?? false;
+        // Перевіряємо наявність дозволу 'view_manager_dashboard'
+        return auth()->user()?->can('view_manager_dashboard') ?? false;
     }
 }
