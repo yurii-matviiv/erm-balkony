@@ -17,6 +17,8 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Notifications\Notification;
+
 
 class LeadExport extends Page implements HasTable
 {
@@ -96,7 +98,7 @@ class LeadExport extends Page implements HasTable
 
                         Select::make('preset')
                             ->label('Період')
-                            ->default('this_year')
+                            ->default('today')
                             ->live()
 
                             ->options([
@@ -474,15 +476,29 @@ class LeadExport extends Page implements HasTable
      * HEADER ACTIONS
      * ---------------------------------------------------------
      */
-    protected function getHeaderActions(): array
-    {
-        return [
+   protected function getHeaderActions(): array
+{
+    return [
 
-            Action::make('exportCsv')
-                ->label('Export CSV')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->url(fn (): string => route('lead-export.csv')),
+        Action::make('exportCsv')
 
-        ];
-    }
+            ->label('Export CSV')
+
+            ->icon('heroicon-o-arrow-down-tray')
+
+            ->color('warning')
+
+            /**
+             * ---------------------------------------------------------
+             * FILAMENT LOADING STATE
+             * ---------------------------------------------------------
+             */
+            ->url(
+    fn (): string => route('lead-export.page')
+)
+
+->openUrlInNewTab(),
+
+    ];
+}
 }
