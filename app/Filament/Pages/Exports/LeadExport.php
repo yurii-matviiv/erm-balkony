@@ -47,11 +47,31 @@ class LeadExport extends Page implements HasTable
 
     protected string $view = 'filament.pages.exports.lead-export';
 
-    /**
-     * ---------------------------------------------------------
-     * ACCESS
-     * ---------------------------------------------------------
-     */
+ /**
+ * ---------------------------------------------------------
+ * STACK / PROJECT STANDARD
+ * ---------------------------------------------------------
+ * Laravel 13.11.2
+ * Livewire 3.8.0
+ * Filament 4.11.5
+ * Filament Shield 4.2.0
+ * Spatie Permission 7.4.1
+ * ---------------------------------------------------------
+ * ACCESS:
+ * Використовувати тільки Shield permissions.
+ * НЕ використовувати hasRole().
+ * ---------------------------------------------------------
+ * FILAMENT 4 FILTERS API:
+ * - HasFiltersForm
+ * - Filament\Schemas\Schema
+ * - filtersForm(Schema $schema): Schema
+ *
+ * НЕ використовувати:
+ * - Filament\Forms\Form
+ * - getFiltersFormSchema()
+ * ---------------------------------------------------------
+ */
+
     public static function canAccess(): bool
     {
         return auth()->user()?->can('View:LeadExport') ?? false;
