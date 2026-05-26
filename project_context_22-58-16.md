@@ -1,5 +1,5 @@
 # Контекст проекту
-**Дата збору:** 2026-05-26 21:36:59
+**Дата збору:** 2026-05-26 22:58:16
 ---
 
 ## Файл: app/Filament/Pages/Dashboard/MarketingAgencyDashboard.php
@@ -8,15 +8,9 @@
 
 namespace App\Filament\Pages\Dashboard;
 
-use App\Filament\Widgets\Marketing\LeadLeadsChartWidget;
-use App\Filament\Widgets\Marketing\LeadOrdersChartWidget;
-use App\Filament\Widgets\Marketing\LeadStatsWidget;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
-use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Pages\Page;
-use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
+use App\Filament\Pages\Dashboard\Concerns\HasMarketingFilters;
 
 /**
  * ---------------------------------------------------------
@@ -45,7 +39,7 @@ use Filament\Support\Enums\Width;
 
 class MarketingAgencyDashboard extends Page
 {
-    use HasFiltersForm;
+    use HasMarketingFilters;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
 
@@ -59,8 +53,6 @@ class MarketingAgencyDashboard extends Page
 
     protected Width|string|null $maxContentWidth = Width::Full;
 
-    public array $currentFilters = [];
-
     public static function canAccess(): bool
     {
         return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
@@ -70,80 +62,6 @@ class MarketingAgencyDashboard extends Page
     {
         return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
     }
-
-    public function filtersForm(Schema $schema): Schema
-    {
-        return $schema
-            ->components([
-
-                Select::make('preset')
-                    ->label('Період')
-                    ->default('this_year')
-                    ->reactive()
-                    ->live()
-                    ->options([
-                        'today' => 'Сьогодні',
-                        'yesterday' => 'Вчора',
-                        'this_month' => 'Поточний місяць',
-                        'last_30_days' => 'Останні 30 днів',
-                        'this_year' => 'Поточний рік',
-                        'custom' => 'Свій варіант',
-                    ])
-                    ->afterStateUpdated(function ($state, callable $set) {
-                        match ($state) {
-                            'today' => $set('date_from', now()->startOfDay()) && $set('date_to', now()->endOfDay()),
-                            'yesterday' => $set('date_from', now()->subDay()->startOfDay()) && $set('date_to', now()->subDay()->endOfDay()),
-                            'this_month' => $set('date_from', now()->startOfMonth()) && $set('date_to', now()->endOfMonth()),
-                            'last_30_days' => $set('date_from', now()->subDays(30)) && $set('date_to', now()),
-                            'this_year' => $set('date_from', now()->startOfYear()) && $set('date_to', now()->endOfYear()),
-                            default => null,
-                        };
-                        $this->updateWidgets();
-                    }),
-
-                DatePicker::make('date_from')
-                    ->label('Дата від')
-                    ->default(now()->startOfYear())
-                    ->required(false)
-                    ->afterStateUpdated(fn () => $this->updateWidgets()),
-
-                DatePicker::make('date_to')
-                    ->label('Дата до')
-                    ->default(now())
-                    ->required(false)
-                    ->afterStateUpdated(fn () => $this->updateWidgets()),
-
-            ]);
-    }
-
-    protected function updateWidgets(): void
-    {
-        $this->currentFilters = $this->filtersForm->getState();
-        $this->dispatch('refresh-widgets', filters: $this->currentFilters);
-    }
-
-    /**
-     * ---------------------------------------------------------
-     * HEADER WIDGETS
-     * ---------------------------------------------------------
-     */
-  public function getWidgets(): array
-{
-    $filters = $this->filtersForm->getState() ?: [];
-    
-    return [
-        LeadStatsWidget::make(['pageFilters' => $filters]),
-        LeadLeadsChartWidget::make(['pageFilters' => $filters]),
-        LeadOrdersChartWidget::make(['pageFilters' => $filters]),
-    ];
-}
-
-public function getWidgetData(): array
-{
-    return [
-        'filters' => $this->filtersForm->getState() ?: request()->query('filters', [])
-    ];
-}
 }```
 
 ## Файл: app/Filament/Widgets/Marketing/LeadLeadsChartWidget.php
@@ -164,6 +82,8 @@ class LeadLeadsChartWidget extends ChartWidget
    use InteractsWithPageFilters;
     protected ?string $heading = 'Leads trend';
     protected ?string $pollingInterval = null;
+
+   
 
   /**
  * ---------------------------------------------------------
@@ -203,12 +123,19 @@ class LeadLeadsChartWidget extends ChartWidget
      */
        protected function getData(): array
     {
+        /**
+         * ---------------------------------------------------------
+         * ВАЖЛИВО: Цей графік показує ВСІ ЛІДИ (Lead)
+         * ---------------------------------------------------------
+         * Без фільтрації за статусом, тому що нам потрібна динаміка
+         * всіх лідів, а не тільки проданих.
+         * ---------------------------------------------------------
+         */
         $query = Lead::query()
 
             ->selectRaw('DATE(created_at) as date')
-            ->selectRaw('COUNT(*) as total')
-
-            ->where('status', 'accepted');
+            ->selectRaw('COUNT(*) as total');
+            // НЕМАЄ ->where('status', 'accepted')
 
         /**
          * ---------------------------------------------------------
@@ -266,7 +193,7 @@ class LeadLeadsChartWidget extends ChartWidget
 
         elseif ($preset === 'custom') {
 
-            if (!empty($filters['date_from'])) {           // ← виправлено
+            if (!empty($filters['date_from'])) {
 
                 $query->whereDate(
                     'created_at',
@@ -275,7 +202,7 @@ class LeadLeadsChartWidget extends ChartWidget
                 );
             }
 
-            if (!empty($filters['date_to'])) {             // ← виправлено
+            if (!empty($filters['date_to'])) {
 
                 $query->whereDate(
                     'created_at',
@@ -317,11 +244,12 @@ class LeadLeadsChartWidget extends ChartWidget
 
             'datasets' => [
                 [
-                    'label' => 'Orders',
-
+                    'label' => 'Leads',  // Змінено з 'Orders' на 'Leads'
                     'data' => $data
                         ->pluck('total')
                         ->toArray(),
+                    'borderColor' => '#3b82f6',  // Синій колір для лідів
+                    'backgroundColor' => 'rgba(59, 130, 246, 0.1)',
                 ],
             ],
 
@@ -359,6 +287,148 @@ class LeadLeadsChartWidget extends ChartWidget
 
 }```
 
+## Файл: app/Filament/Widgets/Marketing/LeadOrderTypeChartWidget.php
+```php
+<?php
+
+namespace App\Filament\Widgets\Marketing;
+
+use App\Models\Lead;
+use Carbon\Carbon;
+use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use Livewire\Attributes\On;
+
+class LeadOrderTypeChartWidget extends ChartWidget
+{
+    use InteractsWithPageFilters;
+    
+    protected ?string $heading = 'Trend за типами замовлень';
+    protected ?string $pollingInterval = null;
+
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
+    }
+
+    protected function getData(): array
+    {
+        $filters = $this->pageFilters ?? $this->filters ?? [];
+        $preset = $filters['preset'] ?? 'this_year';
+        $dateFrom = $filters['date_from'] ?? null;
+        $dateTo = $filters['date_to'] ?? null;
+        
+        // Отримуємо всі унікальні типи замовлень
+        $orderTypes = [
+            'window_in_cottage' => 'Приватний будинок',
+            'balcony' => 'Балкон',
+            'balcony_with_takeout' => 'Балкон з виносом',
+            'turnkey_balcony' => 'Балкон під ключ',
+            'balcony_cladding' => 'Обшивка балкона',
+            'window' => 'Вікна',
+        ];
+        
+        $datasets = [];
+        
+        foreach ($orderTypes as $typeKey => $typeLabel) {
+            $query = Lead::query()
+                ->selectRaw('DATE(created_at) as date')
+                ->selectRaw('COUNT(*) as total')
+                ->where('order_type', $typeKey);
+            
+            // Застосовуємо фільтри дат
+            if ($preset === 'today') {
+                $query->whereDate('created_at', today());
+            } elseif ($preset === 'yesterday') {
+                $query->whereDate('created_at', today()->subDay());
+            } elseif ($preset === 'this_month') {
+                $query->whereDate('created_at', '>=', now()->startOfMonth())
+                      ->whereDate('created_at', '<=', now());
+            } elseif ($preset === 'last_30_days') {
+                $query->whereDate('created_at', '>=', now()->subDays(30))
+                      ->whereDate('created_at', '<=', now());
+            } elseif ($preset === 'custom' && $dateFrom && $dateTo) {
+                $query->whereDate('created_at', '>=', Carbon::parse($dateFrom))
+                      ->whereDate('created_at', '<=', Carbon::parse($dateTo));
+            } else {
+                $query->whereDate('created_at', '>=', now()->startOfYear())
+                      ->whereDate('created_at', '<=', now());
+            }
+            
+            $data = $query->groupByRaw('DATE(created_at)')
+                          ->orderByRaw('DATE(created_at) ASC')
+                          ->get();
+            
+            $datasets[] = [
+                'label' => $typeLabel,
+                'data' => $data->pluck('total')->toArray(),
+                'borderColor' => $this->getColorForType($typeKey),
+                'backgroundColor' => 'transparent',
+                'tension' => 0.3,
+            ];
+        }
+        
+        // Отримуємо всі дати для labels (беремо з першого датасету, який не пустий)
+        $labels = [];
+        foreach ($datasets as $dataset) {
+            if (!empty($dataset['data'])) {
+                // Потрібно отримати labels з оригінального запиту
+                $query = Lead::query()
+                    ->selectRaw('DATE(created_at) as date')
+                    ->whereNotNull('order_type');
+                
+                // Застосовуємо ті самі фільтри дат
+                if ($preset === 'today') {
+                    $query->whereDate('created_at', today());
+                } elseif ($preset === 'yesterday') {
+                    $query->whereDate('created_at', today()->subDay());
+                } elseif ($preset === 'this_month') {
+                    $query->whereDate('created_at', '>=', now()->startOfMonth())
+                          ->whereDate('created_at', '<=', now());
+                } elseif ($preset === 'last_30_days') {
+                    $query->whereDate('created_at', '>=', now()->subDays(30))
+                          ->whereDate('created_at', '<=', now());
+                } elseif ($preset === 'custom' && $dateFrom && $dateTo) {
+                    $query->whereDate('created_at', '>=', Carbon::parse($dateFrom))
+                          ->whereDate('created_at', '<=', Carbon::parse($dateTo));
+                } else {
+                    $query->whereDate('created_at', '>=', now()->startOfYear())
+                          ->whereDate('created_at', '<=', now());
+                }
+                
+                $labels = $query->groupByRaw('DATE(created_at)')
+                                ->orderByRaw('DATE(created_at) ASC')
+                                ->pluck('date')
+                                ->toArray();
+                break;
+            }
+        }
+        
+        return [
+            'datasets' => $datasets,
+            'labels' => $labels,
+        ];
+    }
+    
+    private function getColorForType(string $type): string
+    {
+        return match ($type) {
+            'window_in_cottage' => '#10b981', // зелений
+            'balcony' => '#f59e0b', // помаранчевий
+            'balcony_with_takeout' => '#ef4444', // червоний
+            'turnkey_balcony' => '#8b5cf6', // фіолетовий
+            'balcony_cladding' => '#ec4898', // рожевий
+            'window' => '#3b82f6', // синій
+            default => '#6b7280', // сірий
+        };
+    }
+    
+    protected function getType(): string
+    {
+        return 'line';
+    }
+}```
+
 ## Файл: app/Filament/Widgets/Marketing/LeadOrdersChartWidget.php
 ```php
 <?php
@@ -374,7 +444,9 @@ use Livewire\Attributes\On;
 class LeadOrdersChartWidget extends ChartWidget
 {
     use InteractsWithPageFilters;
+    
 
+    
 /**
  * ---------------------------------------------------------
  * STACK / PROJECT STANDARD
@@ -420,23 +492,29 @@ class LeadOrdersChartWidget extends ChartWidget
      * Dashboard filters API:
      * $this->filters
      * ---------------------------------------------------------
+     * ВАЖЛИВО: Цей графік показує ТІЛЬКИ ПРОДАНІ ЛІДИ (Orders)
+     * Тобто зі статусом 'accepted'
+     * ---------------------------------------------------------
      */
     protected function getData(): array
     {
+        /**
+         * ВАЖЛИВО: Додаємо фільтрацію за статусом 'accepted'
+         * Це показує тільки продані ліди (замовлення)
+         */
         $query = Lead::query()
 
             ->selectRaw('DATE(created_at) as date')
             ->selectRaw('COUNT(*) as total')
-
-            ->where('status', 'accepted');
+            ->where('status', 'accepted');  // ТІЛЬКИ ПРОДАНІ
 
         /**
          * ---------------------------------------------------------
          * FILTERS
          * ---------------------------------------------------------
          */
-$filters = $this->pageFilters ?? $this->filters ?? [];
-$preset = $filters['preset'] ?? 'this_year';
+        $filters = $this->pageFilters ?? $this->filters ?? [];
+        $preset = $filters['preset'] ?? 'this_year';
 
         if ($preset === 'today') {
 
@@ -537,11 +615,12 @@ $preset = $filters['preset'] ?? 'this_year';
 
             'datasets' => [
                 [
-                    'label' => 'Orders',
-
+                    'label' => 'Orders',  // Залишаємо 'Orders'
                     'data' => $data
                         ->pluck('total')
                         ->toArray(),
+                    'borderColor' => '#f59e0b',  // Помаранчевий колір для замовлень
+                    'backgroundColor' => 'rgba(245, 158, 11, 0.1)',
                 ],
             ],
 
@@ -578,6 +657,161 @@ $preset = $filters['preset'] ?? 'this_year';
 }
 }```
 
+## Файл: app/Filament/Widgets/Marketing/OrderOrderTypeChartWidget.php
+```php
+<?php
+
+namespace App\Filament\Widgets\Marketing;
+
+use App\Models\Order;
+use Carbon\Carbon;
+use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use Livewire\Attributes\On;
+
+class OrderOrderTypeChartWidget extends ChartWidget
+{
+    use InteractsWithPageFilters;
+    
+    protected ?string $heading = 'Тренд за типами замовлень (на основі замовлень)';
+    protected ?string $pollingInterval = null;
+
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
+    }
+
+    protected function getData(): array
+    {
+        $filters = $this->pageFilters ?? $this->filters ?? [];
+        $preset = $filters['preset'] ?? 'this_year';
+        $dateFrom = $filters['date_from'] ?? null;
+        $dateTo = $filters['date_to'] ?? null;
+        
+        // Типи замовлень для відображення
+        $orderTypes = [
+            'window_in_cottage' => 'Приватний будинок',
+            'balcony' => 'Балкон',
+            'balcony_with_takeout' => 'Балкон з виносом',
+            'turnkey_balcony' => 'Балкон під ключ',
+            'balcony_cladding' => 'Обшивка балкона',
+            'window' => 'Вікна',
+            'windows_plus_works' => 'Вікна + роботи',
+            'aluminium_window' => 'Алюмінієві вікна',
+            'entrance_group_pvc' => 'Вхідна група ПВХ',
+            'entrance_group_aluminium' => 'Вхідна група алюміній',
+            'glazing_terrace_pvc' => 'Скління тераси ПВХ',
+            'glazing_terrace_aluminium' => 'Скління тераси алюміній',
+            'frameless_glazing' => 'Безрамне скління',
+            'sliding_system_cold' => 'Розсувна система холодна',
+            'sliding_system_warm' => 'Розсувна система тепла',
+        ];
+        
+        $datasets = [];
+        
+        foreach ($orderTypes as $typeKey => $typeLabel) {
+            $query = Order::query()
+                ->selectRaw('DATE(create_date) as date')
+                ->selectRaw('COUNT(*) as total')
+                ->where('order_type', $typeKey);
+            
+            // Застосовуємо фільтри дат (використовуємо create_date)
+            if ($preset === 'today') {
+                $query->whereDate('create_date', today());
+            } elseif ($preset === 'yesterday') {
+                $query->whereDate('create_date', today()->subDay());
+            } elseif ($preset === 'this_month') {
+                $query->whereDate('create_date', '>=', now()->startOfMonth())
+                      ->whereDate('create_date', '<=', now());
+            } elseif ($preset === 'last_30_days') {
+                $query->whereDate('create_date', '>=', now()->subDays(30))
+                      ->whereDate('create_date', '<=', now());
+            } elseif ($preset === 'custom' && $dateFrom && $dateTo) {
+                $query->whereDate('create_date', '>=', Carbon::parse($dateFrom))
+                      ->whereDate('create_date', '<=', Carbon::parse($dateTo));
+            } else {
+                $query->whereDate('create_date', '>=', now()->startOfYear())
+                      ->whereDate('create_date', '<=', now());
+            }
+            
+            $data = $query->groupByRaw('DATE(create_date)')
+                          ->orderByRaw('DATE(create_date) ASC')
+                          ->get();
+            
+            if ($data->isNotEmpty()) {
+                $datasets[] = [
+                    'label' => $typeLabel,
+                    'data' => $data->pluck('total')->toArray(),
+                    'borderColor' => $this->getColorForType($typeKey),
+                    'backgroundColor' => 'transparent',
+                    'tension' => 0.3,
+                ];
+            }
+        }
+        
+        // Отримуємо всі дати для labels
+        $labels = [];
+        $query = Order::query()
+            ->selectRaw('DATE(create_date) as date')
+            ->whereNotNull('order_type');
+        
+        if ($preset === 'today') {
+            $query->whereDate('create_date', today());
+        } elseif ($preset === 'yesterday') {
+            $query->whereDate('create_date', today()->subDay());
+        } elseif ($preset === 'this_month') {
+            $query->whereDate('create_date', '>=', now()->startOfMonth())
+                  ->whereDate('create_date', '<=', now());
+        } elseif ($preset === 'last_30_days') {
+            $query->whereDate('create_date', '>=', now()->subDays(30))
+                  ->whereDate('create_date', '<=', now());
+        } elseif ($preset === 'custom' && $dateFrom && $dateTo) {
+            $query->whereDate('create_date', '>=', Carbon::parse($dateFrom))
+                  ->whereDate('create_date', '<=', Carbon::parse($dateTo));
+        } else {
+            $query->whereDate('create_date', '>=', now()->startOfYear())
+                  ->whereDate('create_date', '<=', now());
+        }
+        
+        $labels = $query->groupByRaw('DATE(create_date)')
+                        ->orderByRaw('DATE(create_date) ASC')
+                        ->pluck('date')
+                        ->toArray();
+        
+        return [
+            'datasets' => $datasets,
+            'labels' => $labels,
+        ];
+    }
+    
+    private function getColorForType(string $type): string
+    {
+        return match ($type) {
+            'window_in_cottage' => '#10b981',
+            'balcony' => '#f59e0b',
+            'balcony_with_takeout' => '#ef4444',
+            'turnkey_balcony' => '#8b5cf6',
+            'balcony_cladding' => '#ec4898',
+            'window' => '#3b82f6',
+            'windows_plus_works' => '#06b6d4',
+            'aluminium_window' => '#84cc16',
+            'entrance_group_pvc' => '#d946ef',
+            'entrance_group_aluminium' => '#f97316',
+            'glazing_terrace_pvc' => '#14b8a6',
+            'glazing_terrace_aluminium' => '#6366f1',
+            'frameless_glazing' => '#a855f7',
+            'sliding_system_cold' => '#71717a',
+            'sliding_system_warm' => '#f43f5e',
+            default => '#6b7280',
+        };
+    }
+    
+    protected function getType(): string
+    {
+        return 'line';
+    }
+}```
+
 ## Файл: app/Filament/Widgets/Marketing/LeadStatsWidget.php
 ```php
 <?php
@@ -588,21 +822,9 @@ use App\Models\Lead;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Carbon\Carbon;
-use App\Services\Leads\LeadQueryService;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
-class LeadStatsWidget extends StatsOverviewWidget
-{
-
- use InteractsWithPageFilters;
-protected ?string $pollingInterval = null;
-
-
-// ДОДАТИ ЦЕЙ РЯДОК
-public array $filters = [];
-
-
- /**
+/**
  * ---------------------------------------------------------
  * STACK / PROJECT STANDARD
  * ---------------------------------------------------------
@@ -625,8 +847,40 @@ public array $filters = [];
  * - Filament\Forms\Form
  * - getFiltersFormSchema()
  * ---------------------------------------------------------
+ * 
+ * ВАЖЛИВО ПРО ФІЛЬТРИ В FILAMENT 4.11.5:
+ * ---------------------------------------------------------
+ * 1. Treit InteractsWithPageFilters надає властивість $pageFilters,
+ *    яка автоматично отримує фільтри з дашборду через метод getWidgets(),
+ *    де відбувається передача: LeadStatsWidget::make(['pageFilters' => $filters])
+ * 
+ * 2. Властивість $filters додана вручну як fallback для зворотньої сумісності
+ * 
+ * 3. Пріоритет отримання фільтрів:
+ *    - спочатку $this->pageFilters (від дашборду)
+ *    - потім $this->filters (вручну через mount)
+ *    - потім порожній масив
+ * 
+ * 4. Фільтри застосовуються до запиту Lead::query() без JOINів,
+ *    щоб уникнути дублювання даних через leftJoin з clients та orders
+ * ---------------------------------------------------------
  */
-   
+
+class LeadStatsWidget extends StatsOverviewWidget
+{
+    use InteractsWithPageFilters;
+    
+    protected ?string $pollingInterval = null;
+    
+    /**
+     * Вручну додана властивість для отримання фільтрів через mount()
+     * Використовується як fallback якщо pageFilters не передано
+     */
+    public array $filters = [];
+
+    /**
+     * Перевірка прав доступу через Shield permissions
+     */
     public static function canView(): bool
     {
         return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
@@ -634,175 +888,135 @@ public array $filters = [];
 
     /**
      * ---------------------------------------------------------
-     * STATS
+     * ОСНОВНА ЛОГІКА ПІДРАХУНКУ СТАТИСТИКИ
      * ---------------------------------------------------------
-     * ЛОГІКА:
-     *
-     * Цільові:
-     * processing
-     * zamir
-     * vizyt_ofis
-     * accepted
-     * measuring
-     *
-     * Не цільові:
-     * not_targeted
-     * another_city
-     * reklamatsiya_amtech
-     * reklamatsiya
-     *
+     * 
+     * Цільові статуси:
+     * - processing, zamir, vizyt_ofis, accepted, measuring
+     * 
+     * Не цільові статуси:
+     * - not_targeted, another_city, reklamatsiya_amtech, reklamatsiya
+     * 
      * Невідомо:
-     * new
-     * canceled
-     * propushcheno
-     * всі інші статуси
+     * - new, canceled, propushcheno, всі інші статуси
+     * 
+     * Продані:
+     * - accepted
      * ---------------------------------------------------------
      */
-      protected function getStats(): array
-{
+    protected function getStats(): array
+    {
+        /**
+         * ОТРИМАННЯ ФІЛЬТРІВ:
+         * Пріоритет: pageFilters (від дашборду) -> filters (fallback) -> пустий масив
+         * 
+         * pageFilters передається з MarketingAgencyDashboard::getWidgets():
+         * LeadStatsWidget::make(['pageFilters' => $filters])
+         */
+        $filters = $this->pageFilters ?? $this->filters ?? [];
+        
+        $preset = $filters['preset'] ?? 'this_year';
+        $dateFrom = $filters['date_from'] ?? null;
+        $dateTo = $filters['date_to'] ?? null;
+        
+        /**
+         * ВАЖЛИВО:
+         * Використовуємо Lead::query() без LeadQueryService,
+         * тому що LeadQueryService робить leftJoin з clients та orders,
+         * що призводить до дублювання рядків і неправильних підрахунків.
+         * 
+         * Для статистики нам потрібні ВСІ ліди, навіть ті, що не мають
+         * зв'язаних клієнтів або замовлень.
+         */
+        $query = Lead::query();
 
-\Log::info('=== FILTERS DEBUG ===', [
-    'filters' => $this->filters ?? null,
-    'pageFilters' => $this->pageFilters ?? null,
-    'all_request' => request()->all(),
-    'query_filters' => request()->query('filters'),
-]);
-
-
-    // Беремо фільтри БЕЗПОСЕРЕДНЬО З URL
-    $filters = request()->query('filters', []);
-    
-    $query = \App\Models\Lead::query();
-
-    $preset = $filters['preset'] ?? 'this_year';
-
-    if ($preset === 'today') {
-
-        $query->whereDate(
-            'created_at',
-            today()
-        );
-    }
-
-    elseif ($preset === 'yesterday') {
-
-        $query->whereDate(
-            'created_at',
-            today()->subDay()
-        );
-    }
-
-    elseif ($preset === 'this_month') {
-
-        $query
-            ->whereDate(
-                'created_at',
-                '>=',
-                now()->startOfMonth()
-            )
-            ->whereDate(
-                'created_at',
-                '<=',
-                now()
-            );
-    }
-
-    elseif ($preset === 'last_30_days') {
-
-        $query
-            ->whereDate(
-                'created_at',
-                '>=',
-                now()->subDays(30)
-            )
-            ->whereDate(
-                'created_at',
-                '<=',
-                now()
-            );
-    }
-
-    elseif ($preset === 'custom') {
-
-        if (!empty($filters['date_from'])) {
-
-            $query->whereDate(
-                'created_at',
-                '>=',
-                Carbon::parse($filters['date_from'])
-            );
+        /**
+         * ЗАСТОСУВАННЯ ФІЛЬТРІВ ЗА ДАТАМИ
+         * В залежності від вибраного preset або кастомних дат
+         */
+        if ($preset === 'today') {
+            $query->whereDate('created_at', today());
+        }
+        elseif ($preset === 'yesterday') {
+            $query->whereDate('created_at', today()->subDay());
+        }
+        elseif ($preset === 'this_month') {
+            $query->whereDate('created_at', '>=', now()->startOfMonth())
+                  ->whereDate('created_at', '<=', now());
+        }
+        elseif ($preset === 'last_30_days') {
+            $query->whereDate('created_at', '>=', now()->subDays(30))
+                  ->whereDate('created_at', '<=', now());
+        }
+        elseif ($preset === 'custom' && $dateFrom && $dateTo) {
+            $query->whereDate('created_at', '>=', Carbon::parse($dateFrom))
+                  ->whereDate('created_at', '<=', Carbon::parse($dateTo));
+        }
+        else {
+            // За замовчуванням — поточний рік
+            $query->whereDate('created_at', '>=', now()->startOfYear())
+                  ->whereDate('created_at', '<=', now());
         }
 
-        if (!empty($filters['date_to'])) {
+        /**
+         * ВИКОНАННЯ ЗАПИТУ ТА ПІДРАХУНОК
+         */
+        $rows = $query->get();
 
-            $query->whereDate(
-                'created_at',
-                '<=',
-                Carbon::parse($filters['date_to'])
-            );
-        }
+        /**
+         * ФОРМУВАННЯ СТАТИСТИКИ
+         * Ключове: використовуємо whereIn для груп статусів
+         */
+        return [
+            Stat::make('Всього лідів', $rows->count()),
+            
+            Stat::make(
+                'Цільові',
+                $rows->whereIn('status', [
+                    'processing',
+                    'zamir',
+                    'vizyt_ofis',
+                    'accepted',
+                    'measuring',
+                ])->count()
+            ),
+            
+            Stat::make(
+                'Не цільові',
+                $rows->whereIn('status', [
+                    'not_targeted',
+                    'another_city',
+                    'reklamatsiya_amtech',
+                    'reklamatsiya',
+                ])->count()
+            ),
+            
+            Stat::make(
+                'Невідомо',
+                $rows->where('status', 'new')->count()
+            ),
+            
+            Stat::make(
+                'Продані',
+                $rows->where('status', 'accepted')->count()
+            ),
+        ];
     }
 
-    else {
-
-        $query
-            ->whereDate(
-                'created_at',
-                '>=',
-                now()->startOfYear()
-            )
-            ->whereDate(
-                'created_at',
-                '<=',
-                now()
-            );
+    /**
+     * ---------------------------------------------------------
+     * MOUNT METOD
+     * ---------------------------------------------------------
+     * Використовується для отримання фільтрів при створенні віджета
+     * через Livewire механізм.
+     * 
+     * Це fallback на випадок, якщо pageFilters не передано.
+     * ---------------------------------------------------------
+     */
+    public function mount(array $filters = []): void
+    {
+        $this->filters = $filters;
     }
-
-    $rows = $query->get();
-
-    return [
-
-        Stat::make('Всього лідів', $rows->count()),
-
-        Stat::make(
-            'Цільові',
-            $rows->whereIn('status', [
-                'processing',
-                'zamir',
-                'vizyt_ofis',
-                'accepted',
-                'measuring',
-            ])->count()
-        ),
-
-        Stat::make(
-            'Не цільові',
-            $rows->whereIn('status', [
-                'not_targeted',
-                'another_city',
-                'reklamatsiya_amtech',
-                'reklamatsiya',
-            ])->count()
-        ),
-
-        Stat::make(
-            'Невідомо',
-            $rows->where('status', 'new')->count()
-        ),
-
-        Stat::make(
-            'Продані',
-            $rows->where('status', 'accepted')->count()
-        ),
-
-    ];
-}
-
-public function mount(array $filters = []): void
-{
-    $this->filters = $filters;
-}
-
 }```
 
 ## Файл: app/Filament/Pages/Exports/LeadExport.php

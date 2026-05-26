@@ -15,6 +15,8 @@ class LeadLeadsChartWidget extends ChartWidget
     protected ?string $heading = 'Leads trend';
     protected ?string $pollingInterval = null;
 
+   
+
   /**
  * ---------------------------------------------------------
  * STACK / PROJECT STANDARD

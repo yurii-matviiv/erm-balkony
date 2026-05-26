@@ -11,7 +11,9 @@ use Livewire\Attributes\On;
 class LeadOrdersChartWidget extends ChartWidget
 {
     use InteractsWithPageFilters;
+    
 
+    
 /**
  * ---------------------------------------------------------
  * STACK / PROJECT STANDARD

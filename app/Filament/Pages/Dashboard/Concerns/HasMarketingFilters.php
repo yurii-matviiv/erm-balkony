@@ -7,6 +7,12 @@ use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Schemas\Schema;
 
+use App\Filament\Widgets\Marketing\LeadStatsWidget;
+use App\Filament\Widgets\Marketing\LeadLeadsChartWidget;
+use App\Filament\Widgets\Marketing\LeadOrdersChartWidget;
+use App\Filament\Widgets\Marketing\LeadOrderTypeChartWidget;
+use App\Filament\Widgets\Marketing\OrderOrderTypeChartWidget;
+
 /**
  * ---------------------------------------------------------
  * ТРЕЙТ ДЛЯ ФІЛЬТРІВ ДАШБОРДІВ
@@ -74,6 +80,8 @@ trait HasMarketingFilters
             ]);
     }
 
+    
+
     protected function updateWidgets(): void
     {
         $this->currentFilters = $this->filtersForm->getState();
@@ -81,15 +89,17 @@ trait HasMarketingFilters
     }
 
     public function getWidgets(): array
-    {
-        $filters = $this->filtersForm->getState() ?: [];
-        
-        return [
-            \App\Filament\Widgets\Marketing\LeadStatsWidget::make(['pageFilters' => $filters]),
-            \App\Filament\Widgets\Marketing\LeadLeadsChartWidget::make(['pageFilters' => $filters]),
-            \App\Filament\Widgets\Marketing\LeadOrdersChartWidget::make(['pageFilters' => $filters]),
-        ];
-    }
+{
+    $filters = $this->filtersForm->getState() ?: [];
+    
+    return [
+        LeadStatsWidget::make(['pageFilters' => $filters]),           // завантажується першим
+        LeadLeadsChartWidget::make(['pageFilters' => $filters]),      // завантажується після
+        LeadOrdersChartWidget::make(['pageFilters' => $filters]),     // завантажується після
+        LeadOrderTypeChartWidget::make(['pageFilters' => $filters]),  // відкладене (lazy)
+        OrderOrderTypeChartWidget::make(['pageFilters' => $filters]), // відкладене (lazy)
+    ];
+}
 
     public function getWidgetData(): array
     {
