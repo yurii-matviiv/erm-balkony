@@ -34,7 +34,7 @@ measurer</pre>
 serhiy.kuts@balkony-vikna.kyiv.ua
 
 Password:
-$F!freNs</pre>
+$******s</pre>
                 </div>
 
                 <div>
@@ -46,7 +46,7 @@ $F!freNs</pre>
 balkony.vikna@gmail.com
 
 Password:
-de4dlOYm88sys</pre>
+d******s</pre>
                 </div>
 
             </div>
@@ -54,5 +54,14 @@ de4dlOYm88sys</pre>
         </div>
 
     </div>
+
+
+    https://erm.balkony-vikna.kyiv.ua
+
+Login:
+AdwService@balkony-vikna.kyiv.ua
+  
+Password:
+F*********u
 
 </x-filament-panels::page>
