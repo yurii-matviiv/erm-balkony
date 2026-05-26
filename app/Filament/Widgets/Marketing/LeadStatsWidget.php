@@ -221,7 +221,7 @@ class LeadStatsWidget extends StatsOverviewWidget
             ),
             
             Stat::make(
-                'Продані / Всього цільових ',
+                'Продані / Всього з цільових ',
                 $conversionRate . '%'
             ),
         ];
