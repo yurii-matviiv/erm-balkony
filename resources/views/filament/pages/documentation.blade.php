@@ -62,6 +62,6 @@ Login:
 AdwService@balkony-vikna.kyiv.ua
   
 Password:
-F*********u
+F********u
 
 </x-filament-panels::page>
