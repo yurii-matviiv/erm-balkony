@@ -45,7 +45,7 @@ class LeadLeadsChartWidget extends ChartWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->can('View:MarketingAgencyDashboard') ?? false;
+        return auth()->user()?->can('View:MarketingAgencyDashboard') || auth()->user()?->can('View:FounderDashboard') ?? false;
     }
 
     /**

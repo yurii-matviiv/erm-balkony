@@ -54,23 +54,7 @@ class PanelPanelProvider extends PanelProvider
                 in: app_path('Filament/Pages'),
                 for: 'App\\Filament\\Pages'
             )
-
-            /**
-             * ---------------------------------------------------------
-             * DEFAULT PAGES
-             * ---------------------------------------------------------
-             */
-           ->pages([
-    \App\Filament\Pages\Dashboard\AdminDashboard::class,
-    \App\Filament\Pages\Dashboard\FounderDashboard::class,
-    \App\Filament\Pages\Dashboard\AccountantDashboard::class,
-    \App\Filament\Pages\Dashboard\InstallerDashboard::class,
-    \App\Filament\Pages\Dashboard\ManagerDashboard::class,
-    \App\Filament\Pages\Dashboard\MarketingAgencyDashboard::class,
-    \App\Filament\Pages\Dashboard\MeasurerDashboard::class,
-    \App\Filament\Pages\Dashboard\SalesManagerDashboard::class,
-])
-
+ 
             /**
              * ---------------------------------------------------------
              * AUTO DISCOVER WIDGETS
