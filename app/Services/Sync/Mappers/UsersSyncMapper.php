@@ -22,8 +22,17 @@ use Spatie\Permission\Models\Role;
  *   from the Roles page — see UserResource / Shield.
  * - The `super_admin` role (the one real admin accounts use) is NEVER
  *   touched by this map, on purpose.
- * - The old password hash is NOT copied (different, incompatible hashing
- *   algorithm). Synced accounts get a random, unusable password.
+ * - The old password hash IS copied when it is bcrypt (starts with "$2").
+ *   Verified against the old CRM source (dev.ERM-btv, AccountController /
+ *   User model): it uses password_hash(..., PASSWORD_DEFAULT) and
+ *   password_verify() — the exact same bcrypt Laravel uses, so every user
+ *   keeps the password they already know. Rows with a non-bcrypt/empty
+ *   hash get a random, unusable password instead.
+ * - `password` is deliberately EXCLUDED from the on-duplicate update list
+ *   (see persistRow() below): it is written once, when the user row is
+ *   first created. Without this, every sync run (including the every-
+ *   minute scheduled one) would overwrite passwords users have since
+ *   changed in the new system — that bug bit us on the first deploy.
  * - The old system stores surname ("last_name") and patronymic
  *   ("middle_name") separately, but most rows have them empty/incorrect.
  *   We copy them as-is; any cleanup happens later, directly on this table.
@@ -82,9 +91,28 @@ class UsersSyncMapper extends AbstractSyncMapper
             ['old' => 'email', 'new' => 'email', 'note' => 'якщо порожній — генерується тимчасовий, унікальний'],
             ['old' => 'phone', 'new' => 'phone', 'note' => 'копіюється як є'],
             ['old' => 'created_at', 'new' => 'created_at', 'note' => 'дата створення зберігається оригінальна'],
-            ['old' => '—', 'new' => 'password', 'note' => 'НЕ переноситься: ставиться випадковий, непридатний для входу пароль'],
+            ['old' => 'password', 'new' => 'password', 'note' => 'bcrypt-хеш копіюється (стара CRM використовує той самий алгоритм) — користувач входить зі своїм звичним паролем; записується лише при першому створенні, повторний синк пароль не чіпає'],
             ['old' => 'role_id', 'new' => 'роль (Spatie)', 'note' => 'роль призначається, але без жодних прав доступу — її потрібно налаштувати вручну на сторінці "Ролі"'],
         ];
+    }
+
+    /**
+     * Same upsert as AbstractSyncMapper::persistRow(), except `password`
+     * is NOT in the on-duplicate update list: it is set on first INSERT
+     * only. Passwords changed later in the new system (by the user or an
+     * admin) must survive every subsequent sync run.
+     */
+    protected function persistRow(array $newData, array $oldRow, bool $existed): ?int
+    {
+        \Illuminate\Support\Facades\DB::table($this->newTable())->upsert(
+            [$newData],
+            ['legacy_id'],
+            array_values(array_diff(array_keys($newData), ['password'])),
+        );
+
+        return \Illuminate\Support\Facades\DB::table($this->newTable())
+            ->where('legacy_id', $newData['legacy_id'])
+            ->value('id');
     }
 
     protected function transformRow(array $oldRow): array
@@ -104,9 +132,13 @@ class UsersSyncMapper extends AbstractSyncMapper
             'middle_name' => $oldRow['middle_name'] ?? null,
             'email' => $email,
             'phone' => $oldRow['phone'] ?? null,
-            // Random, never-shared password: this account cannot log in
-            // until an admin deliberately sets a real password.
-            'password' => Hash::make(Str::random(40)),
+            // Old CRM hashes are bcrypt (password_hash + PASSWORD_DEFAULT,
+            // see class docblock) — copy them so people keep the password
+            // they already use. Anything else (empty/legacy plaintext)
+            // gets a random, unusable password until an admin sets one.
+            'password' => str_starts_with((string) ($oldRow['password'] ?? ''), '$2')
+                ? (string) $oldRow['password']
+                : Hash::make(Str::random(40)),
             'created_at' => $oldRow['created_at'] ?? now(),
             'updated_at' => now(),
         ];
