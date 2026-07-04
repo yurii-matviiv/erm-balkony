@@ -1,0 +1,19 @@
+/**
+ * Dedicated panel theme — imports Filament's OWN Tailwind entrypoint
+ * first (which disables Tailwind's normal auto-scanning via
+ * `source(none)` and pulls in every Filament package's compiled
+ * component CSS), THEN adds @source lines so Tailwind also scans OUR
+ * custom Filament Resources/Pages and Blade views for utility classes.
+ *
+ * This is the correct way to add custom Tailwind classes inside the
+ * admin panel. Do NOT import 'tailwindcss' fresh / use resources/css/app.css
+ * here — that file has its own independent `@import 'tailwindcss'`
+ * (meant for the public, non-Filament side of the app), and loading two
+ * separate full Tailwind resets into the same page broke the ENTIRE
+ * panel layout (confirmed by testing — giant unstyled icons everywhere,
+ * not just our custom pages).
+ */
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament';
+@source '../../../../resources/views/filament';

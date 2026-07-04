@@ -13,7 +13,8 @@
 /.zed
 /auth.json
 /node_modules
-/public/build
+# public/build IS committed deliberately: the shared hosting has no node,
+# so Vite assets are built locally and deployed as part of the repo.
 /public/hot
 /public/storage
 /storage/*.key
@@ -22,3 +23,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+# local one-off helper scripts, not part of the app
+import-legacy-dump.bat
+*.sql

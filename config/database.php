@@ -114,6 +114,33 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        /*
+        |----------------------------------------------------------------------
+        | "legacy" connection — read-only access to the OLD CRM database
+        |----------------------------------------------------------------------
+        |
+        | This connection is used ONLY by the sync tool (see app/Services/Sync)
+        | to read data from the old system. The app must never write to it.
+        |
+        | Right now it points to a local copy of the old database. Later, when
+        | we go live, only the LEGACY_DB_* values in .env need to change to the
+        | real production host/credentials — no code changes required.
+        |
+        */
+        'legacy' => [
+            'driver' => 'mysql',
+            'host' => env('LEGACY_DB_HOST', '127.0.0.1'),
+            'port' => env('LEGACY_DB_PORT', '3306'),
+            'database' => env('LEGACY_DB_DATABASE', 'balkonio_erm'),
+            'username' => env('LEGACY_DB_USERNAME', 'root'),
+            'password' => env('LEGACY_DB_PASSWORD', ''),
+            'charset' => env('LEGACY_DB_CHARSET', 'utf8mb3'),
+            'collation' => env('LEGACY_DB_COLLATION', 'utf8mb3_unicode_ci'),
+            'prefix' => '',
+            'strict' => false,
+            'engine' => null,
+        ],
+
     ],
 
     /*

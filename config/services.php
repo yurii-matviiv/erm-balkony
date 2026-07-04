@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'google_drive' => [
+        // Path to the Service Account JSON key file.
+        // On local: place the file in storage/app/google/ and set the path here.
+        // On production: absolute path on the server.
+        'key_path' => env('GOOGLE_DRIVE_KEY_PATH', storage_path('app/google/service-account.json')),
+    ],
+
 ];

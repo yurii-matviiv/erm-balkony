@@ -11,7 +11,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Laravel's default guest redirect targets a route named "login",
+        // which doesn't exist here — Filament registers its own panel
+        // login route instead. Without this, any `auth`-protected route
+        // outside the panel (e.g. /lead-export) throws
+        // RouteNotFoundException for guests instead of redirecting.
+        $middleware->redirectGuestsTo('/admin/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
