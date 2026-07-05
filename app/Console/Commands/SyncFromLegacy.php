@@ -21,6 +21,15 @@ use Illuminate\Console\Command;
  * if sync_auto_enabled is false — so the scheduler registration stays
  * simple (no conditional) and the toggle lives purely in the DB.
  *
+ * Sync INTERVAL is a setting too (sync_interval_minutes, default 1):
+ * the scheduler still ticks every minute, but a --scheduled run also
+ * exits early while less than that many minutes passed since the last
+ * completed run. This lets the admin slow the sync down to e.g. once an
+ * hour during quiet development and speed it back up to every minute
+ * when managers start working in the system — no crontab/deploy changes,
+ * just the field on the "Синхронізація" page. Manual runs (the button /
+ * plain `php artisan sync:legacy`) ignore the interval on purpose.
+ *
  * Conflict policy: new-system wins.
  * If a record already existed in the new DB and was modified there AFTER
  * the last sync, the mapper will still overwrite it on the next run.
@@ -38,6 +47,22 @@ class SyncFromLegacy extends Command
         // When invoked by the scheduler, respect the admin toggle.
         if ($this->option('scheduled') && ! AppSetting::getBool('sync_auto_enabled', false)) {
             return self::SUCCESS;
+        }
+
+        // ...and the configured interval: skip quietly until enough
+        // minutes have passed since the previous COMPLETED run. The
+        // timestamp is written at the end of handle(), so a long run
+        // naturally pushes the next one back — no overlap on top of
+        // the scheduler's own withoutOverlapping().
+        if ($this->option('scheduled')) {
+            $interval = max(1, (int) AppSetting::get('sync_interval_minutes', '1'));
+            $lastRun = AppSetting::get('sync_last_run_at');
+
+            // Carbon 3 diffs are SIGNED: base->diffInMinutes(later) is
+            // positive, the reverse is negative — keep lastRun as base.
+            if ($lastRun !== null && \Carbon\Carbon::parse($lastRun)->diffInMinutes(now()) < $interval) {
+                return self::SUCCESS;
+            }
         }
 
         $mappers = SyncMapperRegistry::all();

@@ -97,6 +97,42 @@ class SyncOverview extends Page implements HasTable
                         ->send();
                 }),
 
+            // ── Інтервал авто-синхронізації ────────────────
+            // Stored in app_settings (sync_interval_minutes); the
+            // scheduler still ticks every minute, but sync:legacy
+            // --scheduled exits early until this many minutes passed
+            // since the last completed run — see SyncFromLegacy. Lets
+            // the admin run hourly during quiet development and drop
+            // back to every minute when managers go live, without
+            // touching crontab or redeploying.
+            Action::make('sync_interval')
+                ->label(fn (): string => 'Інтервал: '
+                    .max(1, (int) AppSetting::get('sync_interval_minutes', '1')).' хв')
+                ->icon('heroicon-o-clock')
+                ->color('gray')
+                ->modalHeading('Інтервал авто-синхронізації')
+                ->modalDescription('Як часто планувальник запускає синхронізацію зі старої БД. 1 — щохвилини (режим живої роботи менеджерів), 60 — раз на годину (тихий режим розробки).')
+                ->modalSubmitActionLabel('Зберегти')
+                ->form([
+                    \Filament\Forms\Components\TextInput::make('interval')
+                        ->label('Хвилин між синхронізаціями')
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(1440)
+                        ->required()
+                        ->default(fn (): int => max(1, (int) AppSetting::get('sync_interval_minutes', '1'))),
+                ])
+                ->action(function (array $data): void {
+                    $interval = max(1, min(1440, (int) $data['interval']));
+                    AppSetting::set('sync_interval_minutes', (string) $interval);
+
+                    Notification::make()
+                        ->title('Інтервал збережено')
+                        ->body("Авто-синхронізація виконуватиметься не частіше, ніж раз на {$interval} хв.")
+                        ->color('success')
+                        ->send();
+                }),
+
             // ── Синхронізувати все зараз ───────────────────
             Action::make('sync_all_now')
                 ->label('Синхронізувати все зараз')
