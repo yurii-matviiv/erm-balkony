@@ -156,6 +156,12 @@ class SidebarSettings extends Page
     {
         foreach ($this->pendingActive as $itemKey => $isActive) {
             $this->saveSetting($itemKey, ['is_active' => $isActive]);
+
+            // Visibility and access move together, per explicit request:
+            // enabling an item also grants the role VIEW permission on it,
+            // disabling revokes it — see SidebarPermissionSync docblock
+            // (action permissions still managed manually on "Ролі").
+            \App\Services\Navigation\SidebarPermissionSync::apply($this->role, $itemKey, $isActive);
         }
 
         $this->pendingActive = [];
