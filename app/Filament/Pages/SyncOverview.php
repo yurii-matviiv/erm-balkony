@@ -50,7 +50,6 @@ class SyncOverview extends Page implements HasTable
 
     protected function getHeaderActions(): array
     {
-        $autoEnabled = AppSetting::getBool('sync_auto_enabled', false);
         $lastRun     = AppSetting::get('sync_last_run_at');
         $lastRunText = $lastRun
             ? 'Останній синк: ' . \Carbon\Carbon::parse($lastRun)->diffForHumans()
@@ -58,14 +57,33 @@ class SyncOverview extends Page implements HasTable
 
         return [
             // ── Toggle авто-синхронізації ──────────────────
+            // Every text below is a Closure reading the CURRENT setting.
+            // The previous version captured the state once per render and
+            // hardcoded the modal for the "disable" direction only — so
+            // with auto-sync OFF the dialog still said "Вимкнути?" and
+            // enabling looked impossible (found by the user on hosting).
             Action::make('toggle_auto_sync')
-                ->label($autoEnabled ? 'Авто-синк: УВІМКНЕНО' : 'Авто-синк: ВИМКНЕНО')
-                ->icon($autoEnabled ? 'heroicon-o-pause-circle' : 'heroicon-o-play-circle')
-                ->color($autoEnabled ? 'success' : 'gray')
+                ->label(fn (): string => AppSetting::getBool('sync_auto_enabled', false)
+                    ? 'Авто-синк: УВІМКНЕНО'
+                    : 'Авто-синк: ВИМКНЕНО')
+                ->icon(fn (): string => AppSetting::getBool('sync_auto_enabled', false)
+                    ? 'heroicon-o-pause-circle'
+                    : 'heroicon-o-play-circle')
+                ->color(fn (): string => AppSetting::getBool('sync_auto_enabled', false) ? 'success' : 'gray')
                 ->badge($lastRunText)
                 ->badgeColor('gray')
-                ->action(function () use ($autoEnabled) {
-                    $new = ! $autoEnabled;
+                ->requiresConfirmation()
+                ->modalHeading(fn (): string => AppSetting::getBool('sync_auto_enabled', false)
+                    ? 'Вимкнути авто-синхронізацію?'
+                    : 'Увімкнути авто-синхронізацію?')
+                ->modalDescription(fn (): string => AppSetting::getBool('sync_auto_enabled', false)
+                    ? 'Планувальник більше не буде синхронізувати дані зі старої БД. Вручну можна запустити в будь-який момент.'
+                    : 'Щохвилини запускатиметься sync:legacy --scheduled (потрібен активний cron на сервері).')
+                ->modalSubmitActionLabel(fn (): string => AppSetting::getBool('sync_auto_enabled', false)
+                    ? 'Вимкнути'
+                    : 'Увімкнути')
+                ->action(function (): void {
+                    $new = ! AppSetting::getBool('sync_auto_enabled', false);
                     AppSetting::set('sync_auto_enabled', $new ? '1' : '0');
 
                     Notification::make()
@@ -77,11 +95,7 @@ class SyncOverview extends Page implements HasTable
                             : 'Планувальник більше не буде запускати синхронізацію.')
                         ->color($new ? 'success' : 'warning')
                         ->send();
-                })
-                ->requiresConfirmation(fn (): bool => $autoEnabled) // підтвердження тільки при вимкненні
-                ->modalHeading('Вимкнути авто-синхронізацію?')
-                ->modalDescription('Планувальник більше не буде синхронізувати дані зі старої БД. Вручну можна запустити в будь-який момент.')
-                ->modalSubmitActionLabel('Вимкнути'),
+                }),
 
             // ── Синхронізувати все зараз ───────────────────
             Action::make('sync_all_now')
