@@ -64,6 +64,8 @@ class GeneralExpensesSyncMapper extends AbstractSyncMapper
             ['old' => 'sub_category', 'new' => 'sub_category',     'note' => 'electricity / rent / binotel / ...'],
             ['old' => 'comment',      'new' => 'comment',          'note' => 'копіюється як є'],
             ['old' => 'date_create',  'new' => 'paid_at',          'note' => 'дата проведення платежу'],
+            ['old' => 'user_id',      'new' => 'created_by',       'note' => 'автор платежу ("хто редагує") — через users.legacy_id'],
+            ['old' => '—',            'new' => 'classification_status', 'note' => 'classified лише коли є і категорія, і підкатегорія; інакше unsorted — ручний розбір на сторінці "Платежі"'],
         ];
     }
 
@@ -111,14 +113,55 @@ class GeneralExpensesSyncMapper extends AbstractSyncMapper
             'payment_method' => $paymentMethod,
             'amount'         => (float) ($oldRow['amount'] ?? 0),
             'status'         => $oldRow['status'] ?? 'received',
+            'classification_status' => $this->classify($oldRow),
             'category'       => $oldRow['category'] ?: null,
             'sub_category'   => $oldRow['sub_category'] ?: null,
             'comment'        => $oldRow['comment'] ?: null,
+            'created_by'     => $this->resolveCreatedBy($oldRow),
             'paid_at'        => $oldRow['date_create']
                 ? date('Y-m-d', strtotime($oldRow['date_create']))
                 : null,
             'created_at'     => $oldRow['date_create'] ?? now(),
             'updated_at'     => now(),
         ];
+    }
+
+    /**
+     * Author of the entry — old `user_id` ("хто редагує" per the old DB
+     * column comment) via users.legacy_id. See CLAUDE.md "Платежі —
+     * принципи", принцип 4.
+     */
+    private function resolveCreatedBy(array $oldRow): ?int
+    {
+        $oldUserId = (int) ($oldRow['user_id'] ?? 0);
+
+        if ($oldUserId <= 0) {
+            return null;
+        }
+
+        return DB::table('users')->where('legacy_id', $oldUserId)->value('id');
+    }
+
+    /**
+     * Migration-time classification (принцип 2, CLAUDE.md "Платежі —
+     * принципи"). A general expense is 'classified' only when BOTH
+     * category and sub_category are present — that pair IS the clean new
+     * structure for expenses (see create_expenses_table docblock).
+     * Category alone ('order'/'office' without a sub) tells too little —
+     * such rows go to the "Не розібрані" queue for manual sorting.
+     * Comments are deliberately NOT consulted (last-resort, migration-
+     * only tool — and only via explicit rules added later).
+     */
+    private function classify(array $oldRow): string
+    {
+        if (($oldRow['category'] ?? null) === 'between_accounts') {
+            return 'classified';
+        }
+
+        $hasCategory = filled($oldRow['category'] ?? null);
+        $hasSub = filled($oldRow['sub_category'] ?? null);
+        $amount = (float) ($oldRow['amount'] ?? 0);
+
+        return ($hasCategory && $hasSub && $amount > 0) ? 'classified' : 'unsorted';
     }
 }

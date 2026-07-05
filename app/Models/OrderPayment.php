@@ -16,8 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 #[Fillable([
     'legacy_id', 'order_id', 'direction', 'payer_type', 'payer_name',
-    'payment_method', 'amount', 'status', 'category',
-    'comment', 'paid_at', 'received_at',
+    'payment_method', 'amount', 'status', 'classification_status', 'category',
+    'comment', 'created_by', 'paid_at', 'received_at',
     'privatbank_num', 'fop_account_legacy_id',
 ])]
 class OrderPayment extends Model
@@ -31,6 +31,12 @@ class OrderPayment extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /** Author of the entry — see CLAUDE.md "Платежі — принципи", принцип 4. */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     // ──────────────────────────────────────────────

@@ -16,8 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Expense extends Model
 {
     protected $fillable = [
-        'direction', 'payment_method', 'amount', 'status',
-        'category', 'sub_category', 'comment', 'paid_at',
+        'direction', 'payment_method', 'amount', 'status', 'classification_status',
+        'category', 'sub_category', 'comment', 'created_by', 'paid_at',
         'privatbank_num', 'fop_account_id', 'user_id', 'legacy_id',
     ];
 
@@ -33,6 +33,12 @@ class Expense extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Author of the entry — see CLAUDE.md "Платежі — принципи", принцип 4. */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     // ──────────────────────────────────────────────

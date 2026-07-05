@@ -62,6 +62,8 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             ['old' => 'date_receiving', 'new' => 'received_at', 'note' => 'дата підтвердження отримання'],
             ['old' => 'privatbank_num', 'new' => 'privatbank_num', 'note' => 'для майбутньої Приватбанк-інтеграції'],
             ['old' => 'fop_account', 'new' => 'fop_account_legacy_id', 'note' => 'raw ID ФОП-рахунку зі старої системи — FK з\'явиться в модулі "наші юридичні особи"'],
+            ['old' => 'user_id', 'new' => 'created_by', 'note' => 'автор платежу ("хто редагує" в старій БД) — через users.legacy_id; авторство зберігається і для історії'],
+            ['old' => '—', 'new' => 'classification_status', 'note' => 'classified, якщо рядок проходить чіткі правила нової структури; інакше unsorted — черга ручного розбору на сторінці "Платежі"'],
         ];
     }
 
@@ -91,8 +93,10 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             'payment_method'       => $oldRow['method'] ?? null,
             'amount'               => (float) ($oldRow['amount'] ?? 0),
             'status'               => $oldRow['status'] ?? 'received',
+            'classification_status'=> $this->classify($oldRow, $payerName),
             'category'             => $oldRow['category'] ?: null,
             'comment'              => $oldRow['comment'] ?: null,
+            'created_by'           => $this->resolveCreatedBy($oldRow),
             'paid_at'              => $oldRow['date_create']    ? date('Y-m-d', strtotime($oldRow['date_create']))    : null,
             'received_at'          => $oldRow['date_receiving'] ? date('Y-m-d', strtotime($oldRow['date_receiving'])) : null,
             'privatbank_num'       => $oldRow['privatbank_num'] ?: null,
@@ -100,6 +104,56 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             'created_at'           => $oldRow['date_create'] ?? now(),
             'updated_at'           => now(),
         ];
+    }
+
+    /**
+     * Author of the payment. Old `user_id` (DB comment: "хто редагує") is
+     * the old users.id, which equals users.legacy_id here — see CLAUDE.md
+     * "Платежі — принципи", принцип 4.
+     */
+    private function resolveCreatedBy(array $oldRow): ?int
+    {
+        $oldUserId = (int) ($oldRow['user_id'] ?? 0);
+
+        if ($oldUserId <= 0) {
+            return null;
+        }
+
+        return DB::table('users')->where('legacy_id', $oldUserId)->value('id');
+    }
+
+    /**
+     * Migration-time classification (принцип 2, CLAUDE.md "Платежі —
+     * принципи"): 'classified' only when the row confidently fits the new
+     * structure by its FIELDS; everything else is 'unsorted' and waits in
+     * the "Не розібрані" queue of the "Платежі" page. Comments are NOT
+     * consulted here — per the same principle they are the last resort
+     * and only for explicit one-off migration rules added later.
+     */
+    private function classify(array $oldRow, ?string $payerName): string
+    {
+        $payerType = (string) ($oldRow['user_type'] ?? '');
+        $method = (string) ($oldRow['method'] ?? '');
+        $amount = (float) ($oldRow['amount'] ?? 0);
+
+        // Internal transfers between own accounts are a well-defined
+        // technical category — nothing to sort manually.
+        if (($oldRow['category'] ?? null) === 'between_accounts') {
+            return 'classified';
+        }
+
+        // A clean order payment: we know who paid/was paid (a real,
+        // resolvable counterparty), how, and how much.
+        $cleanPayer = in_array($payerType, ['client', 'supplier', 'installer', 'gauger'], true)
+            && $payerName !== null;
+
+        $cleanMethod = in_array($method, ['cash', 'cashless', 'card', 'courier', 'installer'], true);
+
+        if ($cleanPayer && $cleanMethod && $amount > 0) {
+            return 'classified';
+        }
+
+        return 'unsorted';
     }
 
     /**

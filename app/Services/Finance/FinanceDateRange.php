@@ -41,9 +41,21 @@ class FinanceDateRange
 
         return match ($preset) {
             'today'         => ['from' => $today, 'to' => $today],
+            'yesterday'     => [
+                'from' => now()->subDay()->toDateString(),
+                'to'   => now()->subDay()->toDateString(),
+            ],
+            'last_7_days'   => [
+                'from' => now()->subDays(7)->toDateString(),
+                'to'   => $today,
+            ],
             'current_month' => [
                 'from' => now()->startOfMonth()->toDateString(),
                 'to'   => now()->endOfMonth()->toDateString(),
+            ],
+            'prev_month'    => [
+                'from' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+                'to'   => now()->subMonthNoOverflow()->endOfMonth()->toDateString(),
             ],
             'current_year'  => [
                 'from' => now()->startOfYear()->toDateString(),
@@ -127,7 +139,10 @@ class FinanceDateRange
         return [
             'last_30_days'  => 'Останні 30 днів',
             'today'         => 'Сьогодні',
+            'yesterday'     => 'Вчора',
+            'last_7_days'   => 'Останні 7 днів',
             'current_month' => 'Поточний місяць',
+            'prev_month'    => 'Попередній місяць',
             'current_year'  => 'Поточний рік',
             'custom'        => 'Довільний період',
         ];

@@ -90,6 +90,7 @@ class UsersSyncMapper extends AbstractSyncMapper
             ['old' => 'middle_name', 'new' => 'middle_name', 'note' => 'по батькові, копіюється як є (не завжди заповнено)'],
             ['old' => 'email', 'new' => 'email', 'note' => 'якщо порожній — генерується тимчасовий, унікальний'],
             ['old' => 'phone', 'new' => 'phone', 'note' => 'копіюється як є'],
+            ['old' => 'is_active', 'new' => 'is_active', 'note' => 'активний/деактивований співробітник — копіюється як є'],
             ['old' => 'created_at', 'new' => 'created_at', 'note' => 'дата створення зберігається оригінальна'],
             ['old' => 'password', 'new' => 'password', 'note' => 'bcrypt-хеш копіюється (стара CRM використовує той самий алгоритм) — користувач входить зі своїм звичним паролем; записується лише при першому створенні, повторний синк пароль не чіпає'],
             ['old' => 'role_id', 'new' => 'роль (Spatie)', 'note' => 'роль призначається, але без жодних прав доступу — її потрібно налаштувати вручну на сторінці "Ролі"'],
@@ -132,6 +133,9 @@ class UsersSyncMapper extends AbstractSyncMapper
             'middle_name' => $oldRow['middle_name'] ?? null,
             'email' => $email,
             'phone' => $oldRow['phone'] ?? null,
+            // Old CRM's active/deactivated employee flag — copied as-is
+            // so selects like "Хто вніс" can hide former employees.
+            'is_active' => (bool) ($oldRow['is_active'] ?? true),
             // Old CRM hashes are bcrypt (password_hash + PASSWORD_DEFAULT,
             // see class docblock) — copy them so people keep the password
             // they already use. Anything else (empty/legacy plaintext)
