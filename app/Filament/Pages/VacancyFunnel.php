@@ -24,6 +24,8 @@ use Filament\Tables\Table;
  */
 class VacancyFunnel extends Page implements HasTable
 {
+    use \App\Filament\Concerns\RequiresViewPermission;
+
     use InteractsWithTable;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';

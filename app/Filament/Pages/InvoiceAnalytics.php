@@ -27,6 +27,8 @@ use Livewire\Attributes\Url;
  */
 class InvoiceAnalytics extends Page
 {
+    use \App\Filament\Concerns\RequiresViewPermission;
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar-square';
 
     protected static ?string $navigationLabel = 'Аналітика рахунків';

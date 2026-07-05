@@ -33,6 +33,18 @@ use Illuminate\Pagination\LengthAwarePaginator;
  */
 class SyncTableDetail extends Page
 {
+    /**
+     * Detail view of SyncOverview — not in the sidebar catalog itself
+     * ($shouldRegisterNavigation = false), so it can never be granted its
+     * own View:SyncTableDetail via "Бокова панель". Instead it inherits
+     * the OVERVIEW page's permission: whoever may open "Синхронізація"
+     * may drill into its tables.
+     */
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('View:SyncOverview') ?? false;
+    }
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-arrow-path';
 
     protected static bool $shouldRegisterNavigation = false;

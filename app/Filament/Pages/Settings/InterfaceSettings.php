@@ -13,6 +13,8 @@ use Filament\Pages\Page;
  */
 class InterfaceSettings extends Page
 {
+    use \App\Filament\Concerns\RequiresViewPermission;
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-adjustments-horizontal';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Налаштування';

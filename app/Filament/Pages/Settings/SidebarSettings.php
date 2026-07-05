@@ -34,6 +34,8 @@ use Spatie\Permission\Models\Role;
  */
 class SidebarSettings extends Page
 {
+    use \App\Filament\Concerns\RequiresViewPermission;
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-bars-3';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Налаштування';
@@ -280,17 +282,4 @@ class SidebarSettings extends Page
 
     /**
      * Global (not per-role) label override — see create_navigation_labels_table.
-     * Clearing the field back to empty removes the override instead of
-     * saving a blank label, so it falls back to the code default again.
-     */
-    public function saveLabel(string $itemKey, ?string $label): void
-    {
-        if (blank($label)) {
-            NavigationLabel::where('item_key', $itemKey)->delete();
-
-            return;
-        }
-
-        NavigationLabel::updateOrCreate(['item_key' => $itemKey], ['label' => $label]);
-    }
-}
+     * Clearing the field back to empty removes the 

@@ -24,6 +24,8 @@ use Filament\Pages\Page;
  */
 class MontageCalendar extends Page
 {
+    use \App\Filament\Concerns\RequiresViewPermission;
+
     protected string $view = 'filament.pages.montage-calendar';
 
     protected static ?string $navigationLabel = 'Графік монтажів';
