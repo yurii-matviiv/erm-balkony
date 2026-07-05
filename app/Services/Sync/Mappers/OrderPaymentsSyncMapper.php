@@ -85,6 +85,18 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             (int) ($oldRow['user_id_by_type'] ?? 0),
         );
 
+        // Client payments in the old CRM usually carry user_id_by_type=0 —
+        // the client is implied by the ORDER, not stored on the payment
+        // row. Resolve the name through the order's client instead, so
+        // the "Платник" column isn't blank for the most common row type.
+        if ($payerName === null && ($oldRow['user_type'] ?? '') === 'client') {
+            $payerName = DB::table('orders')
+                ->join('clients', 'clients.id', '=', 'orders.client_id')
+                ->where('orders.id', $orderId)
+                ->selectRaw("trim(concat_ws(' ', clients.last_name, clients.first_name, clients.middle_name)) as full_name")
+                ->value('full_name') ?: null;
+        }
+
         return [
             'order_id'             => $orderId,
             'direction'            => $oldRow['type'] ?? 'income',
@@ -142,10 +154,13 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             return 'classified';
         }
 
-        // A clean order payment: we know who paid/was paid (a real,
-        // resolvable counterparty), how, and how much.
-        $cleanPayer = in_array($payerType, ['client', 'supplier', 'installer', 'gauger'], true)
-            && $payerName !== null;
+        // A clean order payment: we know who paid/was paid, how, and how
+        // much. For 'client' rows the counterparty is implied by the
+        // order itself (every synced payment HAS a matched order — rows
+        // without one are skipped), so no resolved name is required;
+        // supplier/installer/gauger rows must resolve to a real entity.
+        $cleanPayer = $payerType === 'client'
+            || (in_array($payerType, ['supplier', 'installer', 'gauger'], true) && $payerName !== null);
 
         $cleanMethod = in_array($method, ['cash', 'cashless', 'card', 'courier', 'installer'], true);
 
