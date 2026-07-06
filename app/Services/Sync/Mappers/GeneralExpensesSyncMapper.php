@@ -158,10 +158,12 @@ class GeneralExpensesSyncMapper extends AbstractSyncMapper
             return 'classified';
         }
 
+        // Amount is deliberately NOT a criterion (per explicit user
+        // feedback) — a zero-sum entry with full category/sub_category is
+        // an understood record, not an unsorted one.
         $hasCategory = filled($oldRow['category'] ?? null);
         $hasSub = filled($oldRow['sub_category'] ?? null);
-        $amount = (float) ($oldRow['amount'] ?? 0);
 
-        return ($hasCategory && $hasSub && $amount > 0) ? 'classified' : 'unsorted';
+        return ($hasCategory && $hasSub) ? 'classified' : 'unsorted';
     }
 }

@@ -159,7 +159,6 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
     {
         $payerType = (string) ($oldRow['user_type'] ?? '');
         $method = (string) ($oldRow['method'] ?? '');
-        $amount = (float) ($oldRow['amount'] ?? 0);
 
         // Internal transfers between own accounts are a well-defined
         // technical category — nothing to sort manually.
@@ -172,22 +171,25 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
         // module (see class docblock) — 'salary' IS their correct
         // classification, nothing to sort by hand.
         if (($oldRow['user_type'] ?? '') === 'expense'
-            && ($oldRow['category'] ?? null) === 'salary'
-            && (float) ($oldRow['amount'] ?? 0) > 0) {
+            && ($oldRow['category'] ?? null) === 'salary') {
             return 'classified';
         }
 
-        // A clean order payment: we know who paid/was paid, how, and how
-        // much. For 'client' rows the counterparty is implied by the
-        // order itself (every synced payment HAS a matched order — rows
-        // without one are skipped), so no resolved name is required;
+        // A clean order payment: we know who paid/was paid and how. The
+        // AMOUNT is deliberately NOT a criterion (per explicit user
+        // feedback): 'unsorted' means "the system can't place this row in
+        // the new structure", and a zero-sum cancelled invoice is a
+        // perfectly understood record — client, order, direction, status
+        // are all known. For 'client' rows the counterparty is implied by
+        // the order itself (every synced payment HAS a matched order —
+        // rows without one are skipped), so no resolved name is required;
         // supplier/installer/gauger rows must resolve to a real entity.
         $cleanPayer = $payerType === 'client'
             || (in_array($payerType, ['supplier', 'installer', 'gauger'], true) && $payerName !== null);
 
         $cleanMethod = in_array($method, ['cash', 'cashless', 'card', 'courier', 'installer'], true);
 
-        if ($cleanPayer && $cleanMethod && $amount > 0) {
+        if ($cleanPayer && $cleanMethod) {
             return 'classified';
         }
 
