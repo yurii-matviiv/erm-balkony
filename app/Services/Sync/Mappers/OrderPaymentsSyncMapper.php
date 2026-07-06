@@ -85,16 +85,29 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             (int) ($oldRow['user_id_by_type'] ?? 0),
         );
 
-        // Client payments in the old CRM usually carry user_id_by_type=0 —
-        // the client is implied by the ORDER, not stored on the payment
-        // row. Resolve the name through the order's client instead, so
-        // the "Платник" column isn't blank for the most common row type.
-        if ($payerName === null && ($oldRow['user_type'] ?? '') === 'client') {
-            $payerName = DB::table('orders')
-                ->join('clients', 'clients.id', '=', 'orders.client_id')
-                ->where('orders.id', $orderId)
-                ->selectRaw("trim(concat_ws(' ', clients.last_name, clients.first_name, clients.middle_name)) as full_name")
-                ->value('full_name') ?: null;
+        // Old rows usually carry user_id_by_type=0 — the counterparty is
+        // implied by the ORDER, not stored on the payment row. Resolve
+        // names through the order instead: client via orders.client_id,
+        // installer via orders.installer_id, gauger via orders.surveyor_id
+        // (the same "surveyor is the crew's responsible" mapping used by
+        // OrdersSyncMapper).
+        if ($payerName === null) {
+            $payerName = match ($oldRow['user_type'] ?? '') {
+                'client' => DB::table('orders')
+                    ->join('clients', 'clients.id', '=', 'orders.client_id')
+                    ->where('orders.id', $orderId)
+                    ->selectRaw("trim(concat_ws(' ', clients.last_name, clients.first_name, clients.middle_name)) as full_name")
+                    ->value('full_name') ?: null,
+                'installer' => DB::table('orders')
+                    ->join('users', 'users.id', '=', 'orders.installer_id')
+                    ->where('orders.id', $orderId)
+                    ->value('users.name'),
+                'gauger' => DB::table('orders')
+                    ->join('users', 'users.id', '=', 'orders.surveyor_id')
+                    ->where('orders.id', $orderId)
+                    ->value('users.name'),
+                default => null,
+            };
         }
 
         return [
@@ -151,6 +164,16 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
         // Internal transfers between own accounts are a well-defined
         // technical category — nothing to sort manually.
         if (($oldRow['category'] ?? null) === 'between_accounts') {
+            return 'classified';
+        }
+
+        // Order-linked salary rows (payer_type=expense, category=salary):
+        // deliberately synced into order_payments for the future Зарплата
+        // module (see class docblock) — 'salary' IS their correct
+        // classification, nothing to sort by hand.
+        if (($oldRow['user_type'] ?? '') === 'expense'
+            && ($oldRow['category'] ?? null) === 'salary'
+            && (float) ($oldRow['amount'] ?? 0) > 0) {
             return 'classified';
         }
 
