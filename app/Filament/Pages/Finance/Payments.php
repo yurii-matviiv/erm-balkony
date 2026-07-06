@@ -179,7 +179,14 @@ class Payments extends Page implements HasTable
 
                 TextColumn::make('order_id')
                     ->label('№ зам.')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    // The number IS the link to the order (per explicit
+                    // request) — same target as the row's "До замовлення".
+                    ->url(fn (PaymentLedgerEntry $record): ?string => $record->order_id
+                        ? \App\Filament\Resources\OrderResource::getUrl('edit', ['record' => $record->order_id])
+                        : null)
+                    ->color(fn (PaymentLedgerEntry $record): ?string => $record->order_id ? 'primary' : null)
+                    ->weight('medium'),
 
                 TextColumn::make('direction')
                     ->label('Напрям')
