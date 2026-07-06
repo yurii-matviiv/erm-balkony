@@ -188,6 +188,17 @@ class Payments extends Page implements HasTable
                     ->color(fn (PaymentLedgerEntry $record): ?string => $record->order_id ? 'primary' : null)
                     ->weight('medium'),
 
+                // Comment sits high (4th column, per explicit request) and
+                // WRAPS instead of truncating — for old-CRM rows it often
+                // holds the real story of the payment (including lost
+                // amounts like "зняла 7 тис з моно").
+                TextColumn::make('comment')
+                    ->label('Коментар')
+                    ->wrap()
+                    ->limit(180)
+                    ->tooltip(fn (?string $state): ?string => $state && mb_strlen($state) > 180 ? $state : null)
+                    ->searchable(),
+
                 TextColumn::make('direction')
                     ->label('Напрям')
                     ->badge()
@@ -245,12 +256,6 @@ class Payments extends Page implements HasTable
                     ->label('Вніс')
                     ->placeholder('стара CRM')
                     ->toggleable(),
-
-                TextColumn::make('comment')
-                    ->label('Коментар')
-                    ->limit(40)
-                    ->tooltip(fn (?string $state): ?string => $state && mb_strlen($state) > 40 ? $state : null)
-                    ->searchable(),
             ])
             ->filters([
 
