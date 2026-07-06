@@ -403,10 +403,13 @@ class FinanceAnalyticsService
      * in the detail table.
      */
     /**
-     * Salary group — two sources combined:
-     *   1. `expenses` WHERE category = 'salary'   (manager/head-of-sales salaries entered manually)
+     * Salary group — three sources combined:
+     *   1. `expenses` WHERE category = 'salary'   (general salaries not tied to an order)
      *   2. `order_payments` WHERE payer_type IN ('installer', 'gauger')
      *      (per-order labour payments — these are wage costs, not production/material costs)
+     *   3. `order_payments` WHERE payer_type = 'expense' AND category = 'salary'
+     *      (order-linked manager salary rows — they live ONLY in order_payments
+     *      since the duplicate-tables fix, see GeneralExpensesSyncMapper::legacyQuery)
      *
      * Gaugers are included alongside installers: both are workers paid for labour.
      */
@@ -415,6 +418,12 @@ class FinanceAnalyticsService
         $workerLabels = [
             'installer' => 'Монтажники',
             'gauger'    => 'Замірники',
+            // Order-linked salary rows (old payer_type=expense +
+            // category=salary) live ONLY in order_payments since the
+            // duplicate-tables fix (see GeneralExpensesSyncMapper::
+            // legacyQuery) — count them here so the Зарплата group stays
+            // complete.
+            'expense'   => 'ЗП по замовленнях',
         ];
 
         // Sub-items from expenses table (manager/head-of-sales)
@@ -455,7 +464,10 @@ class FinanceAnalyticsService
             )
             ->where('direction', 'outgo')
             ->where('status', 'received')
-            ->whereIn('payer_type', ['installer', 'gauger'])
+            ->where(function ($q) {
+                $q->whereIn('payer_type', ['installer', 'gauger'])
+                    ->orWhere(fn ($q2) => $q2->where('payer_type', 'expense')->where('category', 'salary'));
+            })
             ->whereBetween('paid_at', [$crm['from'], $crm['to']])
             ->groupBy('payer_type')
             ->get();
@@ -505,7 +517,10 @@ class FinanceAnalyticsService
             ->select('paid_at', 'payer_name', 'payer_type', 'payment_method', 'amount', 'comment')
             ->where('direction', 'outgo')
             ->where('status', 'received')
-            ->whereIn('payer_type', ['installer', 'gauger'])
+            ->where(function ($q) {
+                $q->whereIn('payer_type', ['installer', 'gauger'])
+                    ->orWhere(fn ($q2) => $q2->where('payer_type', 'expense')->where('category', 'salary'));
+            })
             ->whereBetween('paid_at', [$crm['from'], $crm['to']])
             ->orderByDesc('paid_at')->orderByDesc('id')
             ->get()

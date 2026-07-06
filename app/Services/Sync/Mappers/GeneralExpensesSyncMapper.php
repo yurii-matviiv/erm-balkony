@@ -70,29 +70,23 @@ class GeneralExpensesSyncMapper extends AbstractSyncMapper
     }
 
     /**
-     * Reads office/expense rows that OrderPaymentsSyncMapper skips.
+     * Reads GENERAL rows only — office/expense entries WITHOUT an order.
      *
-     * Two cases:
-     *   - user_type='expense' (salary, etc.): grab ALL rows regardless of order_id.
-     *     OrderPaymentsSyncMapper only handles supplier/installer/gauger, so 'expense'
-     *     rows are never touched by it even when they reference a specific order
-     *     (manager salary rows have order_id = the order they were paid for, but are
-     *     still a general expense — not an order payment in the accounting sense).
-     *   - user_type='office': only rows WITHOUT an order_id. Office rows that DO have
-     *     an order_id are measurement/order-tied payments handled by OrderPaymentsSyncMapper.
+     * A payment must exist in exactly ONE table (this bit us: 1005 salary
+     * rows used to land in BOTH order_payments and expenses, double-
+     * counting Витрати in the analytics). The rule now is symmetric for
+     * both user_types: rows WITH a real order_id are order-tied and belong
+     * to OrderPaymentsSyncMapper (order-linked salary keeps its order
+     * reference there for the future Зарплата module); rows without one
+     * are company-level and live here.
      */
     protected function legacyQuery(): \Illuminate\Database\Query\Builder
     {
         return DB::connection('legacy')
             ->table($this->oldTable())
+            ->whereIn('user_type', ['expense', 'office'])
             ->where(function ($q) {
-                $q->where('user_type', 'expense')
-                  ->orWhere(function ($inner) {
-                      $inner->where('user_type', 'office')
-                            ->where(function ($q2) {
-                                $q2->whereNull('order_id')->orWhere('order_id', 0);
-                            });
-                  });
+                $q->whereNull('order_id')->orWhere('order_id', 0);
             });
     }
 
