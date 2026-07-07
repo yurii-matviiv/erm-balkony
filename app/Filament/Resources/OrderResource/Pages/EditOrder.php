@@ -74,6 +74,28 @@ class EditOrder extends EditRecord
     }
 
     /**
+     * READ-ONLY access for roles that may VIEW orders but not edit them
+     * (Керівник компанії — the read-only partner role). Filament's
+     * EditRecord normally authorizes the page against the `update`
+     * ability, which blocked such roles from opening an order at all.
+     * We widen page access to `view` and compensate by disabling the
+     * whole form and the auto-save below for users without Update:Order —
+     * so "бачу = можу відкрити" holds without granting edit rights.
+     */
+    protected function authorizeAccess(): void
+    {
+        abort_unless(
+            auth()->user()?->can('Update:Order') || auth()->user()?->can('View:Order'),
+            403,
+        );
+    }
+
+    public function isReadOnly(): bool
+    {
+        return ! (auth()->user()?->can('Update:Order') ?? false);
+    }
+
+    /**
      * Auto-save silently whenever any form field updates.
      * Livewire fires updated($name) on every property write — we filter
      * to only react to changes under the 'data.' prefix (form fields).
@@ -85,6 +107,13 @@ class EditOrder extends EditRecord
         if (! str_starts_with($name, 'data.')) {
             return;
         }
+
+        // Read-only viewers must never trigger a save, even if they
+        // somehow change a field value client-side.
+        if ($this->isReadOnly()) {
+            return;
+        }
+
         try {
             $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
         } catch (\Illuminate\Validation\ValidationException) {
@@ -235,7 +264,13 @@ class EditOrder extends EditRecord
      */
     public function form(Schema $schema): Schema
     {
-        return $schema->columns(1)->components([
+        return $schema
+            ->columns(1)
+            // Read-only mode for view-permission-only roles — see
+            // authorizeAccess() above. Disables every input; actions
+            // inside sections check isReadOnly() themselves.
+            ->disabled($this->isReadOnly())
+            ->components([
 
             // ── Order summary bar ──────────────────────────────────────────
             // Replaces the old getHeader() approach (which hid the Filament
@@ -324,7 +359,7 @@ class EditOrder extends EditRecord
                 // deliberately NOT role-gated (a manager with no menu
                 // access to the Клієнти module should still be able to
                 // fix THIS client's details from right here).
-                ->headerActions([$this->editClientAction()])
+                ->headerActions($this->isReadOnly() ? [] : [$this->editClientAction()])
                 // 3 columns — per explicit feedback, ПІБ/Телефон/Адреса
                 // read better as one tidy row than wrapping the 3rd field
                 // onto its own line (which a 2-column grid did).

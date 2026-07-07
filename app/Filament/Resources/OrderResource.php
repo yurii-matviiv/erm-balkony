@@ -101,10 +101,14 @@ class OrderResource extends Resource
                     ->label('Тип')
                     ->options(Order::orderTypeOptions()),
             ])
-            ->recordAction('edit')
             ->recordActions([
                 EditAction::make('edit'),
             ])
+            // Rows must be clickable for VIEW-only roles too (Керівник
+            // компанії): EditAction hides itself without Update:Order,
+            // but the page itself now accepts the view permission and
+            // renders read-only — see EditOrder::authorizeAccess().
+            ->recordUrl(fn (Order $record): string => EditOrder::getUrl(['record' => $record]))
             ->defaultSort('created_at', 'desc');
     }
 
