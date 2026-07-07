@@ -142,13 +142,30 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             'category'             => $oldRow['category'] ?: null,
             'comment'              => $oldRow['comment'] ?: null,
             'created_by'           => $this->resolveCreatedBy($oldRow),
-            'paid_at'              => $oldRow['date_create']    ? date('Y-m-d', strtotime($oldRow['date_create']))    : null,
-            'received_at'          => $oldRow['date_receiving'] ? date('Y-m-d', strtotime($oldRow['date_receiving'])) : null,
+            'paid_at'              => $this->sanitizeDate($oldRow['date_create'] ?? null),
+            'received_at'          => $this->sanitizeDate($oldRow['date_receiving'] ?? null),
             'privatbank_num'       => $oldRow['privatbank_num'] ?: null,
             'fop_account_legacy_id'=> $oldRow['fop_account'] ?: null,
-            'created_at'           => $oldRow['date_create'] ?? now(),
+            'created_at'           => $this->sanitizeDate($oldRow['date_create'] ?? null) ?? now(),
             'updated_at'           => now(),
         ];
+    }
+
+    /**
+     * The oldest rows carry MySQL zero-dates ('0000-00-00 00:00:00'):
+     * strtotime() turns them into '-0001-11-30', which the strict new DB
+     * rejects — this silently skipped 151 early payments. Zero/broken
+     * dates become NULL.
+     */
+    private function sanitizeDate(?string $value): ?string
+    {
+        if (blank($value) || str_starts_with($value, '0000-00-00')) {
+            return null;
+        }
+
+        $ts = strtotime($value);
+
+        return $ts !== false && $ts > 0 ? date('Y-m-d', $ts) : null;
     }
 
     /**

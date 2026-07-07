@@ -130,12 +130,25 @@ class GeneralExpensesSyncMapper extends AbstractSyncMapper
             'sub_category'   => $oldRow['sub_category'] ?: null,
             'comment'        => $oldRow['comment'] ?: null,
             'created_by'     => $this->resolveCreatedBy($oldRow),
-            'paid_at'        => $oldRow['date_create']
-                ? date('Y-m-d', strtotime($oldRow['date_create']))
-                : null,
-            'created_at'     => $oldRow['date_create'] ?? now(),
+            'paid_at'        => $this->sanitizeDate($oldRow['date_create'] ?? null),
+            'created_at'     => $this->sanitizeDate($oldRow['date_create'] ?? null) ?? now(),
             'updated_at'     => now(),
         ];
+    }
+
+    /**
+     * Zero-dates ('0000-00-00...') from the oldest rows become NULL —
+     * same guard as OrderPaymentsSyncMapper::sanitizeDate().
+     */
+    private function sanitizeDate(?string $value): ?string
+    {
+        if (blank($value) || str_starts_with($value, '0000-00-00')) {
+            return null;
+        }
+
+        $ts = strtotime($value);
+
+        return $ts !== false && $ts > 0 ? date('Y-m-d', $ts) : null;
     }
 
     /**
