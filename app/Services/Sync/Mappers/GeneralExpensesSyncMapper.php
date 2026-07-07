@@ -90,6 +90,24 @@ class GeneralExpensesSyncMapper extends AbstractSyncMapper
             });
     }
 
+    /**
+     * classification_status is written on first INSERT only — a manual
+     * verdict on the "Платежі" page must survive the auto-sync (same
+     * pattern as OrderPaymentsSyncMapper / UsersSyncMapper passwords).
+     */
+    protected function persistRow(array $newData, array $oldRow, bool $existed): ?int
+    {
+        DB::table($this->newTable())->upsert(
+            [$newData],
+            ['legacy_id'],
+            array_values(array_diff(array_keys($newData), ['classification_status'])),
+        );
+
+        return DB::table($this->newTable())
+            ->where('legacy_id', $newData['legacy_id'])
+            ->value('id');
+    }
+
     protected function transformRow(array $oldRow): array
     {
         $method = $oldRow['method'] ?? null;

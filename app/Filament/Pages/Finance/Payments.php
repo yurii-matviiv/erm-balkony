@@ -139,6 +139,7 @@ class Payments extends Page implements HasTable
             'received' => 'Підтверджено',
             'pending' => 'Заплановано',
             'sent' => 'Відправлено',
+            'canceled' => 'Скасовано',
         ];
     }
 
@@ -249,8 +250,19 @@ class Payments extends Page implements HasTable
                 TextColumn::make('classification_status')
                     ->label('Розбір')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => $state === 'unsorted' ? 'Не розібрано' : 'Розібрано')
-                    ->color(fn (?string $state): string => $state === 'unsorted' ? 'warning' : 'success'),
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'unsorted' => 'Не розібрано',
+                        // Void-not-delete group (user decision): known-
+                        // useless rows (bot duplicates etc.) — kept for
+                        // history, excluded from totals via status.
+                        'annulled' => 'Анульовано',
+                        default => 'Розібрано',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'unsorted' => 'warning',
+                        'annulled' => 'gray',
+                        default => 'success',
+                    }),
 
                 TextColumn::make('creator.name')
                     ->label('Вніс')
@@ -307,7 +319,11 @@ class Payments extends Page implements HasTable
 
                 SelectFilter::make('classification_status')
                     ->label('Розбір')
-                    ->options(['classified' => 'Розібрані', 'unsorted' => 'Не розібрані']),
+                    ->options([
+                        'classified' => 'Розібрані',
+                        'unsorted' => 'Не розібрані',
+                        'annulled' => 'Анульовані',
+                    ]),
 
                 SelectFilter::make('payer_type')
                     ->label('Тип платника')

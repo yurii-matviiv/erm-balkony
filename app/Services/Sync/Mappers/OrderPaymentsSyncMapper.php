@@ -69,16 +69,18 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
 
     protected function transformRow(array $oldRow): array
     {
-        // Skip if the order wasn't synced (missing client etc.)
         $orderId = DB::table('orders')
             ->where('legacy_id', $oldRow['order_id'])
             ->value('id');
 
-        if (! $orderId) {
-            throw new \RuntimeException(
-                "OrderPayment #{$oldRow['id']}: no matching order (legacy_id={$oldRow['order_id']}) — skipping."
-            );
-        }
+        // No resolvable order (the bank-import bot wrote the invoice-
+        // series prefix "9126" into order_id, or the order was skipped by
+        // sync): do NOT drop the row. Per explicit user decision these
+        // are imported into the "Анульовані" group — order_id = NULL,
+        // status 'canceled' (excluded from every total, analytics counts
+        // only 'received'), classification 'annulled'. Void, don't
+        // delete: the audit trail stays visible and re-linkable by hand.
+        $annulled = $orderId === null;
 
         $payerName = $this->resolvePayerName(
             (string) ($oldRow['user_type'] ?? ''),
@@ -91,7 +93,7 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
         // installer via orders.installer_id, gauger via orders.surveyor_id
         // (the same "surveyor is the crew's responsible" mapping used by
         // OrdersSyncMapper).
-        if ($payerName === null) {
+        if ($payerName === null && $orderId !== null) {
             $payerName = match ($oldRow['user_type'] ?? '') {
                 'client' => DB::table('orders')
                     ->join('clients', 'clients.id', '=', 'orders.client_id')
@@ -117,8 +119,8 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             'payer_name'           => $payerName,
             'payment_method'       => $oldRow['method'] ?? null,
             'amount'               => (float) ($oldRow['amount'] ?? 0),
-            'status'               => $oldRow['status'] ?? 'received',
-            'classification_status'=> $this->classify($oldRow, $payerName),
+            'status'               => $annulled ? 'canceled' : ($oldRow['status'] ?? 'received'),
+            'classification_status'=> $annulled ? 'annulled' : $this->classify($oldRow, $payerName),
             'category'             => $oldRow['category'] ?: null,
             'comment'              => $oldRow['comment'] ?: null,
             'created_by'           => $this->resolveCreatedBy($oldRow),
@@ -145,6 +147,28 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
         }
 
         return DB::table('users')->where('legacy_id', $oldUserId)->value('id');
+    }
+
+    /**
+     * classification_status is written on first INSERT only (excluded
+     * from the on-duplicate update list): a human's manual verdict on the
+     * "Платежі" page (розібрано / анульовано) must survive the every-
+     * minute auto-sync — same protection pattern as passwords in
+     * UsersSyncMapper. Annulled rows also keep status='canceled' stable,
+     * because they are recomputed as annulled on every pass anyway
+     * (their order stays unresolvable).
+     */
+    protected function persistRow(array $newData, array $oldRow, bool $existed): ?int
+    {
+        DB::table($this->newTable())->upsert(
+            [$newData],
+            ['legacy_id'],
+            array_values(array_diff(array_keys($newData), ['classification_status'])),
+        );
+
+        return DB::table($this->newTable())
+            ->where('legacy_id', $newData['legacy_id'])
+            ->value('id');
     }
 
     /**
