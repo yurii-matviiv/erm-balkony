@@ -40,6 +40,24 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
         return 'orders_payments';
     }
 
+    /**
+     * The EXACT complement of GeneralExpensesSyncMapper::legacyQuery():
+     * general rows (user_type expense/office WITHOUT an order) belong to
+     * the expenses table and must never enter order_payments — without
+     * this exclusion the annulled-import change pulled ~1.5k general
+     * expenses in as grey duplicates. Every old row is handled by exactly
+     * ONE of the two payment mappers.
+     */
+    protected function legacyQuery(): \Illuminate\Database\Query\Builder
+    {
+        return DB::connection('legacy')
+            ->table($this->oldTable())
+            ->where(function ($q) {
+                $q->whereNotIn('user_type', ['expense', 'office'])
+                    ->orWhere('order_id', '>', 0);
+            });
+    }
+
     public function newTable(): string
     {
         return 'order_payments';
