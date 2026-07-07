@@ -130,6 +130,10 @@ class GeneralExpensesSyncMapper extends AbstractSyncMapper
             'sub_category'   => $oldRow['sub_category'] ?: null,
             'comment'        => $oldRow['comment'] ?: null,
             'created_by'     => $this->resolveCreatedBy($oldRow),
+            // General rows have no order to fall back to — only the
+            // explicit FOP-owner marker applies (same step 1 as in
+            // OrderPaymentsSyncMapper::resolveFopAccountId()).
+            'fop_account_id' => $this->resolveFopAccountId($oldRow),
             'paid_at'        => $this->sanitizeDate($oldRow['date_create'] ?? null),
             'created_at'     => $this->sanitizeDate($oldRow['date_create'] ?? null) ?? now(),
             'updated_at'     => now(),
@@ -149,6 +153,25 @@ class GeneralExpensesSyncMapper extends AbstractSyncMapper
         $ts = strtotime($value);
 
         return $ts !== false && $ts > 0 ? date('Y-m-d', $ts) : null;
+    }
+
+    /**
+     * FOP account: old fop_account = old users.id of the FOP owner →
+     * users.legacy_id → privatbank_accounts.user_id. NULL when absent.
+     */
+    private function resolveFopAccountId(array $oldRow): ?int
+    {
+        $oldUserId = (int) ($oldRow['fop_account'] ?? 0);
+
+        if ($oldUserId <= 0) {
+            return null;
+        }
+
+        $userId = DB::table('users')->where('legacy_id', $oldUserId)->value('id');
+
+        return $userId
+            ? DB::table('privatbank_accounts')->where('user_id', $userId)->value('id')
+            : null;
     }
 
     /**

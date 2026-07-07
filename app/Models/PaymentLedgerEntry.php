@@ -44,6 +44,11 @@ class PaymentLedgerEntry extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function fopAccount(): BelongsTo
+    {
+        return $this->belongsTo(PrivatbankAccount::class, 'fop_account_id');
+    }
+
     /** The real underlying Expense row (only for source = 'expense'). */
     public function expense(): ?Expense
     {

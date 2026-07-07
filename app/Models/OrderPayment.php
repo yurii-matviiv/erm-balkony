@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'legacy_id', 'order_id', 'direction', 'payer_type', 'payer_name',
     'payment_method', 'amount', 'status', 'classification_status', 'category',
     'comment', 'created_by', 'paid_at', 'received_at',
-    'privatbank_num', 'fop_account_legacy_id',
+    'privatbank_num', 'fop_account_legacy_id', 'fop_account_id',
 ])]
 class OrderPayment extends Model
 {

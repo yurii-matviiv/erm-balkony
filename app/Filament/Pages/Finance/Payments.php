@@ -237,6 +237,11 @@ class Payments extends Page implements HasTable
                     ->badge()
                     ->color(fn (?string $state): string => $state === 'cash' ? 'gray' : 'indigo'),
 
+                TextColumn::make('fopAccount.display_name')
+                    ->label('Рахунок (ФОП)')
+                    ->placeholder('не визначено')
+                    ->toggleable(),
+
                 TextColumn::make('status')
                     ->label('Статус')
                     ->formatStateUsing(fn (?string $state): string => self::statusOptions()[$state] ?? ($state ?? '—'))
@@ -312,6 +317,12 @@ class Payments extends Page implements HasTable
                 SelectFilter::make('payment_method')
                     ->label('Метод')
                     ->options(self::methodOptions()),
+
+                SelectFilter::make('fop_account_id')
+                    ->label('Рахунок (ФОП)')
+                    ->options(fn (): array => \App\Models\PrivatbankAccount::orderBy('display_name')
+                        ->pluck('display_name', 'id')
+                        ->all()),
 
                 SelectFilter::make('status')
                     ->label('Статус')
@@ -394,7 +405,7 @@ class Payments extends Page implements HasTable
                     ->visible(fn (PaymentLedgerEntry $record): bool => $record->source === 'expense')
                     ->modalHeading('Редагувати витрату')
                     ->fillForm(fn (PaymentLedgerEntry $record): array => Expense::find($record->source_id)?->only([
-                        'category', 'sub_category', 'direction', 'payment_method', 'amount', 'status', 'paid_at', 'comment',
+                        'category', 'sub_category', 'direction', 'payment_method', 'fop_account_id', 'amount', 'status', 'paid_at', 'comment',
                     ]) ?? [])
                     ->form(self::expenseFormSchema())
                     ->action(function (PaymentLedgerEntry $record, array $data): void {
@@ -488,6 +499,14 @@ class Payments extends Page implements HasTable
                 ->options(Expense::paymentMethodOptions())
                 ->default('cash')
                 ->required(),
+
+            Select::make('fop_account_id')
+                ->label('Рахунок (ФОП)')
+                ->options(fn (): array => \App\Models\PrivatbankAccount::orderBy('display_name')
+                    ->pluck('display_name', 'id')
+                    ->all())
+                ->placeholder('Не визначено')
+                ->nullable(),
 
             TextInput::make('amount')
                 ->label('Сума')

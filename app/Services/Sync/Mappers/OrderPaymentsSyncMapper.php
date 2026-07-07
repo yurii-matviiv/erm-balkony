@@ -146,6 +146,7 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             'received_at'          => $this->sanitizeDate($oldRow['date_receiving'] ?? null),
             'privatbank_num'       => $oldRow['privatbank_num'] ?: null,
             'fop_account_legacy_id'=> $oldRow['fop_account'] ?: null,
+            'fop_account_id'       => $this->resolveFopAccountId($oldRow, $orderId),
             'created_at'           => $this->sanitizeDate($oldRow['date_create'] ?? null) ?? now(),
             'updated_at'           => now(),
         ];
@@ -166,6 +167,49 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
         $ts = strtotime($value);
 
         return $ts !== false && $ts > 0 ? date('Y-m-d', $ts) : null;
+    }
+
+    /**
+     * FOP account (privatbank_accounts) — user decision, 2026-07-07:
+     *   1. old fop_account holds the old users.id of the FOP owner
+     *      (35 Рабченюк / 47 Смірнова / 60 Пижанова) → that user's FOP;
+     *   2. anything else (NULL/0, or a user without an own FOP — old ids
+     *      1, 68) → the FOP of the ORDER'S MANAGER;
+     *   3. manager has no own FOP either → NULL ("не визначено").
+     * Cash/cashless remains a separate axis (payment_method) — this field
+     * answers "whose books", not "how paid".
+     */
+    private function resolveFopAccountId(array $oldRow, ?int $orderId): ?int
+    {
+        $byOldUserId = function (?int $oldUserId): ?int {
+            if (! $oldUserId) {
+                return null;
+            }
+
+            $userId = DB::table('users')->where('legacy_id', $oldUserId)->value('id');
+
+            return $userId
+                ? DB::table('privatbank_accounts')->where('user_id', $userId)->value('id')
+                : null;
+        };
+
+        // 1. Explicit FOP owner marker on the payment row.
+        $accountId = $byOldUserId((int) ($oldRow['fop_account'] ?? 0));
+
+        if ($accountId !== null) {
+            return $accountId;
+        }
+
+        // 2. Fall back to the order's manager.
+        if ($orderId !== null) {
+            $managerId = DB::table('orders')->where('id', $orderId)->value('manager_id');
+
+            if ($managerId) {
+                return DB::table('privatbank_accounts')->where('user_id', $managerId)->value('id');
+            }
+        }
+
+        return null;
     }
 
     /**
