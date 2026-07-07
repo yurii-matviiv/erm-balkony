@@ -97,8 +97,8 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 'panels::body.end',
                 fn (): string => <<<'HTML'
-<div id="global-loading-pill" style="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:9999;display:none;align-items:center;gap:8px;padding:8px 16px;border-radius:9999px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,.25);pointer-events:none;">
-    <span id="global-loading-spinner" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:glp-spin .7s linear infinite;"></span>
+<div id="global-loading-pill" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;display:none;align-items:center;gap:10px;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:600;color:#fff;box-shadow:0 8px 40px rgba(0,0,0,.35);pointer-events:none;">
+    <span id="global-loading-spinner" style="display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:glp-spin .7s linear infinite;"></span>
     <span id="global-loading-text">Оновлення даних…</span>
 </div>
 <style>@keyframes glp-spin{to{transform:rotate(360deg)}}</style>
