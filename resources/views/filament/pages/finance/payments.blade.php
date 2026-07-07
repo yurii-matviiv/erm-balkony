@@ -66,32 +66,9 @@
         </div>
     </x-filament::section>
 
-    {{-- ═══════════════════════════════════════════════
-         LOADING FEEDBACK — explicit user request: with large periods it
-         was impossible to tell whether filtering is running or the page
-         hung. `wire:loading` (no target) reacts to EVERY Livewire
-         round-trip on this page: filters, dates, search, sort,
-         pagination. While loading — spinner + message and the table dims;
-         when idle — a green "done" line with the render time.
-         ═══════════════════════════════════════════════ --}}
-    <div class="flex items-center gap-2 text-sm" aria-live="polite">
-        <div wire:loading.flex class="items-center gap-2 font-medium text-primary-600 dark:text-primary-400">
-            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-            </svg>
-            Фільтрування даних…
-        </div>
-        <div wire:loading.remove class="flex items-center gap-1.5 text-success-600 dark:text-success-400">
-            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-            </svg>
-            Вибірку завершено о {{ now()->format('H:i:s') }}
-        </div>
-    </div>
-
-    <div wire:loading.class="pointer-events-none opacity-50" class="transition-opacity">
-        {{ $this->table }}
-    </div>
+    {{-- Loading feedback is GLOBAL now — see the panels::body.end render
+         hook in AdminPanelProvider (works for every Livewire request on
+         every page, including this table's filters). --}}
+    {{ $this->table }}
 
 </x-filament-panels::page>

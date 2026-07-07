@@ -83,6 +83,65 @@ class AdminPanelProvider extends PanelProvider
                         . '</div>'
                     : '',
             )
+            // ── Global data-loading indicator (every user, every page) ────
+            // Explicit user request: with big filter periods it was
+            // impossible to tell whether filtering was running or hung.
+            // Local wire:loading proved unreliable with Filament 5's
+            // partial table rendering, so this hooks the Livewire request
+            // lifecycle itself (Livewire.hook('commit')) — it therefore
+            // works UNIVERSALLY: table filters on Платежі, the date bar
+            // on Аналітика, sidebar toggles, any future page. Pill at the
+            // bottom: spinner while any request is in flight, then a
+            // short green "done" confirmation. Inline styles on purpose —
+            // no dependency on the Vite/Tailwind build.
+            ->renderHook(
+                'panels::body.end',
+                fn (): string => <<<'HTML'
+<div id="global-loading-pill" style="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:9999;display:none;align-items:center;gap:8px;padding:8px 16px;border-radius:9999px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,.25);pointer-events:none;">
+    <span id="global-loading-spinner" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:glp-spin .7s linear infinite;"></span>
+    <span id="global-loading-text">Оновлення даних…</span>
+</div>
+<style>@keyframes glp-spin{to{transform:rotate(360deg)}}</style>
+<script>
+document.addEventListener('livewire:init', () => {
+    const pill = document.getElementById('global-loading-pill');
+    const spinner = document.getElementById('global-loading-spinner');
+    const text = document.getElementById('global-loading-text');
+    let active = 0;
+    let hideTimer = null;
+
+    const showLoading = () => {
+        clearTimeout(hideTimer);
+        pill.style.display = 'flex';
+        pill.style.background = '#f59e0b';
+        spinner.style.display = 'inline-block';
+        text.textContent = 'Оновлення даних…';
+    };
+
+    const showDone = () => {
+        pill.style.display = 'flex';
+        pill.style.background = '#16a34a';
+        spinner.style.display = 'none';
+        text.textContent = '✓ Дані оновлено';
+        hideTimer = setTimeout(() => { pill.style.display = 'none'; }, 1800);
+    };
+
+    Livewire.hook('commit', ({ succeed, fail }) => {
+        active++;
+        showLoading();
+
+        const finish = () => {
+            active = Math.max(0, active - 1);
+            if (active === 0) showDone();
+        };
+
+        succeed(finish);
+        fail(finish);
+    });
+});
+</script>
+HTML,
+            )
             // ── Developer floating toolbar (super_admin only) ─────────────
             // Fixed button in the bottom-right corner. Sends a POST to
             // /dev/clear-cache which runs cache:clear, view:clear,
