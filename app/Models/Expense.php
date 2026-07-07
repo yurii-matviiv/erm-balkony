@@ -107,6 +107,10 @@ class Expense extends Model
             ],
             'marketing' => [
                 'google'               => 'Google',
+                // Automatic Google Ads card charges imported from the old
+                // google_ads_pay bank journal — kept SEPARATE from manual
+                // 'google' contractor invoices, per explicit user request.
+                'google_ads'           => 'Google Ads (списання)',
                 'facebook'             => 'Facebook',
                 'instagram'            => 'Instagram',
                 'outsourced_marketing' => 'Аутсорс-маркетинг',

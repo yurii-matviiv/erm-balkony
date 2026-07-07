@@ -5,6 +5,7 @@ namespace App\Services\Sync;
 use App\Services\Sync\Contracts\SyncMapper;
 use App\Services\Sync\Mappers\AddCandidateSyncMapper;
 use App\Services\Sync\Mappers\GeneralExpensesSyncMapper;
+use App\Services\Sync\Mappers\GoogleAdsPaySyncMapper;
 use App\Services\Sync\Mappers\CandidatesSyncMapper;
 use App\Services\Sync\Mappers\ClientsSyncMapper;
 use App\Services\Sync\Mappers\CommercialFromSupplierFileSyncMapper;
@@ -52,6 +53,10 @@ class SyncMapperRegistry
             // where order_id is NULL — skipped by OrderPaymentsSyncMapper, synced here
             // into the `expenses` table instead. No dependency on other mappers.
             new GeneralExpensesSyncMapper,
+            // Automatic Google Ads card charges (the old system's mini
+            // bank journal) — also writes to `expenses`, with its own
+            // legacy_id offset. Depends only on users/privatbank_accounts.
+            new GoogleAdsPaySyncMapper,
             // File links (Google Drive URLs) — all must run AFTER OrdersSyncMapper.
             // Each reads from its own old table but writes to the shared `order_files`.
             new SpecificationFileSyncMapper,

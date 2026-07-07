@@ -865,9 +865,13 @@ class FinanceAnalyticsService
             $pbError = true;
         }
 
-        // Find or create the Google sub-item in the marketing group
+        // Compare PB card charges against the AUTO-charge bucket
+        // ('Google Ads (списання)' — imported from the old google_ads_pay
+        // bank journal). Manual contractor invoices (sub 'google', e.g.
+        // "За рекламу Гугл Шевченко С.В.") are a different kind of spend
+        // and deliberately NOT part of this check.
         $googleCrmTotal = collect($marketingGroup['items'])
-            ->firstWhere('label', 'Google')['total'] ?? 0.0;
+            ->firstWhere('label', 'Google Ads (списання)')['total'] ?? 0.0;
 
         $marketingGroup['pb_google']       = $pbGoogleTotal;
         $marketingGroup['pb_google_diff']  = $pbGoogleTotal - $googleCrmTotal;
