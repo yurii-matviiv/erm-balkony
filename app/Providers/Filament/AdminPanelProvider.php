@@ -48,6 +48,12 @@ class AdminPanelProvider extends PanelProvider
             // package's CSS) and just ADDS @source lines for our own
             // Resources/Pages/Blade files — see that file's docblock.
             ->viteTheme('resources/css/filament/admin/theme.css')
+            // Sidebar hides COMPLETELY on desktop (not icons-only) — it
+            // was eating too much space on small screens. Toggled by
+            // clicking the "ERM" brand (render hook below); state is
+            // persisted by Filament itself (Alpine $persist → browser
+            // localStorage), so the browser remembers the choice.
+            ->sidebarFullyCollapsibleOnDesktop()
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             // No stock Filament\Pages\Dashboard here: our own
@@ -150,6 +156,68 @@ document.addEventListener('livewire:init', () => {
         fail(finish);
     });
 });
+</script>
+HTML : '',
+            )
+            // ── Sidebar: click the "ERM" brand to collapse/expand ─────────
+            // Works with ->sidebarFullyCollapsibleOnDesktop() above.
+            // Default state is COLLAPSED: on the very first visit (no
+            // persisted value in localStorage yet — Filament's $persist
+            // stores it as '_x_isOpenDesktop') we close the store once;
+            // afterwards the user's last choice always wins. Click is
+            // delegated from `document` so it survives livewire:navigate
+            // DOM swaps; guests excluded — the login page has a logo too,
+            // but no sidebar.
+            ->renderHook(
+                'panels::body.end',
+                fn (): string => auth()->check() ? <<<'HTML'
+<style>.fi-logo{cursor:pointer;user-select:none;}</style>
+<script>
+(() => {
+    const sidebarStore = () => window.Alpine?.store('sidebar');
+
+    // Default = collapsed, only when nothing is persisted yet.
+    const applyDefaultCollapsed = () => {
+        const store = sidebarStore();
+
+        if (! store) {
+            setTimeout(applyDefaultCollapsed, 50);
+
+            return;
+        }
+
+        if (window.innerWidth >= 1024 && localStorage.getItem('_x_isOpenDesktop') === null) {
+            store.close();
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', applyDefaultCollapsed);
+
+    if (document.readyState !== 'loading') {
+        applyDefaultCollapsed();
+    }
+
+    // Brand click = toggle (the logo normally links to the home page —
+    // we swallow that; the sidebar is the only thing it should drive).
+    document.addEventListener('click', (event) => {
+        const logo = event.target.closest('.fi-logo');
+
+        if (! logo) {
+            return;
+        }
+
+        const store = sidebarStore();
+
+        if (! store) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        store.isOpen ? store.close() : store.open();
+    });
+})();
 </script>
 HTML : '',
             )
