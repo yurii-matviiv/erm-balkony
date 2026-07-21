@@ -3,8 +3,10 @@
 namespace App\Services\Finance;
 
 use App\Models\Expense;
+use App\Models\MobileOperatorAccount;
 use App\Models\OrderPayment;
 use App\Models\PrivatbankAccount;
+use App\Services\MobileOperators\KyivstarApiService;
 use App\Services\Privatbank\PrivatbankApiService;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +23,7 @@ class FinanceAnalyticsService
 {
     public function __construct(
         private readonly PrivatbankApiService $privatbank,
+        private readonly KyivstarApiService $kyivstar,
     ) {}
 
     // ══════════════════════════════════════════════
@@ -319,6 +322,74 @@ class FinanceAnalyticsService
         }
 
         return $groups;
+    }
+
+    /**
+     * Current balance of active mobile-operator accounts.
+     *
+     * This is intentionally independent from the date filter: it is a live
+     * account balance for the owner/manager dashboard, not a period expense.
+     *
+     * @return array{
+     *     total: float,
+     *     accounts: array<int, array{name: string, operator: string, amount: ?float, currency: string, status: string, message: ?string, accounts_count: ?int}>,
+     *     has_error: bool
+     * }
+     */
+    public function getMobileOperatorBalances(): array
+    {
+        $total = 0.0;
+        $hasError = false;
+        $rows = [];
+
+        $accounts = MobileOperatorAccount::query()
+            ->where('is_active', true)
+            ->orderBy('operator')
+            ->orderBy('display_name')
+            ->get();
+
+        foreach ($accounts as $account) {
+            $balance = match ($account->operator) {
+                'kyivstar' => $this->kyivstar->getBalance($account),
+                default => null,
+            };
+
+            if ($balance === null) {
+                $hasError = true;
+                $rows[] = [
+                    'name' => $account->display_name ?: $account->phone_number ?: $account->operatorLabel(),
+                    'operator' => $account->operatorLabel(),
+                    'amount' => null,
+                    'currency' => 'UAH',
+                    'status' => 'error',
+                    'message' => $account->operator === 'kyivstar'
+                        ? 'Не вдалося отримати баланс'
+                        : 'Для цього оператора ще немає API-драйвера',
+                    'accounts_count' => null,
+                ];
+
+                continue;
+            }
+
+            $amount = (float) ($balance['amount'] ?? 0);
+            $total += $amount;
+
+            $rows[] = [
+                'name' => $account->display_name ?: $account->phone_number ?: $account->operatorLabel(),
+                'operator' => $account->operatorLabel(),
+                'amount' => $amount,
+                'currency' => $balance['currency'] ?? 'UAH',
+                'status' => 'ok',
+                'message' => null,
+                'accounts_count' => $balance['accounts_count'] ?? null,
+            ];
+        }
+
+        return [
+            'total' => $total,
+            'accounts' => $rows,
+            'has_error' => $hasError,
+        ];
     }
 
     // ──────────────────────────────────────────────

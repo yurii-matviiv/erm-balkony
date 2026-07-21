@@ -100,6 +100,61 @@
     </div>
 
     {{-- ═══════════════════════════════════════════════
+         MOBILE OPERATOR BALANCES — live account balances
+         ═══════════════════════════════════════════════ --}}
+    <x-filament::section heading="Баланс мобільних рахунків">
+        @if (count($mobileBalances['accounts']) === 0)
+            <div class="py-4 text-sm text-gray-400">
+                Активних мобільних рахунків у налаштуваннях ще немає.
+            </div>
+        @else
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-200 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                            <th class="pb-2 pr-6">Оператор</th>
+                            <th class="pb-2 pr-6">Рахунок</th>
+                            <th class="pb-2 pr-6 text-right">Баланс</th>
+                            <th class="pb-2 text-right">Стан</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach ($mobileBalances['accounts'] as $account)
+                            <tr>
+                                <td class="py-2 pr-6 font-medium text-gray-800 dark:text-gray-200">
+                                    {{ $account['operator'] }}
+                                </td>
+                                <td class="py-2 pr-6 text-gray-600 dark:text-gray-400">
+                                    {{ $account['name'] }}
+                                    @if (!empty($account['accounts_count']))
+                                        <span class="ml-1 text-xs text-gray-400">
+                                            {{ $account['accounts_count'] }} рах.
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="py-2 pr-6 text-right tabular-nums font-semibold">
+                                    @if ($account['status'] === 'ok')
+                                        {{ number_format($account['amount'], 2, '.', ' ') }} {{ $account['currency'] === 'UAH' ? 'грн' : $account['currency'] }}
+                                    @else
+                                        <span class="text-gray-400">—</span>
+                                    @endif
+                                </td>
+                                <td class="py-2 text-right">
+                                    @if ($account['status'] === 'ok')
+                                        <span class="text-success-600 dark:text-success-400">Оновлено</span>
+                                    @else
+                                        <span class="text-warning-600 dark:text-warning-400">{{ $account['message'] }}</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </x-filament::section>
+
+    {{-- ═══════════════════════════════════════════════
          INCOME TABLE
          ═══════════════════════════════════════════════ --}}
     <x-filament::section heading="Надходження">

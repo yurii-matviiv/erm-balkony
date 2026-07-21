@@ -124,6 +124,9 @@ class InvoiceAnalytics extends Page
             // KPI
             'kpi'            => $service->getKpiTotals($range),
 
+            // Live mobile operator balances (independent from date filter)
+            'mobileBalances' => $service->getMobileOperatorBalances(),
+
             // Income section
             'income'         => $service->getIncomeData($range),
 
