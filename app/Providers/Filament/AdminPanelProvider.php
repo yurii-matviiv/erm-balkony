@@ -48,12 +48,12 @@ class AdminPanelProvider extends PanelProvider
             // package's CSS) and just ADDS @source lines for our own
             // Resources/Pages/Blade files — see that file's docblock.
             ->viteTheme('resources/css/filament/admin/theme.css')
-            // Sidebar hides COMPLETELY on desktop (not icons-only) — it
-            // was eating too much space on small screens. Toggled by
+            // Collapsed = narrow icons-only rail (user request v2: NOT
+            // fully hidden — icons stay for quick access). Toggled by
             // clicking the "ERM" brand (render hook below); state is
             // persisted by Filament itself (Alpine $persist → browser
             // localStorage), so the browser remembers the choice.
-            ->sidebarFullyCollapsibleOnDesktop()
+            ->sidebarCollapsibleOnDesktop()
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             // No stock Filament\Pages\Dashboard here: our own
@@ -162,9 +162,14 @@ HTML : '',
             // ── Sidebar: click the "ERM" brand to collapse/expand ─────────
             // Works with ->sidebarFullyCollapsibleOnDesktop() above.
             // Default state is COLLAPSED: on the very first visit (no
-            // persisted value in localStorage yet — Filament's $persist
-            // stores it as '_x_isOpenDesktop') we close the store once;
-            // afterwards the user's last choice always wins. Click is
+            // persisted value in localStorage yet) we close the store
+            // once; afterwards the user's last choice always wins.
+            // CAREFUL with the storage key: Alpine's $persist adds its
+            // '_x_' prefix ONLY when .as() is not used — Filament calls
+            // .as('isOpenDesktop'), so the real key is plain
+            // 'isOpenDesktop'. Checking '_x_isOpenDesktop' here was a
+            // real bug: "first visit" never ended and the menu collapsed
+            // on every page load, ignoring the saved choice. Click is
             // delegated from `document` so it survives livewire:navigate
             // DOM swaps; guests excluded — the login page has a logo too,
             // but no sidebar.
@@ -186,7 +191,7 @@ HTML : '',
             return;
         }
 
-        if (window.innerWidth >= 1024 && localStorage.getItem('_x_isOpenDesktop') === null) {
+        if (window.innerWidth >= 1024 && localStorage.getItem('isOpenDesktop') === null) {
             store.close();
         }
     };
