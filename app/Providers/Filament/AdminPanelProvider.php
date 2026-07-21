@@ -96,9 +96,18 @@ class AdminPanelProvider extends PanelProvider
             // no dependency on the Vite/Tailwind build.
             ->renderHook(
                 'panels::body.end',
-                fn (): string => <<<'HTML'
-<div id="global-loading-pill" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;display:none;align-items:center;gap:10px;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:600;color:#fff;box-shadow:0 8px 40px rgba(0,0,0,.35);pointer-events:none;">
-    <span id="global-loading-spinner" style="display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:glp-spin .7s linear infinite;"></span>
+                // Guests excluded on purpose: the login form is a Livewire
+                // page too, so the pill showed "✓ Дані оновлено" after a
+                // FAILED sign-in attempt — nonsense outside the panel.
+                //
+                // Bottom-right (per user request — the centered pill was in
+                // the way), right:82px keeps it clear of the 48px dev
+                // clear-cache button in the same corner. Near-transparent
+                // backgrounds + colored text: enough to see "something is
+                // talking to the DB" without drawing attention.
+                fn (): string => auth()->check() ? <<<'HTML'
+<div id="global-loading-pill" style="position:fixed;bottom:28px;right:82px;z-index:9999;display:none;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:500;pointer-events:none;">
+    <span id="global-loading-spinner" style="display:inline-block;width:11px;height:11px;border:2px solid rgba(180,83,9,.3);border-top-color:#b45309;border-radius:50%;animation:glp-spin .7s linear infinite;"></span>
     <span id="global-loading-text">Оновлення даних…</span>
 </div>
 <style>@keyframes glp-spin{to{transform:rotate(360deg)}}</style>
@@ -113,17 +122,19 @@ document.addEventListener('livewire:init', () => {
     const showLoading = () => {
         clearTimeout(hideTimer);
         pill.style.display = 'flex';
-        pill.style.background = '#f59e0b';
+        pill.style.background = 'rgba(245,158,11,.10)';
+        pill.style.color = '#b45309';
         spinner.style.display = 'inline-block';
         text.textContent = 'Оновлення даних…';
     };
 
     const showDone = () => {
         pill.style.display = 'flex';
-        pill.style.background = '#16a34a';
+        pill.style.background = 'rgba(22,163,74,.10)';
+        pill.style.color = '#16a34a';
         spinner.style.display = 'none';
         text.textContent = '✓ Дані оновлено';
-        hideTimer = setTimeout(() => { pill.style.display = 'none'; }, 1800);
+        hideTimer = setTimeout(() => { pill.style.display = 'none'; }, 1400);
     };
 
     Livewire.hook('commit', ({ succeed, fail }) => {
@@ -140,7 +151,7 @@ document.addEventListener('livewire:init', () => {
     });
 });
 </script>
-HTML,
+HTML : '',
             )
             // ── Developer floating toolbar (super_admin only) ─────────────
             // Fixed button in the bottom-right corner. Sends a POST to

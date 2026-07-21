@@ -510,6 +510,11 @@ class Payments extends Page implements HasTable
 
             TextInput::make('amount')
                 ->label('Сума')
+                // Financial format (project convention, see CLAUDE.md
+                // "Конвенції"): thousands separated by a space while
+                // typing; spaces are stripped before validation/saving.
+                ->mask(\Filament\Support\RawJs::make("\$money(\$input, '.', ' ')"))
+                ->stripCharacters([' ', ','])
                 ->numeric()
                 ->suffix('₴')
                 ->minValue(0)
