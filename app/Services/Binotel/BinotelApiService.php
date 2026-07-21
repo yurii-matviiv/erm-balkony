@@ -61,7 +61,7 @@ class BinotelApiService
                 ];
             }
 
-            $employees = $json['employeeData'] ?? [];
+            $employees = $json['listOfEmployees'] ?? [];
 
             return [
                 'ok' => true,
@@ -77,6 +77,81 @@ class BinotelApiService
             return [
                 'ok' => false,
                 'message' => 'Помилка зʼєднання з Binotel API.',
+            ];
+        }
+    }
+
+    /**
+     * Experimental GSM gateway USSD request.
+     *
+     * @return array{ok: bool, message: string, response_text?: string, raw?: array}
+     */
+    public function sendUssd(BinotelAccount $account, string $number, string $code): array
+    {
+        try {
+            $response = Http::timeout(30)
+                ->acceptJson()
+                ->asJson()
+                ->post(self::BASE_URL.'/pbx-numbers/send-ussd.json', [
+                    'companyID' => $account->company_id,
+                    'key' => $account->api_key,
+                    'secret' => $account->api_secret,
+                    'number' => preg_replace('/\D+/', '', $number),
+                    'code' => $code,
+                ]);
+
+            if (! $response->successful()) {
+                Log::warning('Binotel USSD request failed', [
+                    'account' => $account->display_name,
+                    'number' => $number,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return [
+                    'ok' => false,
+                    'message' => 'Binotel API не прийняв USSD-запит.',
+                    'raw' => ['http_status' => $response->status(), 'body' => $response->body()],
+                ];
+            }
+
+            $json = $response->json();
+
+            if (($json['status'] ?? null) !== 'success') {
+                Log::warning('Binotel USSD returned API error', [
+                    'account' => $account->display_name,
+                    'number' => $number,
+                    'response' => $json,
+                ]);
+
+                return [
+                    'ok' => false,
+                    'message' => $json['message'] ?? 'Binotel API повернув помилку USSD-запиту.',
+                    'raw' => is_array($json) ? $json : [],
+                ];
+            }
+
+            $responseText = $json['responseText']
+                ?? $json['ussdResponse']
+                ?? $json['data']['responseText']
+                ?? null;
+
+            return [
+                'ok' => true,
+                'message' => 'USSD-запит виконано.',
+                'response_text' => is_string($responseText) ? $responseText : null,
+                'raw' => is_array($json) ? $json : [],
+            ];
+        } catch (\Throwable $e) {
+            Log::error('Binotel USSD connection error', [
+                'account' => $account->display_name,
+                'number' => $number,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'ok' => false,
+                'message' => 'Помилка зʼєднання з Binotel API під час USSD-запиту.',
             ];
         }
     }
