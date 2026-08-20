@@ -457,12 +457,21 @@ public function updated(string $name): void {
 - **`vacancy_application_marketing_data`** (модель `VacancyApplicationMarketingData`) — знімок UTM/атрибуції на момент ПОДАЧІ заявки, 1:1 до `VacancyApplication`. Та сама схема колонок і причина відокремлення, що й у `LeadMarketingData` для лідів (заявки, введені вручну персоналом, цих даних не мають).
 - **`App\Services\Marketing\FormAttribution`** — спільна логіка для обох таблиць: читає `utm_source/medium/campaign/term/content`, referrer, IP, user agent; `guessChannel()` мапить `utm_source` на існуючий `VacancyApplication::channelOptions()` (facebook/instagram/telegram/...) для узгодженості з заявками, введеними вручну.
 - **"Воронка вакансій"** (`VacancyFunnel`) розширена картками "Переглядів форми" / "Унікальних відвідувачів" / "Конверсія у заявку" + розбивкою "Джерело переходу (UTM)" і колонкою переглядів у розрізі вакансій — усе на основі `vacancy_form_views`, без окремої нової сторінки/permission.
+- **"Аналітика форми набору"** (`App\Filament\Pages\VacancyFormAnalytics`, окрема сторінка, права `View:VacancyFormAnalytics` — не забути `shield:generate` після деплою) — те саме, що вище, але з фільтром по датах і по вакансії, за тим самим патерном, що і "Аналітика рахунків": `FinanceDateRange::parseDateRange()`/`presetOptions()` переюзані як є (це чиста логіка з датами, нічого фінансового), `#[Url]`-властивості `preset`/`dateFrom`/`dateTo` + `applyPreset()`/`dateChanged()` — 1:1 той самий підхід, що в `InvoiceAnalytics`. Плюс картка "Сьогодні" (завжди поточний день, незалежно від фільтру — той самий принцип, що і `mobileBalances` на фінансовій сторінці), таблиця "Джерело (UTM)" (перегляди+унікальні+заявки+конверсія в одному рядку на джерело — рахунок заявок іде через join з `vacancy_application_marketing_data`, не з `vacancy_applications.advertising_channel`) і таблиця "По днях" (заповнені нулями пропуски, обмежена 90 днями в самій таблиці — картки вище рахують за весь період без обмеження). Логіка запитів — у `App\Services\Marketing\VacancyFormAnalyticsService`, сторінка сама лише збирає дані під вʼю.
 
 ### Захист від повторної заявки
 
 `VacancyFormController::store()` — якщо кандидат із цим же номером телефону вже подавав заявку на ЦЮ САМУ вакансію за останні `DUPLICATE_APPLICATION_COOLDOWN_DAYS` (30 днів), нова `VacancyApplication` НЕ створюється — людина одразу бачить сторінку подяки, але з іншим текстом ("Ваша заявка вже є в системі"), через `session('already_applied')`.
 
 Свідомо перевірка **по телефону, а не по visitor-cookie**: cookie ловить лише повторний сабміт з того самого браузера (напр. подвійний клік), а по телефону — ще й той самий кандидат, що відкрив форму з іншого пристрою/браузера (саме цей сценарій просив покрити користувач). Cooldown, а не постійна блокування назавжди — щоб не зламати легітимний кейс "кандидат подався ще раз через кілька місяців", який явно описаний у докблоку `Candidate`.
+
+### "Кандидати" (CandidateResource) — можливість видалити кандидата
+
+До цього `Candidate` не мав власного ресурсу — лише пошук/створення inline через `Select` у `VacancyApplicationResource`. Додано окремий модальний ресурс `App\Filament\Resources\CandidateResource` ("Найм" → "Кандидати") — головна причина: користувач попросив можливість ВИДАЛЯТИ кандидата, а робити це було нізвідки.
+
+**Права — default-deny, як і скрізь**: нічого тут не хардкодить перевірку ролі. Після додавання ресурсу обов'язково `php artisan shield:generate --all --panel=admin` — це згенерує `CandidatePolicy` і permissions (`ViewAny:Candidate`, `Delete:Candidate`, `DeleteAny:Candidate` тощо), той самий `<Дія>:<Модель>` формат, що і в `VacancyPolicy`/`VacancyApplicationPolicy`. Одразу після генерації жодна роль, крім `super_admin`, нічого не бачить — щоб "видаляти кандидата може тільки Адмін", потрібно вручну зайти в керування ролями і видати `Delete:Candidate` (+ `ViewAny:Candidate`/`View:Candidate`, щоб роль взагалі бачила сторінку) саме ролі "Адмін".
+
+**Важливо:** видалення кандидата каскадне — `vacancy_applications.candidate_id` має `cascadeOnDelete()` (див. `create_vacancy_applications_table`), тож видаляються і ВСІ його заявки на вакансії (а разом з ними — `vacancy_application_marketing_data`). Модалка підтвердження видалення явно про це попереджає (не стандартне filament-"Ви впевнені?").
 
 ### Що свідомо не зроблено зараз
 
