@@ -6,12 +6,31 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'is_active', 'comment'])]
+#[Fillable(['name', 'slug', 'is_active', 'comment'])]
 class Vacancy extends Model
 {
     public function applications(): HasMany
     {
         return $this->hasMany(VacancyApplication::class);
+    }
+
+    /**
+     * Every logged page load of this vacancy's public form — see
+     * VacancyFormView. Used by "Воронка вакансій" for the
+     * views/unique-visitors/conversion numbers.
+     */
+    public function formViews(): HasMany
+    {
+        return $this->hasMany(VacancyFormView::class);
+    }
+
+    /**
+     * Full public URL for the Instagram-ad landing form, or null if this
+     * vacancy has no `slug` yet (i.e. no campaign points at it).
+     */
+    public function getPublicFormUrlAttribute(): ?string
+    {
+        return $this->slug ? route('vacancy-form.show', $this->slug) : null;
     }
 
     /**

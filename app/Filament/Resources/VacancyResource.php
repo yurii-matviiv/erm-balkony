@@ -47,8 +47,17 @@ class VacancyResource extends Resource
                 ->required()
                 ->maxLength(255),
 
+            TextInput::make('slug')
+                ->label('Слаг для публічної форми (реклама)')
+                ->helperText('Латиниця, цифри, дефіси. Використовується у посиланні для реклами: '.url('/vacancy').'/{слаг}. Якщо порожньо — публічної форми для цієї вакансії немає.')
+                ->alphaDash()
+                ->maxLength(255)
+                ->unique(ignoreRecord: true)
+                ->nullable(),
+
             Toggle::make('is_active')
                 ->label('Відкрита для заявок')
+                ->helperText('Якщо вимкнено — публічна форма (за наявності слага) показує повідомлення "набір призупинено" замість форми.')
                 ->default(true),
 
             Textarea::make('comment')
@@ -69,10 +78,25 @@ class VacancyResource extends Resource
                     ->label('Відкрита')
                     ->boolean(),
 
+                TextColumn::make('public_form_url')
+                    ->label('Посилання на форму')
+                    ->placeholder('Слаг не задано')
+                    ->copyable()
+                    ->copyMessage('Посилання скопійовано')
+                    ->limit(40)
+                    ->toggleable(),
+
                 TextColumn::make('applications_count')
                     ->label('Заявок')
                     ->counts('applications')
                     ->badge(),
+
+                TextColumn::make('form_views_count')
+                    ->label('Переглядів форми')
+                    ->counts('formViews')
+                    ->badge()
+                    ->color('gray')
+                    ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->label('Створено')

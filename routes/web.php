@@ -9,6 +9,31 @@ Route::get('/', function () {
         : redirect('/admin/login');
 });
 
+// ── Публічна форма набору персоналу (Instagram-реклама тощо) ─────────────
+// Без логіну: кандидат переходить сюди прямо з рекламного оголошення.
+// Одна форма на одну вакансію (Vacancy.slug), щоб кожна рекламна кампанія
+// вела прямо на потрібну вакансію без додаткового вибору кандидатом.
+//
+// Кожен GET одразу логується як "перегляд" (VacancyFormController::show),
+// незалежно від того, чи людина щось заповнить — саме це дає окрему
+// аналітику "скільки разів відкрили форму / з якого джерела", а не лише
+// підрахунок вже поданих заявок. POST обмежено `throttle`, бо форма
+// публічна і без CAPTCHA (захист від автоматичного заповнення — honeypot-
+// поле всередині контролера/форми).
+//
+// Задумано так, щоб у майбутньому перед формою можна було додати окрему
+// сторінку-оголошення (умови вакансії + кнопка "Перейти до форми") —
+// вона вестиме саме на /vacancy/{slug}, цей контролер міняти не доведеться.
+Route::get('/vacancy/{slug}', [\App\Http\Controllers\Public\VacancyFormController::class, 'show'])
+    ->name('vacancy-form.show');
+
+Route::post('/vacancy/{slug}', [\App\Http\Controllers\Public\VacancyFormController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('vacancy-form.store');
+
+Route::get('/vacancy/{slug}/thanks', [\App\Http\Controllers\Public\VacancyFormController::class, 'thanks'])
+    ->name('vacancy-form.thanks');
+
 // ── Developer tools — super_admin only ────────────────────────────────────
 // Clears all caches that can cause stale UI during development.
 // Protected by auth + role check; not exposed in production without login.

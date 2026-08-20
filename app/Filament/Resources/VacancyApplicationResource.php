@@ -9,6 +9,7 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -36,6 +37,11 @@ use Filament\Tables\Table;
  * createOptionForm pattern, which maps directly onto the "check if a
  * contact with this phone already exists" flow that was asked for, without
  * needing any custom duplicate-detection JS/logic.
+ *
+ * `skills`/`skills_other` are populated by the public form
+ * (App\Http\Controllers\Public\VacancyFormController) — shown here so staff
+ * can see what a self-service candidate reported, and editable in case an
+ * application is entered manually instead.
  */
 class VacancyApplicationResource extends Resource
 {
@@ -104,6 +110,17 @@ class VacancyApplicationResource extends Resource
                 ->label('Цільова заявка')
                 ->helperText('Чи людина свідомо подавалась саме на цю вакансію, а не випадковий/загальний контакт.'),
 
+            CheckboxList::make('skills')
+                ->label('Навички')
+                ->options(VacancyApplication::skillOptions())
+                ->columns(2)
+                ->columnSpanFull()
+                ->helperText('Заповнюється автоматично, якщо заявка прийшла з публічної форми.'),
+
+            Textarea::make('skills_other')
+                ->label("Інше (зі слів кандидата)")
+                ->columnSpanFull(),
+
             Textarea::make('comment')
                 ->label('Коментар')
                 ->columnSpanFull(),
@@ -131,6 +148,20 @@ class VacancyApplicationResource extends Resource
                     ->label('Канал')
                     ->formatStateUsing(fn (?string $state): string => VacancyApplication::channelOptions()[$state] ?? '—')
                     ->toggleable(),
+
+                TextColumn::make('skills')
+                    ->label('Навички')
+                    ->formatStateUsing(function (?array $state): string {
+                        if (empty($state)) {
+                            return '—';
+                        }
+
+                        $labels = VacancyApplication::skillOptions();
+
+                        return collect($state)->map(fn (string $key): string => $labels[$key] ?? $key)->implode(', ');
+                    })
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('created_at')
                     ->label('Дата заявки')

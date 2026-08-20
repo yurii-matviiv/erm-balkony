@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Vacancy;
 use App\Models\VacancyApplication;
+use App\Models\VacancyFormView;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Tables\Columns\IconColumn;
@@ -16,11 +17,17 @@ use Filament\Tables\Table;
 
 /**
  * "Воронка вакансій" — a quick read-only overview of how hiring is going:
- * how many applications per vacancy, per channel, and how many were
- * "цільові" (targeted) vs not, plus the same filters so the underlying
- * list can be narrowed down. Deliberately simple (per the initial request:
- * get the Vacancy entity itself in place and usable first, refine the
- * funnel visualization later once there is real data to look at).
+ * how many times the public form was opened (and by how many unique
+ * visitors), how many of those turned into applications, per vacancy and
+ * per channel/UTM source, plus the same filters so the underlying list can
+ * be narrowed down.
+ *
+ * "Views" (VacancyFormView) are logged on every GET of a public vacancy
+ * form BEFORE the candidate fills anything in — see
+ * App\Http\Controllers\Public\VacancyFormController. Applications entered
+ * manually by staff have no matching views, which is expected: this page's
+ * views/unique-visitors/conversion numbers are only meaningful for
+ * self-service (ad) traffic, the application counts below them cover both.
  */
 class VacancyFunnel extends Page implements HasTable
 {
@@ -45,8 +52,8 @@ class VacancyFunnel extends Page implements HasTable
     /**
      * Simple counts for the summary cards at the top of the page. Computed
      * fresh on every page load — the volumes here are small (hundreds, not
-     * millions of applications), so there's no need for caching/precomputed
-     * aggregates yet.
+     * millions of applications/views), so there's no need for
+     * caching/precomputed aggregates yet.
      *
      * @return array<string, mixed>
      */
@@ -55,8 +62,11 @@ class VacancyFunnel extends Page implements HasTable
         $total = VacancyApplication::count();
         $targeted = VacancyApplication::where('is_targeted', true)->count();
 
+        $totalViews = VacancyFormView::count();
+        $uniqueVisitors = VacancyFormView::query()->distinct('visitor_id')->count('visitor_id');
+
         $byVacancy = Vacancy::query()
-            ->withCount('applications')
+            ->withCount(['applications', 'formViews'])
             ->orderByDesc('applications_count')
             ->get();
 
@@ -66,12 +76,24 @@ class VacancyFunnel extends Page implements HasTable
             ->orderByDesc('count')
             ->pluck('count', 'advertising_channel');
 
+        // Which ad source actually drove opens of the form — this is the
+        // number the user asked for: "аналітика по тому, як відвідують цю
+        // форму, з якого джерела приходять".
+        $viewsByUtmSource = VacancyFormView::query()
+            ->selectRaw("COALESCE(NULLIF(utm_source, ''), 'Не вказано') as source, count(*) as count")
+            ->groupBy('source')
+            ->orderByDesc('count')
+            ->pluck('count', 'source');
+
         return [
             'total' => $total,
             'targeted' => $targeted,
+            'totalViews' => $totalViews,
+            'uniqueVisitors' => $uniqueVisitors,
             'byVacancy' => $byVacancy,
             'byChannel' => $byChannel,
             'channelLabels' => VacancyApplication::channelOptions(),
+            'viewsByUtmSource' => $viewsByUtmSource,
         ];
     }
 
