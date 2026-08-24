@@ -35,7 +35,9 @@ use Illuminate\Database\Eloquent\Builder;
  *   - Every row records created_by + created_at (exact time) — the audit
  *     trail the user explicitly asked for.
  *   - Editing/deleting rows is super_admin-only (real roles, not the
- *     active-role switcher) — everyone else only adds operations.
+ *     active-role switcher) — everyone else only adds operations. One
+ *     narrow exception: "Керівник компанії" may edit (not delete) a row
+ *     ONLY if he is its own created_by — see canEditRecord().
  *
  * Access: default-deny via RequiresViewPermission ('View:Settlements') —
  * nobody but super_admin sees the page until it is enabled for a role in
@@ -246,7 +248,7 @@ class Settlements extends Page implements HasTable
                 Action::make('edit_settlement')
                     ->label('Редагувати')
                     ->icon('heroicon-o-pencil-square')
-                    ->visible(fn (): bool => self::canManageRows())
+                    ->visible(fn (Settlement $record): bool => self::canEditRecord($record))
                     ->modalHeading('Редагувати операцію')
                     // Type/recipient are NOT editable — a wrong direction
                     // is a delete + re-create, not a silent flip.
@@ -255,6 +257,8 @@ class Settlements extends Page implements HasTable
                         ? [self::handedBySelect(), ...self::amountDateCommentSchema()]
                         : self::amountDateCommentSchema())
                     ->action(function (Settlement $record, array $data): void {
+                        abort_unless(self::canEditRecord($record), 403);
+
                         $record->update($data);
 
                         Notification::make()->title('Збережено')->color('success')->send();
@@ -364,6 +368,28 @@ class Settlements extends Page implements HasTable
     private static function canManageRows(): bool
     {
         return auth()->user()?->hasRole('super_admin') ?? false;
+    }
+
+    /**
+     * Edit access for one row: super_admin (full canManageRows) — OR a
+     * deliberate, narrow exception for "Керівник компанії": he may open
+     * and correct only the rows HE HIMSELF entered (created_by === his own
+     * id), not anyone else's. Delete stays super_admin-only (canManageRows)
+     * — this exception is edit-only, per explicit request; it does not
+     * touch the class docblock's general "editing/deleting is super_admin
+     * only" rule for every other role.
+     */
+    private static function canEditRecord(Settlement $record): bool
+    {
+        if (self::canManageRows()) {
+            return true;
+        }
+
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->hasRole('Керівник компанії')
+            && (int) $record->created_by === $user->id;
     }
 
     /**
