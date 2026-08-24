@@ -18,7 +18,15 @@ return new class extends Migration
         Schema::create('vacancy_application_marketing_data', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('vacancy_application_id')->unique()->constrained('vacancy_applications')->cascadeOnDelete();
+            // Default FK constraint name for this table+column ("..._vacancy_
+            // application_id_foreign") is 65 chars — 1 over MySQL's 64-char
+            // identifier limit (error 1059). Explicit short name below;
+            // the unique index's default name is exactly 64 chars, so it's
+            // left as-is.
+            $table->foreignId('vacancy_application_id')->unique();
+            $table->foreign('vacancy_application_id', 'vam_vacancy_application_id_foreign')
+                ->references('id')->on('vacancy_applications')
+                ->cascadeOnDelete();
 
             $table->string('visitor_id')->nullable()->index();
 
