@@ -128,7 +128,7 @@ class LeadsSyncMapper extends AbstractSyncMapper
             ['old' => 'address', 'new' => 'site_street', 'note' => 'стара система зберігала повну адресу одним рядком — переноситься в site_street як є; менеджер може розбити на окремі поля вручну'],
             ['old' => 'caller_type', 'new' => '—', 'note' => "рядки з caller_type у ('spam','other','supplier') пропускаються — це не справжні ліди"],
             ['old' => 'profile, advance_calculation1-3', 'new' => '—', 'note' => 'НЕ переноситься — належить майбутньому модулю "Замовлення", дані лишаються в старій БД'],
-            ['old' => 'utm_*, device, ip_address, gdid, gbraid, wbraid, site_source, form_*, referrer, referral_1-4', 'new' => 'lead_marketing_data (1:1)', 'note' => 'окрема таблиця, gdid перейменовано на gclid'],
+            ['old' => 'utm_*, device, ip_address, gclid (раніше помилково читали gdid), gbraid, wbraid, site_source, form_*, referrer, referral_1-4', 'new' => 'lead_marketing_data (1:1)', 'note' => 'окрема таблиця'],
         ];
     }
 
@@ -243,7 +243,7 @@ class LeadsSyncMapper extends AbstractSyncMapper
             'ip_address' => $oldRow['ip_address'] ?? null,
             'user_fingerprint' => $oldRow['user_fingerprint'] ?? null,
             'client_cookie_id' => $oldRow['client_cookie_id'] ?? null,
-            'gclid' => $oldRow['gdid'] ?? null,
+            'gclid' => $oldRow['gclid'] ?? $oldRow['gdid'] ?? null,
             'gbraid' => $oldRow['gbraid'] ?? null,
             'wbraid' => $oldRow['wbraid'] ?? null,
             'referrer' => $oldRow['referrer'] ?? null,

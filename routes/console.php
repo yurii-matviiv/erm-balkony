@@ -25,3 +25,12 @@ Schedule::command('sync:legacy --scheduled')
     ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();
+
+/*
+ * Offline conversions -> Google Ads (Data Manager API).
+ * Exits immediately while mode = off (default). Modes: php artisan conversions:mode.
+ */
+Schedule::command('conversions:run')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->runInBackground();
