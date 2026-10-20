@@ -17,6 +17,7 @@ class ConversionDispatcher
     public function __construct(
         private ConversionPlanner $planner,
         private DataManagerApiService $api,
+        private UserDataBuilder $userData,
     ) {}
 
     /**
@@ -115,6 +116,16 @@ class ConversionDispatcher
         return $stats;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function eventFor(ConversionOutbox $row): array
+    {
+        $lead = Lead::with('client')->find($row->lead_id);
+
+        return $this->api->buildEvent($row->toArray(), $lead ? $this->userData->forLead($lead) : []);
+    }
+
     private function stillValid(ConversionOutbox $row): bool
     {
         $lead = Lead::with(['marketingData', 'serviceTypes'])->find($row->lead_id);
@@ -144,7 +155,7 @@ class ConversionDispatcher
             $requestId = $this->api->ingest(
                 $account,
                 $actionId,
-                array_map(fn (ConversionOutbox $r) => $this->api->buildEvent($r->toArray()), $rows),
+                array_map(fn (ConversionOutbox $r) => $this->eventFor($r), $rows),
                 $validateOnly,
             );
 
@@ -164,7 +175,7 @@ class ConversionDispatcher
         // Batch rejected: retry one by one so a single bad event does not block the rest.
         foreach ($rows as $row) {
             try {
-                $requestId = $this->api->ingest($account, $actionId, [$this->api->buildEvent($row->toArray())], $validateOnly);
+                $requestId = $this->api->ingest($account, $actionId, [$this->eventFor($row)], $validateOnly);
                 $this->markOk($row, $requestId, $validateOnly, $stats);
             } catch (\Throwable $e) {
                 $this->markError($row, $e->getMessage(), $stats);

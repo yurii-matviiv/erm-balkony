@@ -21,12 +21,7 @@ class ConversionQueue
     {
         return Lead::query()
             ->where('created_at', '>=', now()->subDays((int) config('conversions.lookback_days', 90)))
-            ->whereHas('marketingData', function ($q) {
-                $q->where(function ($w) {
-                    $w->where('gclid', '!=', '')->orWhere('gbraid', '!=', '')->orWhere('wbraid', '!=', '');
-                });
-            })
-            ->with(['marketingData', 'serviceTypes']);
+            ->with(['marketingData', 'serviceTypes', 'client']);
     }
 
     /**
@@ -143,7 +138,7 @@ class ConversionQueue
             if ($plan['send']) {
                 $this->upsertRow($lead, ConversionOutbox::KIND_QUALIFIED, null, $this->pendingFields($plan['data']));
                 $stats['created']++;
-            } elseif (in_array($plan['reason'], ['braid_not_supported', 'source_not_mapped'], true)) {
+            } elseif (in_array($plan['reason'], ['source_not_mapped'], true)) {
                 // Visible in the outbox, so it is clear why a click-bearing lead is not sent.
                 $this->upsertRow($lead, ConversionOutbox::KIND_QUALIFIED, null, [
                     'status' => ConversionOutbox::STATUS_SKIPPED,

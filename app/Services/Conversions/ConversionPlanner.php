@@ -15,6 +15,8 @@ use App\Models\Order;
  */
 class ConversionPlanner
 {
+    public function __construct(private UserDataBuilder $userData) {}
+
     /**
      * @return array{send: bool, reason: ?string, data: array<string, mixed>}
      */
@@ -41,15 +43,10 @@ class ConversionPlanner
             }
         }
 
-        $click = $this->clickId($lead);
+        $identity = $this->identity($lead);
 
-        if ($click === null) {
-            return $this->skip('no_click_id', $base);
-        }
-
-        if ($click['type'] !== 'gclid') {
-            // The existing actions are ONE_PER_CLICK, which Google does not accept with gbraid/wbraid.
-            return $this->skip('braid_not_supported', $base + ['click_id_type' => $click['type'], 'click_id' => $click['id']]);
+        if ($identity === null) {
+            return $this->skip('no_identifier', $base);
         }
 
         if ($this->outsideLookback($lead)) {
@@ -66,8 +63,8 @@ class ConversionPlanner
             'send' => true,
             'reason' => null,
             'data' => $base + [
-                'click_id_type' => $click['type'],
-                'click_id' => $click['id'],
+                'click_id_type' => $identity['click_id_type'],
+                'click_id' => $identity['click_id'],
                 'conversion_action_id' => (string) $action,
                 'value' => $this->expectedValue($lead),
                 'currency' => config('conversions.currency', 'UAH'),
@@ -97,14 +94,10 @@ class ConversionPlanner
             return $this->skip('no_order_total', $base);
         }
 
-        $click = $this->clickId($lead);
+        $identity = $this->identity($lead);
 
-        if ($click === null) {
-            return $this->skip('no_click_id', $base);
-        }
-
-        if ($click['type'] !== 'gclid') {
-            return $this->skip('braid_not_supported', $base + ['click_id_type' => $click['type'], 'click_id' => $click['id']]);
+        if ($identity === null) {
+            return $this->skip('no_identifier', $base);
         }
 
         if ($this->outsideLookback($lead)) {
@@ -115,13 +108,32 @@ class ConversionPlanner
             'send' => true,
             'reason' => null,
             'data' => $base + [
-                'click_id_type' => $click['type'],
-                'click_id' => $click['id'],
+                'click_id_type' => $identity['click_id_type'],
+                'click_id' => $identity['click_id'],
                 'conversion_action_id' => (string) $action,
                 'value' => round($total, 2),
                 'currency' => config('conversions.currency', 'UAH'),
             ],
         ];
+    }
+
+    /**
+     * What Google can match the conversion on: a gclid (best) and/or hashed phone/email
+     * (enhanced conversions for leads). gbraid/wbraid are NOT sent (ONE_PER_CLICK actions
+     * reject them) — such a lead goes with user data only. Null = nothing to match on.
+     *
+     * @return array{click_id_type: ?string, click_id: ?string}|null
+     */
+    public function identity(Lead $lead): ?array
+    {
+        $click = $this->clickId($lead);
+        $gclid = $click !== null && $click['type'] === 'gclid' ? $click['id'] : null;
+
+        if ($gclid === null && $this->userData->forLead($lead) === []) {
+            return null;
+        }
+
+        return ['click_id_type' => $gclid !== null ? 'gclid' : null, 'click_id' => $gclid];
     }
 
     public function leadState(Lead $lead): string

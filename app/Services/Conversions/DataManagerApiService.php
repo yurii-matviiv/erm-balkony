@@ -74,20 +74,30 @@ class DataManagerApiService
 
     /**
      * @param  array<string, mixed>  $row
+     * @param  array<int, array<string, string>>  $userIdentifiers hashed phone/email
      * @return array<string, mixed>
      */
-    public function buildEvent(array $row): array
+    public function buildEvent(array $row, array $userIdentifiers = []): array
     {
         $tz = config('conversions.timezone', 'Europe/Kyiv');
 
-        return [
+        $event = [
             'eventTimestamp' => \Carbon\Carbon::parse($row['event_time'])->setTimezone($tz)->toRfc3339String(),
             'transactionId' => $row['transaction_id'],
             'eventSource' => 'WEB',
             'conversionValue' => (float) $row['value'],
             'currency' => $row['currency'],
-            'adIdentifiers' => [$row['click_id_type'] => $row['click_id']],
         ];
+
+        if (($row['click_id_type'] ?? null) === 'gclid' && ! empty($row['click_id'])) {
+            $event['adIdentifiers'] = ['gclid' => $row['click_id']];
+        }
+
+        if ($userIdentifiers !== []) {
+            $event['userData'] = ['userIdentifiers' => $userIdentifiers];
+        }
+
+        return $event;
     }
 
     private function accessToken(GoogleAdsAccount $account): string
