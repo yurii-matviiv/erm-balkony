@@ -15,6 +15,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Idempotent: on production this table already exists (created by an earlier,
+        // partially recorded deploy) while the migration row is missing, which blocked
+        // `migrate --force` and every migration after it.
+        if (Schema::hasTable('vacancy_application_marketing_data')) {
+            return;
+        }
+
         Schema::create('vacancy_application_marketing_data', function (Blueprint $table) {
             $table->id();
 
