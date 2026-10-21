@@ -73,7 +73,7 @@ class ConversionDispatcher
      */
     public function checkStatuses(): array
     {
-        $stats = ['confirmed' => 0, 'failed' => 0, 'processing' => 0];
+        $stats = ['confirmed' => 0, 'partial' => 0, 'failed' => 0, 'processing' => 0];
         $account = $this->api->activeAccount();
 
         if (! $account) {
@@ -102,6 +102,18 @@ class ConversionDispatcher
 
             if ($state === 'SUCCESS') {
                 $stats['confirmed'] += $rows->update(['status' => ConversionOutbox::STATUS_CONFIRMED, 'confirmed_at' => now(), 'last_error' => null]);
+            } elseif ($state === 'PARTIAL_SUCCESS' && (clone $rows)->count() > 1) {
+                // Google returns only error COUNTS, not which records failed. The rest of the
+                // request was accepted, so do NOT mark every row failed; keep the note visible.
+                $errorCounts = $status['errorInfo']['errorCounts'] ?? [];
+                $errors = json_encode($errorCounts, JSON_UNESCAPED_UNICODE);
+                $total = (clone $rows)->count();
+                $rejected = (int) collect($errorCounts)->sum(fn ($e) => (int) ($e['recordCount'] ?? 0));
+                $stats['partial'] += $rows->update([
+                    'status' => ConversionOutbox::STATUS_CONFIRMED,
+                    'confirmed_at' => now(),
+                    'last_error' => "PARTIAL_SUCCESS: Google відхилив {$rejected} із {$total} подій запиту (які саме — не вказує): {$errors}",
+                ]);
             } elseif (in_array($state, ['FAILED', 'PARTIAL_SUCCESS'], true)) {
                 $errors = json_encode($status['errorInfo']['errorCounts'] ?? [], JSON_UNESCAPED_UNICODE);
                 $stats['failed'] += $rows->update([
@@ -148,6 +160,21 @@ class ConversionDispatcher
      * @param  array<string, int>  $stats
      */
     private function sendGroup($account, string $actionId, array $rows, string $mode, array &$stats): void
+    {
+        // One event per request by default: requestStatus then describes exactly one record
+        // (Google returns only error counts, never which record in a batch failed).
+        $size = max(1, (int) config('conversions.events_per_request', 1));
+
+        foreach (array_chunk($rows, $size) as $chunk) {
+            $this->sendChunk($account, $actionId, $chunk, $mode, $stats);
+        }
+    }
+
+    /**
+     * @param  array<int, ConversionOutbox>  $rows
+     * @param  array<string, int>  $stats
+     */
+    private function sendChunk($account, string $actionId, array $rows, string $mode, array &$stats): void
     {
         $validateOnly = $mode !== 'live';
 

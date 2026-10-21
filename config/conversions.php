@@ -43,4 +43,7 @@ return [
 
     'batch_size' => 200,
     'max_attempts' => 5,
+
+    // Events per Data Manager request. 1 = requestStatus is exact per event (recommended).
+    'events_per_request' => 1,
 ];
