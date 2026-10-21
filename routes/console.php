@@ -9,7 +9,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 /*
- * Auto-sync from the legacy DB — runs every minute when enabled.
+ * Auto-sync from the legacy DB — runs every 5 minutes when enabled.
  *
  * The --scheduled flag tells the command to exit silently when the
  * admin has turned off auto-sync via the "Синхронізація" page toggle,
@@ -22,7 +22,7 @@ Artisan::command('inspire', function () {
  *   * * * * * cd /path-to-project && php artisan schedule:run >> /dev/null 2>&1
  */
 Schedule::command('sync:legacy --scheduled')
-    ->everyMinute()
+    ->everyFiveMinutes()
     ->withoutOverlapping()
     ->runInBackground();
 
@@ -31,6 +31,6 @@ Schedule::command('sync:legacy --scheduled')
  * Exits immediately while mode = off (default). Modes: php artisan conversions:mode.
  */
 Schedule::command('conversions:run')
-    ->everyMinute()
+    ->everyFifteenMinutes()
     ->withoutOverlapping()
     ->runInBackground();
