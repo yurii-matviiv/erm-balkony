@@ -82,6 +82,22 @@ class DataManagerApiService
     }
 
     /**
+     * Authorised DELETE of a Data Manager resource (e.g. a user list).
+     *
+     * @throws \RuntimeException on any API / auth error
+     */
+    public function deleteResource(GoogleAdsAccount $account, string $name, bool $validateOnly = false): void
+    {
+        $url = self::BASE.'/'.ltrim($name, '/').($validateOnly ? '?validateOnly=true' : '');
+
+        $response = Http::withToken($this->accessToken($account))->timeout(60)->acceptJson()->delete($url);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException($this->errorMessage($response->status(), $response->json(), $response->body()));
+        }
+    }
+
+    /**
      * @return array<string, mixed> the first (only) per-destination status
      */
     public function requestStatus(GoogleAdsAccount $account, string $requestId): array

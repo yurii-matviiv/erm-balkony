@@ -14,10 +14,16 @@ return [
     // Скільки днів учасник лишається в списку (макс. 540).
     'membership_days' => 540,
 
+    // Сегменти: qualified/unqualified беруться з clients.ad_status (команда audience:classify),
+    // buyers — клієнти з замовленням.
     'segments' => [
-        'all' => [
-            'name' => 'ERM: усі клієнти',
-            'description' => 'Усі клієнти з телефоном або email (автоматично з ERM)',
+        'qualified' => [
+            'name' => 'ERM: кваліфіковані клієнти',
+            'description' => 'Клієнти, у яких є кваліфікована заявка або замовлення (автоматично з ERM)',
+        ],
+        'unqualified' => [
+            'name' => 'ERM: некваліфіковані клієнти',
+            'description' => 'Клієнти лише з новими або сміттєвими заявками (автоматично з ERM)',
         ],
         'buyers' => [
             'name' => 'ERM: покупці',

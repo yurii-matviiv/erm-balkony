@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 class AudienceSync extends Command
 {
-    protected $signature = 'audience:sync {segment=all : all|buyers} {--live : реальна відправка (потрібен CUSTOMER_MATCH_CONFIRMED=true)} {--count : лише порахувати, нічого не відправляти в Google}';
+    protected $signature = 'audience:sync {segment=qualified : qualified|unqualified|buyers} {--live : реальна відправка (потрібен CUSTOMER_MATCH_CONFIRMED=true)} {--count : лише порахувати, нічого не відправляти в Google}';
 
     protected $description = 'Передати клієнтів (хеш телефону/email) у список Customer Match через Data Manager API. За замовчуванням лише validateOnly.';
 

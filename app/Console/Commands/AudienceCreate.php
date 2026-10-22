@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 class AudienceCreate extends Command
 {
-    protected $signature = 'audience:create {segment=all : all|buyers} {--live : створити список реально (без --live лише перевірка validateOnly)}';
+    protected $signature = 'audience:create {segment=qualified : qualified|unqualified|buyers} {--live : створити список реально (без --live лише перевірка validateOnly)}';
 
     protected $description = 'Створити список клієнтів (Customer Match) у Google Ads. Особисті дані не передаються.';
 
