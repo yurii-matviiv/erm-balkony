@@ -34,3 +34,13 @@ Schedule::command('conversions:run')
     ->everyFifteenMinutes()
     ->withoutOverlapping()
     ->runInBackground();
+
+/*
+ * Customer Match lists (Google Ads): classify clients and upload only changes.
+ * Once a day at night, at a minute that does not coincide with the 5/15-minute
+ * jobs above; withoutOverlapping guards against a second instance.
+ */
+Schedule::command('audience:run')
+    ->dailyAt('03:22')
+    ->withoutOverlapping()
+    ->runInBackground();
