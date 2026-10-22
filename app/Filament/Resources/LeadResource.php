@@ -167,7 +167,7 @@ class LeadResource extends Resource
                 TextColumn::make('client.full_name')
                     ->label('ПІБ')
                     ->description(fn (Lead $record): ?string => $record->client?->phone)
-                    ->searchable(['client.last_name', 'client.first_name']),
+                    ->searchable(['client.last_name', 'client.first_name', 'client.phone']),
 
                 TextColumn::make('serviceTypes.name')
                     ->label('Тип звернення')
