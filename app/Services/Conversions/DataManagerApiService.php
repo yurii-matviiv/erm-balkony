@@ -56,6 +56,32 @@ class DataManagerApiService
     }
 
     /**
+     * Generic authorised POST to the Data Manager API (audiences etc.).
+     *
+     * @param  array<string, mixed>  $body
+     * @param  array<string, mixed>  $query
+     * @return array<string, mixed>
+     *
+     * @throws \RuntimeException on any API / auth error (message has no secrets)
+     */
+    public function postJson(GoogleAdsAccount $account, string $path, array $body, array $query = []): array
+    {
+        $url = self::BASE.'/'.ltrim($path, '/').($query !== [] ? '?'.http_build_query($query) : '');
+
+        $response = Http::withToken($this->accessToken($account))
+            ->timeout(120)
+            ->acceptJson()
+            ->asJson()
+            ->post($url, $body);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException($this->errorMessage($response->status(), $response->json(), $response->body()));
+        }
+
+        return $response->json() ?? [];
+    }
+
+    /**
      * @return array<string, mixed> the first (only) per-destination status
      */
     public function requestStatus(GoogleAdsAccount $account, string $requestId): array

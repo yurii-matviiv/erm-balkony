@@ -2,6 +2,7 @@
 
 namespace App\Services\Conversions;
 
+use App\Models\Client;
 use App\Models\Lead;
 
 /**
@@ -20,10 +21,14 @@ class UserDataBuilder
     {
         $client = $lead->client;
 
-        if (! $client) {
-            return [];
-        }
+        return $client ? $this->forClient($client) : [];
+    }
 
+    /**
+     * @return array<int, array<string, string>> userIdentifiers for a client
+     */
+    public function forClient(Client $client): array
+    {
         $identifiers = [];
 
         foreach (array_unique(array_filter([
@@ -33,13 +38,40 @@ class UserDataBuilder
             $identifiers[] = ['phoneNumber' => hash('sha256', $phone)];
         }
 
-        $email = mb_strtolower(trim((string) $client->email));
+        $email = $this->normalizeEmail((string) $client->email);
 
-        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if ($email !== null) {
             $identifiers[] = ['emailAddress' => hash('sha256', $email)];
         }
 
         return $identifiers;
+    }
+
+    /**
+     * Google normalisation: trim, lowercase; for gmail.com / googlemail.com also
+     * drop dots and "+tag" in the local part.
+     */
+    public function normalizeEmail(string $raw): ?string
+    {
+        $email = preg_replace('/\s+/u', '', mb_strtolower(trim($raw))) ?? '';
+
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        [$local, $domain] = explode('@', $email, 2);
+
+        if (in_array($domain, ['gmail.com', 'googlemail.com'], true)) {
+            $local = str_replace('.', '', explode('+', $local, 2)[0]);
+
+            if ($local === '') {
+                return null;
+            }
+
+            return $local.'@'.$domain;
+        }
+
+        return $email;
     }
 
     /**
