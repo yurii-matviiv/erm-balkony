@@ -90,7 +90,7 @@
 
                     <div class="mc-result">
                         <div>
-                            <div class="mc-label">Реклама: факт / ліміт {{ $budgetPercent }}%</div>
+                            <div class="mc-label">Реклама: факт / допустимо ({{ $budgetPercent }}%)</div>
                             <div class="mc-sub">{{ number_format($m['ad_cost'], 0, '.', ' ') }} / {{ number_format($m['ad_budget'], 0, '.', ' ') }} ₴</div>
                         </div>
                         <div style="text-align:right">

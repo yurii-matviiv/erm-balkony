@@ -27,16 +27,27 @@ use Livewire\Attributes\Url;
  *  - Реклама: all marketing expenses of the period (same filter as
  *    "Аналітика рахунків": outgo + received). Average ad cost per lead =
  *    that sum / ALL leads of the period; a manager is charged that average
- *    for each lead he received. Allowed ad budget = AD_BUDGET_SHARE (5%) of
- *    his turnover. Result = allowed budget - charged ad cost (plus = fits
+ *    for each lead he received. Allowed ad budget = AD_BUDGET_SHARE (margin
+ *    18% - salary 7% = 11%) of his turnover. Result = allowed budget - charged ad cost (plus = fits
  *    the budget, minus = overspent). ДРР = charged ad cost / turnover.
  *    Approximation by design: ad payments are bank top-ups, not exact daily
  *    spend, and non-ad leads (calls, referrals) share the same average.
  */
 class ManagerConversion extends Page
 {
-    /** Share of a manager's turnover that may be spent on advertising (business rule: 5%). */
-    public const AD_BUDGET_SHARE = 0.05;
+    /**
+     * Typical order margin (turnover minus supplier/installer/other order
+     * payments), measured on MATURE orders (Sep 2025 – Jul 2026: 17–19% per
+     * month). Recent months can't be measured from payments — their costs
+     * are not paid yet, so margin looks inflated (Oct 2026: 68%).
+     */
+    public const ORDER_MARGIN = 0.18;
+
+    /** Manager's salary: 7% of turnover (business rule). */
+    public const MANAGER_SALARY = 0.07;
+
+    /** What is left for advertising before a manager goes into the red: 18% - 7% = 11% of turnover. */
+    public const AD_BUDGET_SHARE = self::ORDER_MARGIN - self::MANAGER_SALARY;
 
     use \App\Filament\Concerns\RequiresViewPermission;
 
