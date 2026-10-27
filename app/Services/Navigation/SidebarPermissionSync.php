@@ -19,14 +19,14 @@ use Spatie\Permission\Models\Role;
  *   View:<PageClass> for pages). Action permissions (Create/Update/
  *   Delete/...) always stay manual, on the "Ролі" page — seeing a list
  *   and changing its rows are different-weight decisions.
- * - super_admin and founder are never synced: super_admin bypasses all
- *   checks anyway (gate-before), founder is a deliberately minimal role.
+ * - super_admin is never synced: it bypasses all
+ *   checks anyway.
  * - Synthetic nav items (e.g. 'quick-create-lead') have no class behind
  *   them — nothing to grant, silently skipped.
  */
 class SidebarPermissionSync
 {
-    private const EXEMPT_ROLES = ['super_admin', 'founder'];
+    private const EXEMPT_ROLES = ['super_admin'];
 
     /**
      * Shield-style view permission names for one nav item key (a Resource

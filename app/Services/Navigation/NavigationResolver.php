@@ -20,7 +20,7 @@ class NavigationResolver
      * NavigationSetting row). All other roles default to hidden — items
      * must be explicitly enabled via the "Бокова панель" settings page.
      */
-    private const ADMIN_ROLES = ['super_admin', 'founder'];
+    private const ADMIN_ROLES = ['super_admin'];
 
     /**
      * Full merged list for the settings page editor — includes INACTIVE

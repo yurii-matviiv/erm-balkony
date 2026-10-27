@@ -41,7 +41,7 @@ use Filament\Tables\Table;
  *
  * The PageDoc block (footer) holds the human-written principles — the
  * same ones as CLAUDE.md "Платежі — принципи", editable in-admin by
- * super_admin/founder.
+ * super_admin.
  */
 class PaymentRules extends Page implements HasTable
 {

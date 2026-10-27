@@ -24,6 +24,6 @@ class AppServiceProvider extends ServiceProvider
         // HasPageDocs). Deliberately a separate, narrow permission rather
         // than reusing Filament Shield's resource policies — this isn't a
         // CRUD resource, it's an in-app help system every page can embed.
-        Gate::define('manage-page-docs', fn ($user) => $user->hasRole(['super_admin', 'founder']));
+        Gate::define('manage-page-docs', fn ($user) => $user->hasRole('super_admin'));
     }
 }

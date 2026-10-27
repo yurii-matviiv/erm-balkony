@@ -353,7 +353,7 @@ class Payments extends Page implements HasTable
                             ->where('payer_name', $name))),
 
                 // Only roles that actually ENTER payments (per explicit
-                // request): managers, head of sales, admins, founder —
+                // request): managers, head of sales, admins —
                 // not suppliers/installers/surveyors, who merely appear
                 // in payments as counterparties.
                 SelectFilter::make('created_by')
@@ -364,7 +364,6 @@ class Payments extends Page implements HasTable
                             'Менеджер',
                             'Керівник відділу продажу',
                             'Адмін',
-                            'founder',
                             'super_admin',
                         ]))
                         ->orderBy('name')
