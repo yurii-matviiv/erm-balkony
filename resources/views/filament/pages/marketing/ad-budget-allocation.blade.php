@@ -1,9 +1,11 @@
 <x-filament-panels::page>
     <style>
-        .ab-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+        .ab-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .85rem; }
         .ab-table th { text-align: left; font-size: .65rem; text-transform: uppercase; letter-spacing: .04em; opacity: .6; padding: .4rem .6rem; border-bottom: 1px solid rgba(127,127,127,.3); }
         .ab-table td { padding: .6rem; border-bottom: 1px solid rgba(127,127,127,.15); vertical-align: top; }
-        .ab-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .ab-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .ab-table td, .ab-table th { overflow-wrap: anywhere; }
+        .ab-c1 { width: 26%; } .ab-c2, .ab-c3 { width: 9%; } .ab-c4 { width: 12%; } .ab-c5 { width: 15%; } .ab-c6 { width: 11%; } .ab-c7 { width: 18%; }
         .ab-up { color: var(--success-600); font-weight: 700; }
         .ab-down { color: var(--danger-600); font-weight: 700; }
         .ab-hold { opacity: .7; }
@@ -27,17 +29,17 @@
         <x-filament::section>Даних поки немає. Натисніть «Оновити з Google».</x-filament::section>
     @else
         <x-filament::section>
-            <div style="overflow-x:auto">
+            <div>
                 <table class="ab-table">
                     <thead>
                         <tr>
-                            <th>Кампанія</th>
-                            <th class="ab-num">Частка витрат</th>
-                            <th class="ab-num">Частка обороту</th>
-                            <th class="ab-num">Віддача (оборот / витрати)</th>
-                            <th class="ab-num">Запас росту</th>
-                            <th class="ab-num">Рекомендована частка</th>
-                            <th>Що робити</th>
+                            <th class="ab-c1">Кампанія</th>
+                            <th class="ab-num ab-c2">Частка витрат</th>
+                            <th class="ab-num ab-c3">Частка обороту</th>
+                            <th class="ab-num ab-c4">Віддача (оборот / витрати)</th>
+                            <th class="ab-num ab-c5">Запас росту</th>
+                            <th class="ab-num ab-c6">Рекомендована частка</th>
+                            <th class="ab-c7">Що робити</th>
                         </tr>
                     </thead>
                     <tbody>

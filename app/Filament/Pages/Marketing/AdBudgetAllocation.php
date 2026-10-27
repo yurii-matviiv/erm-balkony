@@ -7,6 +7,7 @@ use App\Services\Ads\AdStatsSync;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,6 +30,8 @@ class AdBudgetAllocation extends Page
     protected static string|\UnitEnum|null $navigationGroup = 'Маркетинг';
 
     protected static ?int $navigationSort = 20;
+
+    protected Width|string|null $maxContentWidth = Width::Full;
 
     protected string $view = 'filament.pages.marketing.ad-budget-allocation';
 
