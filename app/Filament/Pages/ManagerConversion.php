@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Expense;
 use App\Services\Finance\FinanceDateRange;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -23,9 +24,20 @@ use Livewire\Attributes\Url;
  *    exceed 100% even when an order is created weeks after the lead.
  *  - Оборот: SUM(orders.total_price) of non-cancelled orders created in
  *    the period by the manager (the user's "прибуток" = оборот).
+ *  - Реклама: all marketing expenses of the period (same filter as
+ *    "Аналітика рахунків": outgo + received). Average ad cost per lead =
+ *    that sum / ALL leads of the period; a manager is charged that average
+ *    for each lead he received. Allowed ad budget = AD_BUDGET_SHARE (5%) of
+ *    his turnover. Result = allowed budget - charged ad cost (plus = fits
+ *    the budget, minus = overspent). ДРР = charged ad cost / turnover.
+ *    Approximation by design: ad payments are bank top-ups, not exact daily
+ *    spend, and non-ad leads (calls, referrals) share the same average.
  */
 class ManagerConversion extends Page
 {
+    /** Share of a manager's turnover that may be spent on advertising (business rule: 5%). */
+    public const AD_BUDGET_SHARE = 0.05;
+
     use \App\Filament\Concerns\RequiresViewPermission;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
@@ -103,9 +115,9 @@ class ManagerConversion extends Page
     }
 
     /**
-     * @return list<array{id:int,name:string,leads:int,converted:int,orders:int,rate:float,turnover:float}>
+     * @return list<array{id:int,name:string,leads:int,converted:int,orders:int,rate:float,turnover:float,ad_cost:float,ad_budget:float,drr:?float,result:float}>
      */
-    protected function managers(string $from, string $to): array
+    protected function managers(string $from, string $to, float $costPerLead = 0.0): array
     {
         $start = $from.' 00:00:00';
         $end = $to.' 23:59:59';
@@ -151,6 +163,10 @@ class ManagerConversion extends Page
                 'orders' => (int) ($orders[$id]->orders ?? 0),
                 'rate' => $l > 0 ? round($c / $l * 100, 1) : 0.0,
                 'turnover' => (float) ($orders[$id]->turnover ?? 0),
+                'ad_cost' => round($l * $costPerLead, 2),
+                'ad_budget' => round((float) ($orders[$id]->turnover ?? 0) * self::AD_BUDGET_SHARE, 2),
+                'drr' => (float) ($orders[$id]->turnover ?? 0) > 0 ? round($l * $costPerLead / (float) $orders[$id]->turnover * 100, 1) : null,
+                'result' => round((float) ($orders[$id]->turnover ?? 0) * self::AD_BUDGET_SHARE - $l * $costPerLead, 2),
             ];
         }
 
@@ -168,12 +184,29 @@ class ManagerConversion extends Page
             [$from, $to] = [$to, $from];
         }
 
+        $adSpend = (float) Expense::query()
+            ->where('direction', 'outgo')
+            ->where('status', 'received')
+            ->where('category', 'marketing')
+            ->whereBetween('paid_at', [$from.' 00:00:00', $to.' 23:59:59'])
+            ->sum('amount');
+
+        $totalLeads = (int) DB::table('leads')
+            ->whereBetween('created_at', [$from.' 00:00:00', $to.' 23:59:59'])
+            ->count();
+
+        $costPerLead = $totalLeads > 0 ? $adSpend / $totalLeads : 0.0;
+
         return [
+            'budgetPercent' => (int) round(self::AD_BUDGET_SHARE * 100),
+            'adSpend' => $adSpend,
+            'totalLeads' => $totalLeads,
+            'costPerLead' => $costPerLead,
             'preset' => $this->preset,
             'dateFrom' => $from,
             'dateTo' => $to,
             'presetOptions' => self::presetOptions(),
-            'managers' => $this->managers($from, $to),
+            'managers' => $this->managers($from, $to, $costPerLead),
         ];
     }
 }

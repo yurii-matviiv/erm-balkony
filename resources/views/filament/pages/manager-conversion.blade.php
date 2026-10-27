@@ -27,6 +27,17 @@
         </div>
     </x-filament::section>
 
+    <x-filament::section compact>
+        <div style="display:flex;flex-wrap:wrap;gap:.5rem 2rem;font-size:.85rem">
+            <div>Реклама за період: <strong>{{ number_format($adSpend, 0, '.', ' ') }} ₴</strong></div>
+            <div>Заявок усього: <strong>{{ number_format($totalLeads, 0, '.', ' ') }}</strong></div>
+            <div>Середня ціна заявки:
+                <strong style="color: var({{ $costPerLead > 550 ? '--danger-600' : '--success-600' }})">{{ number_format($costPerLead, 0, '.', ' ') }} ₴</strong>
+                <span style="opacity:.55">(орієнтир до 550 ₴)</span>
+            </div>
+        </div>
+    </x-filament::section>
+
     {{-- Own CSS (not Tailwind utilities): new utility classes would need `npm run build`, and the
          built assets are what gets deployed. 4 cards per row on wide screens, 2 on medium, 1 on mobile. --}}
     <style>
@@ -37,6 +48,8 @@
         .mc-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem .75rem; margin-top: .6rem; }
         .mc-label { font-size: .65rem; text-transform: uppercase; letter-spacing: .04em; opacity: .6; }
         .mc-value { font-size: 1.25rem; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+        .mc-result { display:flex; justify-content:space-between; align-items:flex-end; gap:.5rem; margin-top:.7rem; padding-top:.6rem; border-top:1px solid rgba(127,127,127,.25); }
+        .mc-sub { font-size:.95rem; font-weight:600; white-space:nowrap; opacity:.8; }
         .mc-bar { height: 6px; border-radius: 9999px; background: rgba(127,127,127,.25); margin-top: .7rem; overflow: hidden; }
         .mc-bar > div { height: 100%; border-radius: 9999px; background: var(--primary-500); }
         .mc-foot { margin-top: .4rem; font-size: .7rem; opacity: .55; }
@@ -75,8 +88,19 @@
                         </div>
                     </div>
 
+                    <div class="mc-result">
+                        <div>
+                            <div class="mc-label">Реклама: факт / ліміт {{ $budgetPercent }}%</div>
+                            <div class="mc-sub">{{ number_format($m['ad_cost'], 0, '.', ' ') }} / {{ number_format($m['ad_budget'], 0, '.', ' ') }} ₴</div>
+                        </div>
+                        <div style="text-align:right">
+                            <div class="mc-label">Результат</div>
+                            <div class="mc-value {{ $m['result'] >= 0 ? 'mc-good' : 'mc-bad' }}">{{ $m['result'] >= 0 ? '+' : '−' }}{{ number_format(abs($m['result']), 0, '.', ' ') }} ₴</div>
+                        </div>
+                    </div>
+
                     <div class="mc-bar"><div style="width: {{ min(100, $m['rate']) }}%"></div></div>
-                    <div class="mc-foot">Замовлень за період: {{ number_format($m['orders'], 0, '.', ' ') }}</div>
+                    <div class="mc-foot">ДРР: <strong class="{{ ($m['drr'] ?? 0) > $budgetPercent ? 'mc-bad' : 'mc-good' }}">{{ $m['drr'] === null ? '—' : number_format($m['drr'], 1, '.', ' ').'%' }}</strong> · замовлень: {{ number_format($m['orders'], 0, '.', ' ') }}</div>
                 </x-filament::section>
             @endforeach
         </div>
