@@ -32,14 +32,13 @@
                 Період: <strong>{{ \Carbon\Carbon::parse($data['from'])->format('d.m.Y') }} — {{ \Carbon\Carbon::parse($data['to'])->format('d.m.Y') }}</strong>
                 <span class="ab-muted">(останні 14 днів не враховуються: замовлення з'являються із запізненням)</span><br>
                 Дані Google оновлено: <strong>{{ $data['synced_at'] ? \Carbon\Carbon::parse($data['synced_at'])->format('d.m.Y H:i') : 'ще ні' }}</strong>
-                <span class="ab-muted">(автоматично щодня о 04:10)</span>
+                <span class="ab-muted">(оновлюється автоматично при відкритті сторінки)</span>
             </div>
-            <x-filament::button wire:click="refreshStats" size="sm" color="gray">Оновити з Google</x-filament::button>
         </div>
     </x-filament::section>
 
     @if (count($data['rows']) === 0)
-        <x-filament::section>Даних поки немає. Натисніть «Оновити з Google».</x-filament::section>
+        <x-filament::section>Даних поки немає: не вдалося отримати їх з Google Ads.</x-filament::section>
     @else
         <div class="ab-grid">
             @foreach ($data['rows'] as $r)

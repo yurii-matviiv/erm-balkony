@@ -8,6 +8,7 @@ use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
+use Illuminate\Support\Facades\DB;
 
 /**
  * "Розподіл бюджету реклами" — which Google Ads campaigns deserve a bigger / smaller share of
@@ -34,13 +35,21 @@ class AdBudgetAllocation extends Page
 
     protected string $view = 'filament.pages.marketing.ad-budget-allocation';
 
-    public function refreshStats(): void
+    /** Data is considered fresh for this many minutes; the page refreshes it from Google on open when older. */
+    private const FRESH_MINUTES = 10;
+
+    public function mount(): void
     {
+        $last = DB::table('ad_campaigns')->max('updated_at');
+
+        if ($last !== null && now()->diffInMinutes(\Illuminate\Support\Carbon::parse($last), true) < self::FRESH_MINUTES) {
+            return;
+        }
+
         try {
-            $res = app(AdStatsSync::class)->run(120);
-            Notification::make()->title('Оновлено з Google Ads: кампаній '.$res['campaigns'].', рядків '.$res['daily_rows'])->success()->send();
+            app(AdStatsSync::class)->run(120);
         } catch (\Throwable $e) {
-            Notification::make()->title('Не вдалося оновити: '.$e->getMessage())->danger()->send();
+            Notification::make()->title('Не вдалося оновити дані з Google (показано останні збережені): '.$e->getMessage())->warning()->send();
         }
     }
 
