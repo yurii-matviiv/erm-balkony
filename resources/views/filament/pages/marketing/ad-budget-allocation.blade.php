@@ -57,14 +57,22 @@
     @else
         <div class="ab-grid">
             @foreach ($data['rows'] as $r)
-                <x-filament::section compact>
+                <x-filament::section compact :style="$r['low_confidence'] ? 'box-shadow: inset 4px 0 0 var(--warning-500)' : ($r['status'] === 'PAUSED' ? 'box-shadow: inset 4px 0 0 var(--danger-500)' : '')">
                     <div class="ab-name" title="{{ $r['name'] }}">{{ $r['name'] }}</div>
-                    <div class="ab-sub">
-                        {{ $r['status'] === 'ENABLED' ? 'увімкнена' : ($r['status'] === 'PAUSED' ? 'на паузі' : $r['status']) }}
-                        @if ($r['last_spend']) · остання витрата {{ \Carbon\Carbon::parse($r['last_spend'])->format('d.m') }} @endif
+                    <div class="ab-badges" style="margin-top:.4rem">
+                        @if ($r['status'] === 'PAUSED')
+                            <x-filament::badge color="danger" icon="heroicon-m-pause-circle">На паузі</x-filament::badge>
+                        @elseif ($r['status'] === 'ENABLED')
+                            <x-filament::badge color="success" icon="heroicon-m-play-circle">Увімкнена</x-filament::badge>
+                        @else
+                            <x-filament::badge color="gray">{{ $r['status'] }}</x-filament::badge>
+                        @endif
+                        @if ($r['low_confidence'])
+                            <x-filament::badge color="warning" icon="heroicon-m-exclamation-triangle">Мало даних: замовлень {{ $r['orders'] }}</x-filament::badge>
+                        @endif
                     </div>
-                    @if ($r['low_confidence'])
-                        <div class="ab-badges"><span class="ab-badge">мало даних (замовлень: {{ $r['orders'] }})</span></div>
+                    @if ($r['last_spend'])
+                        <div class="ab-sub">остання витрата {{ \Carbon\Carbon::parse($r['last_spend'])->format('d.m.Y') }}</div>
                     @endif
 
                     <div class="ab-metrics">
