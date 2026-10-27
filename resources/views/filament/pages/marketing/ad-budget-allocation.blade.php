@@ -36,11 +36,19 @@
     <x-filament::section compact>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem 2rem;align-items:center;justify-content:space-between;font-size:.82rem">
             <div>
-                Період: <strong>{{ \Carbon\Carbon::parse($data['from'])->format('d.m.Y') }} — {{ \Carbon\Carbon::parse($data['to'])->format('d.m.Y') }}</strong>
-                <span class="ab-muted">(останні 14 днів не враховуються: замовлення з'являються із запізненням)</span><br>
-                Дані Google оновлено: <strong>{{ $data['synced_at'] ? \Carbon\Carbon::parse($data['synced_at'])->format('d.m.Y H:i') : 'ще ні' }}</strong>
+                Період: <strong>{{ \Carbon\Carbon::parse($data['from'])->format('d.m.Y') }} — {{ \Carbon\Carbon::parse($data['to'])->format('d.m.Y') }}</strong><br>
+                @if ($data['skip_days'] > 0)
+                    <span class="ab-muted">Останні {{ $data['skip_days'] }} днів не враховані: замовлення з заявок приходять із запізненням (медіана 7 днів, до 90), тому свіжі тижні виглядали б гірше, ніж є насправді.</span>
+                @else
+                    <span class="ab-muted">Враховано й останні 14 днів: замовлення з них ще неповні, тому віддача свіжих заявок занижена.</span>
+                @endif
+                <br>Дані Google оновлено: <strong>{{ $data['synced_at'] ? \Carbon\Carbon::parse($data['synced_at'])->format('d.m.Y H:i') : 'ще ні' }}</strong>
                 <span class="ab-muted">(оновлюється автоматично при відкритті сторінки)</span>
             </div>
+            <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                <input type="checkbox" wire:model.live="includeRecent" class="rounded border-gray-300">
+                <span>Враховувати останні 14 днів</span>
+            </label>
         </div>
     </x-filament::section>
 

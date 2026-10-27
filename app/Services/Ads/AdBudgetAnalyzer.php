@@ -43,10 +43,11 @@ class AdBudgetAnalyzer
     /**
      * @return array<string, mixed>
      */
-    public function analyze(): array
+    public function analyze(bool $includeRecent = false): array
     {
-        $to = now()->subDays(self::SKIP_RECENT_DAYS)->toDateString();
-        $from = now()->subDays(self::SKIP_RECENT_DAYS + self::WINDOW_DAYS - 1)->toDateString();
+        $skip = $includeRecent ? 0 : self::SKIP_RECENT_DAYS;
+        $to = now()->subDays($skip)->toDateString();
+        $from = now()->subDays($skip + self::WINDOW_DAYS - 1)->toDateString();
 
         $spend = DB::table('ad_campaign_daily')
             ->whereBetween('date', [$from, $to])
@@ -142,6 +143,7 @@ class AdBudgetAnalyzer
         return [
             'from' => $from,
             'to' => $to,
+            'skip_days' => $skip,
             'rows' => array_values($rows),
             'avg_roas' => $avgRoas,
             'unmapped' => $unmapped,

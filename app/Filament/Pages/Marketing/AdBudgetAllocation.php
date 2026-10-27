@@ -9,6 +9,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Url;
 
 /**
  * "Розподіл бюджету реклами" — which Google Ads campaigns deserve a bigger / smaller share of
@@ -35,6 +36,10 @@ class AdBudgetAllocation extends Page
 
     protected string $view = 'filament.pages.marketing.ad-budget-allocation';
 
+    /** Include the freshest 14 days (orders from them are still incomplete). */
+    #[Url]
+    public bool $includeRecent = false;
+
     /** Data is considered fresh for this many minutes; the page refreshes it from Google on open when older. */
     private const FRESH_MINUTES = 10;
 
@@ -55,6 +60,6 @@ class AdBudgetAllocation extends Page
 
     protected function getViewData(): array
     {
-        return ['data' => app(AdBudgetAnalyzer::class)->analyze()];
+        return ['data' => app(AdBudgetAnalyzer::class)->analyze($this->includeRecent)];
     }
 }
