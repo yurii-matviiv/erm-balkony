@@ -49,11 +49,8 @@
                         {{ $r['status'] === 'ENABLED' ? 'увімкнена' : ($r['status'] === 'PAUSED' ? 'на паузі' : $r['status']) }}
                         @if ($r['last_spend']) · остання витрата {{ \Carbon\Carbon::parse($r['last_spend'])->format('d.m') }} @endif
                     </div>
-                    @if ($r['mapped_unconfirmed'] || $r['low_confidence'])
-                        <div class="ab-badges">
-                            @if ($r['mapped_unconfirmed']) <span class="ab-badge">зіставлення не підтверджено</span> @endif
-                            @if ($r['low_confidence']) <span class="ab-badge">мало даних (замовлень: {{ $r['orders'] }})</span> @endif
-                        </div>
+                    @if ($r['low_confidence'])
+                        <div class="ab-badges"><span class="ab-badge">мало даних (замовлень: {{ $r['orders'] }})</span></div>
                     @endif
 
                     <div class="ab-metrics">
@@ -115,34 +112,7 @@
         </p>
     @endif
 
-    <x-filament::section heading="Зіставлення назв UTM з кампаніями Google" compact>
-        @if ($data['unmapped']->count())
-            <p class="ab-muted" style="margin-bottom:.4rem">Ці UTM-назви є в заявках, але не прив'язані до кампанії Google, тож їхній оборот не враховано.</p>
-            @foreach ($data['unmapped'] as $u)
-                <div class="ab-row">
-                    <div class="ab-grow">{{ $u->utm }} <span class="ab-muted">({{ $u->leads }} заявок)</span></div>
-                    <select wire:model="pick.{{ $u->utm }}" style="max-width:100%" class="block rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">
-                        <option value="">— обрати кампанію —</option>
-                        @foreach ($data['campaigns'] as $c)
-                            <option value="{{ $c->google_campaign_id }}">{{ $c->name }}</option>
-                        @endforeach
-                    </select>
-                    <x-filament::button size="xs" wire:click="mapCampaign(@js($u->utm))">Зберегти</x-filament::button>
-                </div>
-            @endforeach
-            <div style="height:.8rem"></div>
-        @endif
-
-        @foreach ($data['mappings'] as $m)
-            <div class="ab-row">
-                <div class="ab-grow">{{ $m->utm_campaign }} <span class="ab-muted">→ {{ $data['campaigns'][$m->google_campaign_id]->name ?? $m->google_campaign_id }}</span></div>
-                @if ($m->confirmed)
-                    <span class="ab-badge">підтверджено</span>
-                @else
-                    <x-filament::button size="xs" color="success" wire:click="confirmMapping({{ $m->id }})">Підтвердити</x-filament::button>
-                @endif
-                <x-filament::button size="xs" color="gray" wire:click="removeMapping({{ $m->id }})" wire:confirm="Видалити зіставлення?">Видалити</x-filament::button>
-            </div>
-        @endforeach
-    </x-filament::section>
+    @if ($data['unmapped']->sum('leads') > 0)
+        <p class="ab-muted">Не враховано заявок без відомої кампанії (мітка «not set» або нова назва): {{ $data['unmapped']->sum('leads') }}.</p>
+    @endif
 </x-filament-panels::page>

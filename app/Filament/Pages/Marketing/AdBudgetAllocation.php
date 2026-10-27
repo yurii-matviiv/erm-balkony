@@ -8,7 +8,6 @@ use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
-use Illuminate\Support\Facades\DB;
 
 /**
  * "Розподіл бюджету реклами" — which Google Ads campaigns deserve a bigger / smaller share of
@@ -35,9 +34,6 @@ class AdBudgetAllocation extends Page
 
     protected string $view = 'filament.pages.marketing.ad-budget-allocation';
 
-    /** utm_campaign => chosen google campaign id (unmapped form) */
-    public array $pick = [];
-
     public function refreshStats(): void
     {
         try {
@@ -46,31 +42,6 @@ class AdBudgetAllocation extends Page
         } catch (\Throwable $e) {
             Notification::make()->title('Не вдалося оновити: '.$e->getMessage())->danger()->send();
         }
-    }
-
-    public function mapCampaign(string $utm): void
-    {
-        $gid = $this->pick[$utm] ?? null;
-
-        if (! $gid) {
-            return;
-        }
-
-        DB::table('ad_campaign_mappings')->updateOrInsert(
-            ['utm_campaign' => $utm],
-            ['google_campaign_id' => $gid, 'confirmed' => true, 'updated_at' => now(), 'created_at' => now()],
-        );
-        unset($this->pick[$utm]);
-    }
-
-    public function confirmMapping(int $id): void
-    {
-        DB::table('ad_campaign_mappings')->where('id', $id)->update(['confirmed' => true, 'updated_at' => now()]);
-    }
-
-    public function removeMapping(int $id): void
-    {
-        DB::table('ad_campaign_mappings')->where('id', $id)->delete();
     }
 
     protected function getViewData(): array

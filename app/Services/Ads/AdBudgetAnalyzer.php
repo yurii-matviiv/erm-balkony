@@ -77,8 +77,6 @@ class AdBudgetAnalyzer
             ->selectRaw('p.google_campaign_id g, COUNT(DISTINCT p.client_id) clients, COUNT(DISTINCT o.id) orders, COALESCE(SUM(o.total_price),0) revenue')
             ->get()->keyBy('g');
 
-        $unconfirmed = DB::table('ad_campaign_mappings')->where('confirmed', false)->pluck('google_campaign_id')->flip();
-
         $totalSpend = (float) $spend->sum();
         $totalRevenue = (float) $revenue->sum('revenue');
         $avgRoas = $totalSpend > 0 ? $totalRevenue / $totalSpend : 0.0;
@@ -117,7 +115,6 @@ class AdBudgetAnalyzer
                 'cap_share' => $lost !== null && $totalSpend > 0 && ($campaign->channel_type ?? null) === 'SEARCH'
                     ? $s * min(self::MAX_SCALE, 1 / (1 - $lost)) / $totalSpend * 100
                     : null,
-                'mapped_unconfirmed' => isset($unconfirmed[$gid]),
                 'low_confidence' => $orders < self::MIN_ORDERS,
             ];
         }
@@ -148,7 +145,6 @@ class AdBudgetAnalyzer
             'rows' => array_values($rows),
             'avg_roas' => $avgRoas,
             'unmapped' => $unmapped,
-            'mappings' => DB::table('ad_campaign_mappings')->orderBy('utm_campaign')->get(),
             'campaigns' => $campaigns,
             'synced_at' => DB::table('ad_campaigns')->max('updated_at'),
         ];
