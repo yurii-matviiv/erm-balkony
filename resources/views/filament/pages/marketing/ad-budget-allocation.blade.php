@@ -2,9 +2,12 @@
     {{-- Own CSS (not Tailwind utilities): new utility classes would need `npm run build`.
          Cards instead of a wide table, so everything fits at 100% zoom. --}}
     <style>
+        /* Columns depend on the width of the content area (container query), not the screen:
+           4 per row when each card gets >= ~250px, 2 on narrower, 1 on mobile. */
+        .ab-wrap { container-type: inline-size; }
         .ab-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
-        @media (min-width: 700px)  { .ab-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        @media (min-width: 1250px) { .ab-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @container (min-width: 520px)  { .ab-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @container (min-width: 1040px) { .ab-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
         .ab-name { font-size: .9rem; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
         .ab-sub { margin-top: .2rem; font-size: .72rem; opacity: .6; }
         .ab-badges { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .45rem; }
@@ -55,7 +58,7 @@
     @if (count($data['rows']) === 0)
         <x-filament::section>Даних поки немає: не вдалося отримати їх з Google Ads.</x-filament::section>
     @else
-        <div class="ab-grid">
+        <div class="ab-wrap"><div class="ab-grid">
             @foreach ($data['rows'] as $r)
                 <x-filament::section compact :style="$r['low_confidence'] ? 'box-shadow: inset 4px 0 0 var(--warning-500)' : ($r['status'] === 'PAUSED' ? 'box-shadow: inset 4px 0 0 var(--danger-500)' : '')">
                     <div class="ab-name" title="{{ $r['name'] }}">{{ $r['name'] }}</div>
@@ -125,7 +128,7 @@
                     @endif
                 </x-filament::section>
             @endforeach
-        </div>
+        </div></div>
 
         <p class="ab-muted">
             «Віддача» = оборот ÷ витрати. «Запас росту» — скільки показів кампанія втрачає через обмежений бюджет (лише пошук).
