@@ -44,3 +44,12 @@ Schedule::command('audience:run')
     ->dailyAt('03:22')
     ->withoutOverlapping()
     ->runInBackground();
+
+/*
+ * Google Ads stats for the budget-allocation page (read-only). Daily, at an odd minute
+ * that does not coincide with the other jobs.
+ */
+Schedule::command('ads:sync-stats')
+    ->dailyAt('04:10')
+    ->withoutOverlapping()
+    ->runInBackground();

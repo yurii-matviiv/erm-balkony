@@ -97,6 +97,49 @@ class GoogleAdsApiService
     }
 
     /**
+     * Read-only GAQL query (all pages). Returns the raw `results` rows.
+     *
+     * @return array<int, array<string, mixed>>
+     *
+     * @throws \RuntimeException on auth / API errors
+     */
+    public function search(GoogleAdsAccount $account, string $query): array
+    {
+        $key = json_decode($account->service_account_json, true);
+
+        if (! is_array($key) || ! isset($key['private_key'], $key['client_email'])) {
+            throw new \RuntimeException('Невалідний JSON-ключ service account.');
+        }
+
+        $token = $this->getAccessToken($key, $account);
+
+        if ($token === null) {
+            throw new \RuntimeException('Не вдалося отримати OAuth-токен Google.');
+        }
+
+        $rows = [];
+        $pageToken = null;
+
+        do {
+            $body = ['query' => $query] + ($pageToken ? ['pageToken' => $pageToken] : []);
+
+            $response = Http::withToken($token)->timeout(60)->acceptJson()->asJson()->post(
+                'https://googleads.googleapis.com/'.self::API_VERSION."/customers/{$account->customer_id}/googleAds:search",
+                $body,
+            );
+
+            if (! $response->successful()) {
+                throw new \RuntimeException($response->json('error.message') ?? ('Google Ads API HTTP '.$response->status()));
+            }
+
+            $rows = array_merge($rows, $response->json('results') ?? []);
+            $pageToken = $response->json('nextPageToken');
+        } while ($pageToken);
+
+        return $rows;
+    }
+
+    /**
      * @param  array<string, mixed>  $key  decoded service account JSON
      */
     private function getAccessToken(array $key, GoogleAdsAccount $account): ?string
