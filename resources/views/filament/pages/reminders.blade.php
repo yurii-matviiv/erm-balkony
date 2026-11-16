@@ -8,8 +8,7 @@
     {{-- Compact warning only while this browser is not subscribed; the actual switch lives behind the gear (top right). --}}
     <div x-data="pushState(@js(config('webpush.public_key')), @js(csrf_token()))" x-init="init()" x-cloak>
         <div x-show="['prompt','denied','misconfigured'].includes(status)" style="padding:.6rem 1rem;margin-bottom:1rem;border:1px solid #f0c36d;background:#fff8e6;border-radius:3px;font-size:.875rem;">
-            ⚠ Сповіщення в цьому браузері не увімкнені — нагадування не спливатимуть.
-            <button type="button" wire:click="mountAction('notificationSettings')" style="margin-left:.5rem;padding:.25rem .75rem;background:#2874A6;color:#fff;border:0;border-radius:3px;cursor:pointer;">Відкрити налаштування ⚙</button>
+            ⚠ Сповіщення в цьому браузері не увімкнені — нагадування не спливатимуть. Увімкни їх через шестерню ⚙ справа вгорі.
         </div>
     </div>
 

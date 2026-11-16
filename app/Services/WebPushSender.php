@@ -25,6 +25,15 @@ class WebPushSender
             return $result;
         }
 
+        // Library is a composer dependency: if it is missing (autoload not regenerated yet), report it
+        // as a normal result instead of a 500 page.
+        if (! class_exists(WebPush::class)) {
+            $result['failed'] = $result['subscriptions'];
+            $result['errors'][] = 'Бібліотека minishlink/web-push не підключена (composer install / dump-autoload).';
+
+            return $result;
+        }
+
         if (! config('webpush.public_key') || ! config('webpush.private_key')) {
             $result['failed'] = $result['subscriptions'];
             $result['errors'][] = 'VAPID keys are not configured on the server.';
