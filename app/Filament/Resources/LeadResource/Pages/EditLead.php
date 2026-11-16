@@ -67,6 +67,24 @@ class EditLead extends EditRecord
 
     protected static string $resource = LeadResource::class;
 
+    /**
+     * Filament's EditRecord authorizes by `update`, so a role with only
+     * View:Lead (e.g. "Керівник компанії") got 403 when opening a lead from
+     * the list. Same fix as EditOrder: let view-only roles in, read-only.
+     */
+    protected function authorizeAccess(): void
+    {
+        abort_unless(
+            auth()->user()?->can('Update:Lead') || auth()->user()?->can('View:Lead'),
+            403,
+        );
+    }
+
+    public function isReadOnly(): bool
+    {
+        return ! (auth()->user()?->can('Update:Lead') ?? false);
+    }
+
     /** No save buttons anywhere — form auto-saves on every field change. */
     protected function getFormActions(): array
     {
@@ -79,7 +97,7 @@ class EditLead extends EditRecord
      */
     public function updated(string $name): void
     {
-        if (! str_starts_with($name, 'data.')) {
+        if (! str_starts_with($name, 'data.') || $this->isReadOnly()) {
             return;
         }
         try {
@@ -100,7 +118,7 @@ class EditLead extends EditRecord
                 ->label('Прийняти заявку')
                 ->icon('heroicon-o-check-circle')
                 ->color('primary')
-                ->visible(fn (): bool => $this->getRecord()->manager_id === null)
+                ->visible(fn (): bool => ! $this->isReadOnly() && $this->getRecord()->manager_id === null)
                 ->action(function (): void {
                     $this->getRecord()->update(['manager_id' => auth()->id()]);
                     $this->fillForm();
@@ -114,6 +132,7 @@ class EditLead extends EditRecord
         return view('filament.resources.lead-resource.pages.lead-status-bar', [
             'record' => $this->getRecord(),
             'stageOptions' => Lead::stageOptions(),
+            'readOnly' => $this->isReadOnly(),
             'createMeasurementAction' => $this->createMeasurementAction(),
             'createOrderAction' => $this->createOrderAction(),
             'createReminderAction' => $this->createReminderAction(),
@@ -162,7 +181,7 @@ class EditLead extends EditRecord
         // One card in the old CRM's order (ФИО → номер → адреса → спосіб →
         // ресурс → тип → профіль → статус → коментарі → розрахунки), labels on
         // the left, so managers moving over see the same layout.
-        return $schema->columns(1)->components([
+        return $schema->columns(1)->disabled($this->isReadOnly())->components([
             Section::make('Картка ліда')
                 ->extraAttributes(['class' => 'record-card'])
                 ->inlineLabel()
@@ -171,7 +190,7 @@ class EditLead extends EditRecord
                     SchemaView::make('filament.resources.lead-resource.components.client-row')
                         ->viewData(fn (?Lead $record): array => [
                             'record' => $record,
-                            'editClientAction' => $this->editClientAction(),
+                            'editClientAction' => $this->isReadOnly() ? null : $this->editClientAction(),
                         ]),
 
                     SchemaView::make('filament.resources.lead-resource.components.phone-links')
@@ -180,7 +199,7 @@ class EditLead extends EditRecord
                     SchemaView::make('filament.resources.lead-resource.components.address-row')
                         ->viewData(fn (?Lead $record): array => [
                             'record' => $record,
-                            'editAddressAction' => $this->editAddressAction(),
+                            'editAddressAction' => $this->isReadOnly() ? null : $this->editAddressAction(),
                         ]),
 
                     Select::make('source')
@@ -323,6 +342,10 @@ class EditLead extends EditRecord
             return;
         }
 
+        if ($this->isReadOnly()) {
+            return;
+        }
+
         $reminder = $this->getRecord()->reminders()->whereKey($id)->first();
         $reminder?->update([$field => $field === 'is_completed' ? (bool) $value : $value]);
     }
@@ -334,6 +357,10 @@ class EditLead extends EditRecord
      */
     public function setStage(string $stage): void
     {
+        if ($this->isReadOnly()) {
+            return;
+        }
+
         $this->getRecord()->update(['stage' => $stage]);
 
         $this->fillForm();

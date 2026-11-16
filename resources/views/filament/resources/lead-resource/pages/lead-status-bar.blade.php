@@ -21,12 +21,13 @@
 
 
     {{-- Статус-бар — єдиний компонент x-status-bar --}}
-    <x-status-bar :steps="collect($stageOptions)->map(fn ($l) => ['label' => $l])->all()" :current="$currentStage" click="setStage" />
+    <x-status-bar :steps="collect($stageOptions)->map(fn ($l) => ['label' => $l])->all()" :current="$currentStage" :click="$readOnly ? null : 'setStage'" />
 
     {{-- Action-бар: рівно одна підказка, що робити далі. Реалізовано два
          кроки (замір -> замовлення) — наступні кроки (КП, узгодження тощо)
          додамо окремо, етап за етапом. Після створення замовлення кнопка
          зникає — лишається тільки посилання на саме замовлення. --}}
+    @unless ($readOnly)
     <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
         <div class="flex flex-wrap items-center gap-3">
             @if (! $latestMeasurement)
@@ -61,6 +62,7 @@
             @endif
         </div>
     </div>
+    @endunless
 
 
     {{-- Нагадування (old CRM: table under the action bar) --}}
