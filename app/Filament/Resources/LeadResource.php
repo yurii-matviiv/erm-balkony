@@ -237,6 +237,13 @@ class LeadResource extends Resource
                     ->description(fn (Lead $record): ?string => $record->client?->phone)
                     ->searchable(['last_name', 'first_name', 'phone']),
 
+                // Who owns the lead. Hidden in the manager panel: a manager
+                // already sees only their own (and unassigned) leads.
+                TextColumn::make('manager.name')
+                    ->label('Менеджер')
+                    ->placeholder('не призначено')
+                    ->visible(fn (): bool => RolePanels::idForUser(auth()->user()) !== RolePanels::MANAGER),
+
                 TextColumn::make('serviceTypes.name')
                     ->label('Тип звернення')
                     ->badge()
