@@ -26,7 +26,7 @@
     {{-- Хто відповідальний за лід — видно всім ролям (раніше на картці ліда менеджера не було взагалі). --}}
     <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 rounded-lg bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
         <span>Менеджер: <strong class="text-gray-700 dark:text-gray-200">{{ $record->manager?->name ?? 'не призначено' }}</strong></span>
-        <span>Створено: <strong class="text-gray-700 dark:text-gray-200">{{ $record->created_at?->format('d.m.Y') }}</strong></span>
+        <span>Створено: <strong class="text-gray-700 dark:text-gray-200">{{ $record->created_at?->format('d.m.Y H:i') }}</strong></span>
     </div>
 
     {{-- Action-бар: рівно одна підказка, що робити далі. Реалізовано два
