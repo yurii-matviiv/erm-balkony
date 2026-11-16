@@ -5,37 +5,13 @@
         <strong>Як це працює.</strong> У картці заявки натисни «Створити нагадування», обери дату й потрібну годину — і в цей час браузер сам нагадає про це спливаючим сповіщенням, навіть якщо вкладка з CRM закрита (головне — щоб браузер був запущений і ти дозволив сповіщення нижче). Усі свої нагадування бачиш тут; олівець справа дозволяє змінити текст чи час.
     </div>
 
-    {{-- Browser push permission: visible only while this browser is NOT subscribed, so a missing permission is obvious at once. --}}
+    {{-- Compact warning only while this browser is not subscribed; the actual switch lives behind the gear (top right). --}}
     <div x-data="pushState(@js(config('webpush.public_key')), @js(csrf_token()))" x-init="init()" x-cloak>
-        <template x-if="status === 'prompt'">
-            <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:.75rem 1rem;margin-bottom:1rem;border:1px solid #f0c36d;background:#fff8e6;border-radius:3px;font-size:.9rem;">
-                <span>Сповіщення в цьому браузері вимкнені — нагадування не спливатимуть, коли вкладка закрита.</span>
-                <button type="button" x-on:click="enable()" style="padding:.4rem .9rem;background:#2874A6;color:#fff;border:0;border-radius:3px;cursor:pointer;font-weight:600;">Дозволити сповіщення</button>
-            </div>
-        </template>
-        <template x-if="status === 'denied'">
-            <div style="padding:.75rem 1rem;margin-bottom:1rem;border:1px solid #e0a3a3;background:#fdeeee;border-radius:3px;font-size:.9rem;">
-                Браузер заблокував сповіщення для цього сайту. Увімкни їх у налаштуваннях сайту (значок біля адреси → «Сповіщення» → «Дозволити») і онови сторінку.
-            </div>
-        </template>
-        <template x-if="status === 'unsupported'">
-            <div style="padding:.75rem 1rem;margin-bottom:1rem;border:1px solid #cfd8de;background:#f4f6f8;border-radius:3px;font-size:.9rem;">
-                Цей браузер не підтримує push-сповіщення (на iPhone потрібно додати CRM на головний екран).
-            </div>
-        </template>
-        <template x-if="status === 'misconfigured'">
-            <div style="padding:.75rem 1rem;margin-bottom:1rem;border:1px solid #e0a3a3;background:#fdeeee;border-radius:3px;font-size:.9rem;">
-                На сервері не налаштовано ключі VAPID (див. docs/SCHEDULER.md) — сповіщення поки неможливі.
-            </div>
-        </template>
-        <div x-show="status === 'ok'" style="margin-bottom:1rem;font-size:.85rem;color:#2e7d32;">✔ Сповіщення в цьому браузері увімкнені</div>
-    </div>
-
-    @if ($this->canTestPush())
-        <div style="margin-bottom:1rem;">
-            <button type="button" wire:click="sendTestPush" style="padding:.4rem .9rem;background:#fff;color:#2874A6;border:1px solid #2874A6;border-radius:3px;cursor:pointer;font-size:.85rem;">Надіслати тестове сповіщення (адмін)</button>
+        <div x-show="['prompt','denied','misconfigured'].includes(status)" style="padding:.6rem 1rem;margin-bottom:1rem;border:1px solid #f0c36d;background:#fff8e6;border-radius:3px;font-size:.875rem;">
+            ⚠ Сповіщення в цьому браузері не увімкнені — нагадування не спливатимуть.
+            <button type="button" wire:click="mountAction('notificationSettings')" style="margin-left:.5rem;padding:.25rem .75rem;background:#2874A6;color:#fff;border:0;border-radius:3px;cursor:pointer;">Відкрити налаштування ⚙</button>
         </div>
-    @endif
+    </div>
 
     <script>
         function pushState(publicKey, csrf) {

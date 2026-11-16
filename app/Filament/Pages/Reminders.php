@@ -58,16 +58,28 @@ class Reminders extends Page implements HasTable
         ];
     }
 
-    /** Admin-only "send a test push to my browsers" button — checks the whole chain without creating a reminder. */
-    public function canTestPush(): bool
+    /** Gear at the top right: notification settings (enable + test) in a modal, for every role. */
+    protected function getHeaderActions(): array
     {
-        return in_array(auth()->user()?->getActiveRoleName(), ['Адмін', 'super_admin'], true);
+        return [
+            Action::make('notificationSettings')
+                ->iconButton()
+                ->icon('heroicon-o-cog-6-tooth')
+                ->tooltip('Налаштування сповіщень')
+                // Red mark on the gear while this user has no subscribed browser at all (server-side check;
+                // the banner on the page is exact for the CURRENT browser).
+                ->badge(fn (): ?string => \App\Models\PushSubscription::where('user_id', auth()->id())->exists() ? null : '!')
+                ->badgeColor('danger')
+                ->modalHeading('Налаштування сповіщень')
+                ->modalContent(view('filament.pages.reminders-push-settings'))
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Закрити'),
+        ];
     }
 
+    /** Sends a test push to the current user's own subscribed browsers (checks the whole chain without creating a reminder). */
     public function sendTestPush(): void
     {
-        abort_unless($this->canTestPush(), 403);
-
         $result = app(\App\Services\WebPushSender::class)->sendToUser(
             auth()->user(),
             'Тестове сповіщення',
