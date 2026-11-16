@@ -24,9 +24,14 @@ class NavigationCatalog
     /**
      * @return array<int, array{key: string, label: string, group: string, sort: int, url: string}>
      */
-    public static function discover(): array
+    public static function discover(?string $panelId = null): array
     {
-        $panel = Filament::getPanel('admin');
+        // Each panel (admin / manager) has its own set of registered
+        // resources and pages, so the catalog is always "for a panel". Default:
+        // the panel being rendered right now. SidebarSettings asks for the
+        // panel of the role it edits (see App\Support\RolePanels).
+        $panelId ??= Filament::getCurrentPanel()?->getId() ?? 'admin';
+        $panel = Filament::getPanel($panelId);
 
         $classes = [
             ...$panel->getResources(),
@@ -50,7 +55,7 @@ class NavigationCatalog
                     'label' => $class::getNavigationLabel(),
                     'group' => self::resolveGroupLabel($class::getNavigationGroup()),
                     'sort' => $class::getNavigationSort() ?? 0,
-                    'url' => $class::getUrl(),
+                    'url' => $class::getUrl(panel: $panelId),
                     'icon' => $class::getNavigationIcon(),
                 ];
             } catch (\Throwable $e) {
@@ -67,14 +72,16 @@ class NavigationCatalog
         // панель". Giving it a stable synthetic key here lets it flow
         // through the exact same group/order/active-toggle machinery as
         // everything else.
-        $items[] = [
-            'key' => 'quick-create-lead',
-            'label' => 'Додати заявку',
-            'group' => self::resolveGroupLabel(LeadResource::getNavigationGroup()),
-            'sort' => -1,
-            'url' => LeadResource::getUrl('index', ['create' => true]),
-            'icon' => 'heroicon-o-plus-circle',
-        ];
+        if (in_array(LeadResource::class, $classes, true)) {
+            $items[] = [
+                'key' => 'quick-create-lead',
+                'label' => 'Додати заявку',
+                'group' => self::resolveGroupLabel(LeadResource::getNavigationGroup()),
+                'sort' => -1,
+                'url' => LeadResource::getUrl('index', ['create' => true], panel: $panelId),
+                'icon' => 'heroicon-o-plus-circle',
+            ];
+        }
 
         usort($items, fn (array $a, array $b): int => $a['sort'] <=> $b['sort']);
 

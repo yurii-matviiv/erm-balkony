@@ -408,7 +408,7 @@ function initCalendar() {
         },
 
         events: function(info, success, failure) {
-            fetch(`/admin/api/montage-events?start=${info.startStr}&end=${info.endStr}`, {
+            fetch(`{{ url('/internal/montage-events') }}?start=${info.startStr}&end=${info.endStr}`, {
                 headers: {
                     'Accept':       'application/json',
                     'X-CSRF-TOKEN': csrfToken,

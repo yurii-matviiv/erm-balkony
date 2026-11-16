@@ -11,6 +11,7 @@ use App\Services\Sync\Mappers\ClientsSyncMapper;
 use App\Services\Sync\Mappers\CommercialFromSupplierFileSyncMapper;
 use App\Services\Sync\Mappers\InvoiceFromSupplierFileSyncMapper;
 use App\Services\Sync\Mappers\LeadsSyncMapper;
+use App\Services\Sync\Mappers\ManagerRemindersSyncMapper;
 use App\Services\Sync\Mappers\OrderPaymentsSyncMapper;
 use App\Services\Sync\Mappers\OrdersSyncMapper;
 use App\Services\Sync\Mappers\PaidInvoiceToSupplierFileSyncMapper;
@@ -42,6 +43,8 @@ class SyncMapperRegistry
             // resolves client_id/manager_id via their legacy_id columns
             // and skips any row it can't resolve a client for.
             new LeadsSyncMapper,
+            // After Users + Leads (resolves user_id / lead_id via legacy_id).
+            new ManagerRemindersSyncMapper,
             // Must run AFTER Users/Clients/Suppliers/Leads — resolves all
             // of client_id (required), lead_id, manager_id, consultant_id,
             // installer_id, surveyor_id, supplier_id via legacy_id.

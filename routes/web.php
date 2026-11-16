@@ -3,10 +3,14 @@
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
+// Root: a logged-in user goes to the panel of their active role (managers →
+// /manager, everyone else → /admin, see config/panels.php); guests to the
+// manager login (the majority of users). /admin/login keeps working for admins,
+// and RedirectToRolePanel sends anyone to the right panel after login.
 Route::get('/', function () {
     return auth()->check()
-        ? redirect('/admin')
-        : redirect('/admin/login');
+        ? redirect(\App\Support\RolePanels::homeUrl(\App\Support\RolePanels::idForUser(auth()->user())))
+        : redirect('/manager/login');
 });
 
 // ── Публічна форма набору персоналу (Instagram-реклама тощо) ─────────────
@@ -82,7 +86,9 @@ Route::middleware(['web', 'auth'])->group(function () {
 // ── Montage calendar events API ───────────────────────────────────────────
 // Returns orders with montage_date as FullCalendar-compatible JSON events.
 // Менеджер sees only their own orders; all other roles see everyone's.
-Route::get('/admin/api/montage-events', function () {
+// Path is deliberately OUTSIDE any panel prefix (/admin, /manager): the calendar
+// page now lives in both panels and fetches this one URL.
+Route::get('/internal/montage-events', function () {
     $user = auth()->user();
     $role = $user?->getActiveRoleName();
 
@@ -117,7 +123,10 @@ Route::get('/admin/api/montage-events', function () {
         $query->where('montage_date', '<=', substr($end, 0, 10));
     }
 
-    $events = $query->get()->flatMap(function (\App\Models\Order $order) use ($colors, $needsDarkText, $stageLabels) {
+    // Edit links must point into the panel of the viewer's role (/manager/... or /admin/...).
+    $panelId = \App\Support\RolePanels::idForUser($user);
+
+    $events = $query->get()->flatMap(function (\App\Models\Order $order) use ($colors, $needsDarkText, $stageLabels, $panelId) {
         $installerId  = (int) ($order->installer_id ?? 0);
         $bgColor      = $installerId ? $colors[$installerId % count($colors)] : '#94a3b8';
         $textColor    = in_array($bgColor, $needsDarkText) ? '#1f2937' : '#ffffff';
@@ -135,7 +144,7 @@ Route::get('/admin/api/montage-events', function () {
                 ? number_format((float) $order->total_price, 0, '', ' ') . ' грн'
                 : '—',
             'stageLabel'    => $stageLabels[$order->stage] ?? $order->stage,
-            'editUrl'       => url('/admin/orders/' . $order->id . '/edit'),
+            'editUrl'       => \App\Filament\Resources\OrderResource::getUrl('edit', ['record' => $order], panel: $panelId),
         ];
 
         $rows = [];
@@ -177,4 +186,4 @@ Route::get('/admin/api/montage-events', function () {
     });
 
     return response()->json(array_values($events->all()));
-})->middleware(['web', 'auth'])->name('admin.api.montage-events');
+})->middleware(['web', 'auth'])->name('api.montage-events');

@@ -30,6 +30,10 @@ class Dashboard extends \Filament\Pages\Dashboard
 
         $first = NavigationResolver::resolveForSidebar($user->getActiveRoleName())
             ->flatMap(fn (array $group) => $group['items'])
+            // "Додати заявку" is an ACTION shortcut (opens a create modal),
+            // not a place to land: as the first item it made every login open
+            // the "Нова заявка" form. Skip it when picking the home page.
+            ->reject(fn (array $item): bool => ($item['key'] ?? null) === 'quick-create-lead')
             ->first();
 
         if ($first && filled($first['url'] ?? null) && $first['url'] !== static::getUrl()) {

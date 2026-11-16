@@ -49,7 +49,8 @@ trait HasEditClientAction
         return Action::make('editClient')
             ->label('Редагувати клієнта')
             ->icon('heroicon-o-pencil-square')
-            ->color('gray')
+            ->link()
+            ->modalDescription('Дані самого клієнта, зокрема його власна адреса (де живе / контактна). Адреса об\'єкта, де виконуються роботи за заявкою, змінюється окремо — «Змінити адресу» в картці.')
             ->modalHeading(
                 $client
                     ? new \Illuminate\Support\HtmlString(

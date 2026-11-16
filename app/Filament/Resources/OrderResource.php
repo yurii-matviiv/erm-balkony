@@ -5,7 +5,9 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\OrderResource\Pages\EditOrder;
 use App\Filament\Resources\OrderResource\Pages\ListOrders;
 use App\Models\Order;
+use App\Support\RolePanels;
 use BackedEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
@@ -42,34 +44,90 @@ class OrderResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    /**
+     * A user working in the MANAGER panel (see config/panels.php) sees only
+     * their own orders — same as "Мої замовлення" in the old CRM (verified:
+     * old `orders.manager_id` = the manager; Олена 720 there vs 719 here).
+     * Applied in getEloquentQuery() so it covers the list, record lookup
+     * (a manager cannot open someone else's order by URL) and search alike.
+     * Admin-panel roles keep seeing everything.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if ($user && RolePanels::idForUser($user) === RolePanels::MANAGER) {
+            $query->where('manager_id', $user->id);
+        }
+
+        return $query;
+    }
+
     public static function table(Table $table): Table
     {
+        // Columns follow the old CRM's "Замовлення" list (order №, supplier
+        // invoice №, address, client, montage date, installer, stage chip)
+        // so managers recognise it; extras stay available in the column toggle.
+        $isManagerPanel = fn (): bool => RolePanels::idForUser(auth()->user()) === RolePanels::MANAGER;
+
         return $table
             ->columns([
-                TextColumn::make('client.full_name')
-                    ->label('Клієнт')
-                    ->description(fn (Order $record): ?string => $record->client?->phone)
-                    ->searchable(['client.last_name', 'client.first_name']),
+                TextColumn::make('id')
+                    ->label('Дог. № замовлення')
+                    ->formatStateUsing(fn ($state): string => 'замовл. №'.$state)
+                    ->sortable()
+                    ->searchable(),
+
+                TextColumn::make('invoice_from_supplier')
+                    ->label('№ у постачальника')
+                    ->wrap()
+                    ->searchable(),
 
                 TextColumn::make('address')
                     ->label('Адреса')
-                    ->limit(40)
+                    ->limit(60)
+                    ->tooltip(fn (Order $record): ?string => $record->address)
                     ->searchable(),
+
+                TextColumn::make('client.full_name')
+                    ->label('Клієнт')
+                    ->description(fn (Order $record): ?string => $record->client?->phone)
+                    ->searchable(['client.last_name', 'client.first_name', 'client.phone']),
+
+                TextColumn::make('montage_date')
+                    ->label('Монтаж')
+                    ->formatStateUsing(fn ($state): string => $state ? $state->locale('uk')->isoFormat('dd DD.MM') : '—')
+                    ->sortable(),
+
+                TextColumn::make('installer.name')
+                    ->label('Монтажник'),
 
                 TextColumn::make('order_type')
                     ->label('Тип')
-                    ->formatStateUsing(fn (?string $state): string => Order::orderTypeOptions()[$state] ?? '—'),
+                    ->formatStateUsing(fn (?string $state): string => Order::orderTypeOptions()[$state] ?? '—')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('manager.name')
-                    ->label('Менеджер'),
+                    ->label('Менеджер')
+                    ->visible(fn (): bool => ! $isManagerPanel()),
 
                 TextColumn::make('stage')
                     ->label('Етап')
                     ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'ready', 'success' => 'success',
+                        'in_work' => 'info',
+                        'in_process' => 'primary',
+                        'montage' => 'danger',
+                        'measuring' => 'warning',
+                        default => 'gray',
+                    })
                     ->formatStateUsing(fn (?string $state): string => Order::stageOptions()[$state] ?? '—'),
 
                 TextColumn::make('status')
                     ->label('Статус')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'done' => 'success',
@@ -81,11 +139,13 @@ class OrderResource extends Resource
                 TextColumn::make('total_price')
                     ->label('Сума')
                     ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(fn (?int $state): string => $state ? number_format($state, 0, '', ' ').' грн' : '—'),
 
                 TextColumn::make('created_at')
                     ->label('Дата створення')
                     ->dateTime('d.m.Y')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
             ])
             ->filters([
@@ -109,7 +169,8 @@ class OrderResource extends Resource
             // but the page itself now accepts the view permission and
             // renders read-only — see EditOrder::authorizeAccess().
             ->recordUrl(fn (Order $record): string => EditOrder::getUrl(['record' => $record]))
-            ->defaultSort('created_at', 'desc');
+            // Old CRM lists by montage date, newest first.
+            ->defaultSort('montage_date', 'desc');
     }
 
     public static function getPages(): array

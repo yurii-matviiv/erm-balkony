@@ -16,6 +16,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
@@ -245,6 +246,74 @@ class EditOrder extends EditRecord
         );
     }
 
+    /** Stage -> date column shown under that stage in the status bar. */
+    private function statusSteps(Order $record): array
+    {
+        $dateColumns = [
+            'measuring' => 'measurement_date',
+            'ready'     => 'readiness_date',
+            'montage'   => 'montage_date',
+            'success'   => 'success_date',
+        ];
+
+        $steps = [];
+        foreach (Order::stageOptions() as $key => $label) {
+            $value = isset($dateColumns[$key]) ? $record->{$dateColumns[$key]} : null;
+            $steps[$key] = [
+                'label' => $label,
+                'date'  => $value ? \Illuminate\Support\Carbon::parse($value)->format('d.m.Y') : null,
+            ];
+        }
+
+        return $steps;
+    }
+
+    public function setStage(string $stage): void
+    {
+        if ($this->isReadOnly() || ! array_key_exists($stage, Order::stageOptions())) {
+            return;
+        }
+
+        $this->getRecord()->update(['stage' => $stage]);
+        $this->fillForm();
+    }
+
+    /**
+     * Change the order type straight from the header (as in the old CRM).
+     * Saves immediately, then refills the form so the "Тип замовлення"
+     * select in the Замовлення card stays in sync.
+     */
+    /** Modal editor for the object address (clicked from the read-only field). */
+    public function editAddressAction(): Action
+    {
+        return Action::make('editAddress')
+            ->modalHeading('Адреса об\'єкта')
+            ->modalSubmitActionLabel('Зберегти')
+            ->modalCancelActionLabel('Скасувати')
+            ->modalWidth('lg')
+            ->visible(fn (): bool => ! $this->isReadOnly())
+            ->fillForm(['address' => $this->getRecord()->address])
+            ->schema([
+                Textarea::make('address')->label('Адреса')->required()->rows(3)->maxLength(255),
+            ])
+            ->action(function (array $data): void {
+                $this->getRecord()->update(['address' => $data['address']]);
+                $this->fillForm();
+            });
+    }
+
+    public function setOrderType(?string $type): void
+    {
+        $type = $type === '' ? null : $type;
+
+        if ($this->isReadOnly() || ($type !== null && ! array_key_exists($type, Order::orderTypeOptions()))) {
+            return;
+        }
+
+        $this->getRecord()->update(['order_type' => $type]);
+        $this->fillForm();
+    }
+
     /**
      * Show a meaningful title in the Filament header bar (where the action
      * buttons also appear). Previously getHeader() replaced the entire
@@ -283,13 +352,13 @@ class EditOrder extends EditRecord
                     return new \Illuminate\Support\HtmlString(
                         view('filament.resources.order-resource.pages.order-header', [
                             'record'         => $record,
-                            'stageLabel'     => Order::stageOptions()[$record->stage] ?? $record->stage,
-                            'stageColor'     => match ($record->status) {
-                                'done'      => 'success',
-                                'cancelled' => 'danger',
-                                default     => 'primary',
-                            },
+                            'steps'          => $this->statusSteps($record),
+                            'extra'          => $record->status === 'cancelled'
+                                ? [['label' => 'Відмінено' . ($record->cancel_date ? ' · ' . \Illuminate\Support\Carbon::parse($record->cancel_date)->format('d.m.Y') : ''), 'tone' => 'danger']]
+                                : [],
+                            'canChange'      => ! $this->isReadOnly(),
                             'orderTypeLabel' => Order::orderTypeOptions()[$record->order_type] ?? null,
+                            'orderTypeOptions' => Order::orderTypeOptions(),
                         ])->render()
                     );
                 }),
@@ -297,23 +366,25 @@ class EditOrder extends EditRecord
             Section::make('Дати')
                 ->icon('heroicon-o-calendar-days')
                 ->compact()
+                ->extraAttributes(['class' => 'ig-card'])
+                ->inlineLabel()
                 ->schema([
-                    Grid::make(3)->schema([
-                        DatePicker::make('measurement_date')->label('Замір')->native(false)->live(),
-                        DatePicker::make('readiness_date')->label('Готовність')->native(false)->live(),
+                    Grid::make(['default' => 1, '@3xl' => 2, '@6xl' => 3])->gridContainer()->schema([
+                        DatePicker::make('measurement_date')->label('Замір')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
+                        DatePicker::make('readiness_date')->label('Готовність')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
                         TimePicker::make('delivery_time')->label('Час доставки')->seconds(false)->lazy(),
                     ]),
 
-                    Grid::make(3)->schema([
-                        DatePicker::make('removal_date')->label('На вивіз')->native(false)->live(),
-                        Toggle::make('removal_request_sent')->label('Заявку на вивіз надіслано')->inline(false)->live(),
-                        DatePicker::make('montage_date')->label('Монтаж')->native(false)->live(),
+                    Grid::make(['default' => 1, '@3xl' => 2, '@6xl' => 3])->gridContainer()->schema([
+                        DatePicker::make('removal_date')->label('На вивіз')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
+                        DatePicker::make('montage_date')->label('Монтаж')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
                     ]),
 
                     // Кнопка "+" — показується тільки якщо жодна з додаткових
                     // дат не заповнена і користувач ще не натиснув "+".
                     Placeholder::make('add_montage_btn')
                         ->hiddenLabel()
+                        ->extraAttributes(['class' => 'ig-plain'])
                         ->content(new \Illuminate\Support\HtmlString(
                             '<button type="button" wire:click="addMontageDate"
                                 class="text-sm text-primary-600 dark:text-primary-400 hover:underline cursor-pointer">
@@ -328,10 +399,10 @@ class EditOrder extends EditRecord
                         ),
 
                     // Додаткові дати — видно якщо натиснуто "+" або вже є дані.
-                    Grid::make(3)->schema([
-                        DatePicker::make('montage_date_2')->label('Монтаж #2')->native(false)->live(),
-                        DatePicker::make('montage_date_3')->label('Монтаж #3')->native(false)->live(),
-                        DatePicker::make('montage_date_4')->label('Монтаж #4')->native(false)->live(),
+                    Grid::make(['default' => 1, '@3xl' => 2, '@6xl' => 3])->gridContainer()->schema([
+                        DatePicker::make('montage_date_2')->label('Монтаж #2')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
+                        DatePicker::make('montage_date_3')->label('Монтаж #3')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
+                        DatePicker::make('montage_date_4')->label('Монтаж #4')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
                     ])->hidden(fn (): bool =>
                         ! $this->showExtraMontage
                         && ! $this->getRecord()->montage_date_2
@@ -339,21 +410,30 @@ class EditOrder extends EditRecord
                         && ! $this->getRecord()->montage_date_4
                     ),
 
-                    Grid::make(2)->schema([
+                    Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
                         DatePicker::make('success_date')
                             ->label('Дата завершення')
-                            ->native(false)->live()
+                            ->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live()
                             ->visible(fn (Get $get): bool => $get('status') === 'done'),
                         DatePicker::make('cancel_date')
                             ->label('Дата відміни')
-                            ->native(false)->live()
+                            ->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live()
                             ->visible(fn (Get $get): bool => $get('status') === 'cancelled'),
                     ]),
+
+                    // Наприкінці секції, на всю ширину рядка: це позначка
+                    // («надіслано» / ні), тому чекбокс, а не перемикач.
+                    Checkbox::make('removal_request_sent')
+                        ->label('Заявку на вивіз надіслано')
+                        ->inline(false)
+                        ->live(),
                 ]),
 
             Section::make('Клієнт')
                 ->icon('heroicon-o-user')
                 ->compact()
+                ->extraAttributes(['class' => 'ig-card'])
+                ->inlineLabel()
                 // Pencil button next to the heading — see
                 // HasEditClientAction docblock for why this is
                 // deliberately NOT role-gated (a manager with no menu
@@ -363,7 +443,7 @@ class EditOrder extends EditRecord
                 // 3 columns — per explicit feedback, ПІБ/Телефон/Адреса
                 // read better as one tidy row than wrapping the 3rd field
                 // onto its own line (which a 2-column grid did).
-                ->columns(3)
+                ->columns(['default' => 1, '@3xl' => 2, '@6xl' => 3])->gridContainer()
                 ->schema([
                     TextEntry::make('client.full_name')->label('ПІБ'),
                     TextEntry::make('client.phone')->label('Телефон'),
@@ -373,14 +453,21 @@ class EditOrder extends EditRecord
             Section::make('Замовлення')
                 ->icon('heroicon-o-clipboard-document-list')
                 ->compact()
+                ->extraAttributes(['class' => 'ig-card'])
+                ->inlineLabel()
                 ->schema([
-                    Grid::make(2)->schema([
+                    Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
+                        // Read-only display; a click opens a modal (editAddressAction)
+                        // so a long address is edited in a roomy textarea, not a
+                        // one-line input. No icon — it covered the text.
                         TextInput::make('address')
                             ->label('Адреса об\'єкта')
-                            ->prefixIcon('heroicon-o-map-pin')
-                            ->required()
-                            ->maxLength(255)
-                            ->lazy(),
+                            ->readOnly()
+                            ->extraInputAttributes(fn (): array => $this->isReadOnly() ? [] : [
+                                'wire:click' => "mountAction('editAddress')",
+                                'style' => 'cursor:pointer;text-overflow:ellipsis;',
+                                'title' => $this->getRecord()->address,
+                            ]),
 
                         Select::make('order_type')
                             ->label('Тип замовлення')
@@ -389,7 +476,7 @@ class EditOrder extends EditRecord
                             ->live(),
                     ]),
 
-                    Grid::make(2)->schema([
+                    Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
                         // Hidden (not just disabled) for a plain "Менеджер"
                         // — per explicit request, a manager should only
                         // ever SEE who's responsible (in the header bar
@@ -412,7 +499,7 @@ class EditOrder extends EditRecord
                             ->hidden(),
                     ]),
 
-                    Grid::make(2)->schema([
+                    Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
                         Select::make('installer_id')
                             ->label('Монтажник')
                             ->options(fn () => User::query()->orderBy('name')->pluck('name', 'id'))
@@ -420,7 +507,7 @@ class EditOrder extends EditRecord
 
                         Select::make('surveyor_id')
                             ->label('Замірник (відповідальний)')
-                            ->helperText('Відповідальний за бригаду — навіть якщо монтажник інший.')
+                            ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Відповідальний за бригаду — навіть якщо монтажник інший.')
                             ->options(fn () => User::query()->orderBy('name')->pluck('name', 'id'))
                             ->searchable()->live(),
                     ]),
@@ -437,16 +524,13 @@ class EditOrder extends EditRecord
                     // reasoning. The `supplier_id` column/relation on Order
                     // itself is NOT removed — historical synced orders from
                     // the old system still have it, kept for reference.
-                    Grid::make(2)->schema([
-                        TextInput::make('square_meters')
-                            ->label('Квадратні метри')
-                            ->suffix('м²')
-                            ->numeric()->lazy(),
-
-                        Toggle::make('is_need_measuring')->label('Потрібен замір')->inline(false)->live(),
+                    // Both "needed" checkboxes share one row; stage/status the next.
+                    Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
+                        Checkbox::make('is_need_measuring')->label('Потрібен замір')->inline(false)->live(),
+                        Checkbox::make('is_need_install')->label('Потрібен монтаж')->inline(false)->live(),
                     ]),
 
-                    Grid::make(3)->schema([
+                    Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
                         Select::make('stage')
                             ->label('Етап')
                             ->options(Order::stageOptions())
@@ -457,15 +541,22 @@ class EditOrder extends EditRecord
                             ->options(Order::statusOptions())
                             ->required()
                             ->live(),
+                    ]),
 
-                        Toggle::make('is_need_install')->label('Потрібен монтаж')->inline(false)->live(),
+                    Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
+                        TextInput::make('square_meters')
+                            ->label('Квадратні метри')
+                            ->suffix('м²')
+                            ->numeric()->lazy(),
                     ]),
                 ]),
 
             Section::make('Вартість')
                 ->icon('heroicon-o-banknotes')
                 ->compact()
-                ->columns(3)
+                ->extraAttributes(['class' => 'ig-card'])
+                ->inlineLabel()
+                ->columns(['default' => 1, '@3xl' => 2, '@6xl' => 3])->gridContainer()
                 ->schema([
                     TextInput::make('total_price')->label('Загальна сума')->numeric()->suffix('грн')->lazy(),
                     // Computed — не зберігається, розраховується щоразу:
@@ -485,7 +576,7 @@ class EditOrder extends EditRecord
 
                             return number_format($due, 0, '', ' ');
                         })
-                        ->helperText('Загальна сума − фактично отримані від клієнта оплати.'),
+                        ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Загальна сума − фактично отримані від клієнта оплати.'),
                     TextInput::make('discount')->label('Знижка')->numeric()->suffix('%')->lazy(),
                     TextInput::make('montage_price_m2')->label('Вартість монтажу за м²')->numeric()->suffix('грн')->lazy(),
                     TextInput::make('montage_price')->label('Вартість монтажу')->numeric()->suffix('грн')->lazy(),
@@ -496,7 +587,7 @@ class EditOrder extends EditRecord
                     TextInput::make('cost_of_lifts')->label('Вартість підйомів')->numeric()->suffix('грн')->lazy(),
                     TextInput::make('gazda_price')
                         ->label('Газда')
-                        ->helperText('Стара назва — постачальник герметика/піни "Газда".')
+                        ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Стара назва — постачальник герметика/піни "Газда".')
                         ->numeric()->suffix('грн')->lazy(),
                 ]),
 

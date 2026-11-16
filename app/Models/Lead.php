@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
-    'legacy_id', 'client_id', 'manager_id', 'source', 'application_type', 'stage', 'status', 'lost_reason', 'legacy_status', 'comment',
+    'legacy_id', 'client_id', 'manager_id', 'source', 'application_type', 'stage', 'status', 'lost_reason', 'legacy_status', 'comment', 'comment_call', 'comment_callback', 'comment_sales_head', 'profile', 'advance_calculation1', 'advance_calculation2', 'advance_calculation3',
     'site_city', 'site_street', 'site_house_number', 'site_apartment_number', 'site_floor',
 ])]
 class Lead extends Model
@@ -33,6 +33,11 @@ class Lead extends Model
         ]);
 
         return $parts !== [] ? implode(', ', $parts) : null;
+    }
+
+    public function reminders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ManagerReminder::class)->orderBy('reminder_datetime');
     }
 
     public function marketingData(): HasOne
@@ -103,10 +108,54 @@ class Lead extends Model
      */
     public static function sourceOptions(): array
     {
+        // First three = original manual options; the rest are the old CRM's
+        // "Спосіб звернення" values that automatic channels write.
         return [
             'call' => 'Дзвінок',
+            'site' => 'Заявка з сайту',
             'office_visit' => 'Візит в офіс',
             'referral' => 'Передали контакт',
+            'binotel_chat' => 'Чат Бінотел',
+            'binotel_call' => 'Замовили callback',
+            'fb_lead_ads' => 'Заявка - Fb лід',
+            'fb_chat' => 'Заявка - Fb чат',
+        ];
+    }
+
+    /**
+     * Window profile types (old lead card "Тип профілю").
+     *
+     * @return array<string, string>
+     */
+    public static function profileOptions(): array
+    {
+        return [
+            'rehau_60' => 'rehau 60', 'rehau_70' => 'rehau 70', 'rehau_80' => 'rehau 80',
+            'rehau_sliding' => 'rehau sliding', 'openteck_delux_60' => 'OpenTeck De-Lux 60',
+            'openteck_elite_70' => 'OpenTeck ELITE 70', 'salamander_bluevolution_82' => 'Salamander bluEvolution 82',
+            'ukr_teple' => 'ukr teple', 'ukr_holodne' => 'ukr holodne', 'ukr_sliding' => 'ukr sliding',
+            'ne_vikna' => 'не вікна',
+        ];
+    }
+
+    /**
+     * Site/brand of origin (lives in lead_marketing_data.site_source).
+     *
+     * @return array<string, array<string, string>>
+     */
+    public static function siteSourceOptions(): array
+    {
+        return [
+            'Балкони та Вікна' => [
+                'btv' => 'сайт "Балкони та Вікна"', 'application_site_btv' => 'Заявка з сайту "Балкони та Вікна"',
+                'chat_binotel_btv' => 'чат з сайту "Балкони та Вікна"', 'recommendation_btv' => 'по рекомендації "Балкони та Вікна"',
+                'repeated-appeal_btv' => 'повторне звернення "Балкони та Вікна"', 'fb_btv' => 'фейсбук "Балкони та Вікна"',
+            ],
+            'Авікон' => [
+                'avicon' => 'сайт "Авікон"', 'application_site_avicon' => 'Заявка з сайту "Авікон"',
+                'chat_binotel_avicon' => 'чат з сайту "Авікон"', 'recommendation_avicon' => 'по рекомендації "Авікон"',
+                'repeated-appeal_avicon' => 'повторне звернення "Авікон"', 'fb_avicon' => 'фейсбук "Авікон"',
+            ],
         ];
     }
 
@@ -133,17 +182,17 @@ class Lead extends Model
     public static function stageOptions(): array
     {
         return [
-            'new' => 'Новий лід',
-            'contacted' => 'Контакт встановлено',
-            'measurement_scheduled' => 'Замір призначено',
-            'measurement_done' => 'Замір проведено',
-            'proposal_sent' => 'КП надіслано',
-            'negotiation' => 'Узгодження умов',
+            'new' => 'Новий',
+            'contacted' => 'Контакт',
+            'measurement_scheduled' => 'Замір',
+            'measurement_done' => 'Заміряно',
+            'proposal_sent' => 'КП',
+            'negotiation' => 'Узгодження',
             // Final stage of the lead funnel — once the "Замовлення"
             // module exists, reaching this stage should actually create/
             // link an Order; for now it's just the last step of the
             // status bar, set manually like any other stage.
-            'closing' => 'Конвертовано в замовлення',
+            'closing' => 'Замовлення',
         ];
     }
 

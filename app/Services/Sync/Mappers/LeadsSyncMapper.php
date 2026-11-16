@@ -124,10 +124,13 @@ class LeadsSyncMapper extends AbstractSyncMapper
             ['old' => 'order_type', 'new' => 'serviceTypes (pivot)', 'note' => 'мапиться на довідник lead_service_types; "another_appeal" пропускається (це не послуга)'],
             ['old' => 'status', 'new' => 'stage / status / lost_reason', 'note' => 'стара воронка розділяється на 3 нових поля — див. STATUS_MAP'],
             ['old' => 'status (raw)', 'new' => 'legacy_status', 'note' => 'оригінальне значення зберігається без змін для трасування'],
-            ['old' => 'comment + comment_call + comment_callback + comment_sales_head', 'new' => 'comment', 'note' => "об'єднується в один коментар з підписами, які старі поля непусті"],
+            ['old' => 'comment', 'new' => 'comment', 'note' => ''],
+            ['old' => 'comment_callback', 'new' => 'comment_callback', 'note' => '"результат/дія: чому замовив або ні"'],
+            ['old' => 'profile, advance_calculation1-3', 'new' => 'profile, advance_calculation1-3', 'note' => 'тип профілю і попередні розрахунки — є в картці ліда старої CRM'],
+            ['old' => 'comment_call', 'new' => 'comment_call', 'note' => '"Що планую робити далі"'],
+            ['old' => 'comment_sales_head', 'new' => 'comment_sales_head', 'note' => '"Звернути увагу!"'],
             ['old' => 'address', 'new' => 'site_street', 'note' => 'стара система зберігала повну адресу одним рядком — переноситься в site_street як є; менеджер може розбити на окремі поля вручну'],
             ['old' => 'caller_type', 'new' => '—', 'note' => "рядки з caller_type у ('spam','other','supplier') пропускаються — це не справжні ліди"],
-            ['old' => 'profile, advance_calculation1-3', 'new' => '—', 'note' => 'НЕ переноситься — належить майбутньому модулю "Замовлення", дані лишаються в старій БД'],
             ['old' => 'utm_*, device, ip_address, gclid (раніше помилково читали gdid), gbraid, wbraid, site_source, form_*, referrer, referral_1-4', 'new' => 'lead_marketing_data (1:1)', 'note' => 'окрема таблиця'],
         ];
     }
@@ -181,9 +184,6 @@ class LeadsSyncMapper extends AbstractSyncMapper
 
         $comment = trim(implode("\n", array_filter([
             ! empty($oldRow['comment']) ? $oldRow['comment'] : null,
-            ! empty($oldRow['comment_call']) ? 'Коментар дзвінка: '.$oldRow['comment_call'] : null,
-            ! empty($oldRow['comment_callback']) ? 'Коментар зворотного дзвінка: '.$oldRow['comment_callback'] : null,
-            ! empty($oldRow['comment_sales_head']) ? "Коментар керівника відділу продажу: ".$oldRow['comment_sales_head'] : null,
         ])));
 
         return [
@@ -196,6 +196,15 @@ class LeadsSyncMapper extends AbstractSyncMapper
             'lost_reason' => $lostReason,
             'legacy_status' => $oldStatus,
             'comment' => $comment !== '' ? $comment : null,
+            // Kept separate (as in the old CRM list): "Що планую робити далі"
+            // and "Звернути увагу!" are their own columns managers know.
+            'comment_callback' => ! empty($oldRow['comment_callback']) ? $oldRow['comment_callback'] : null,
+            'profile' => ! empty($oldRow['profile']) && $oldRow['profile'] !== 'null' ? $oldRow['profile'] : null,
+            'advance_calculation1' => ! empty($oldRow['advance_calculation1']) ? $oldRow['advance_calculation1'] : null,
+            'advance_calculation2' => ! empty($oldRow['advance_calculation2']) ? $oldRow['advance_calculation2'] : null,
+            'advance_calculation3' => ! empty($oldRow['advance_calculation3']) ? $oldRow['advance_calculation3'] : null,
+            'comment_call' => ! empty($oldRow['comment_call']) ? $oldRow['comment_call'] : null,
+            'comment_sales_head' => ! empty($oldRow['comment_sales_head']) ? $oldRow['comment_sales_head'] : null,
             // Old system stored the full site address as one string — we
             // write it into site_street as-is. The manager can split it
             // into city/house/apartment/floor manually if needed.

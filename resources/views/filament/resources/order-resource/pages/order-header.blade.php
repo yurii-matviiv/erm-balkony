@@ -15,16 +15,21 @@
         </div>
     @endif
 
-    <div class="flex flex-wrap items-center justify-center gap-2 text-center">
-        <x-filament::icon icon="heroicon-o-shopping-bag" class="h-7 w-7 text-gray-400" />
-        <h2 class="text-xl font-semibold">Замовлення №{{ $record->id }}</h2>
-    </div>
+    <x-status-bar :steps="$steps" :current="$record->stage" :click="$canChange ? 'setStage' : null" :extra="$extra" />
 
-    <div class="flex flex-wrap items-center justify-center gap-2">
-        <x-filament::badge :color="$stageColor" size="lg">{{ $stageLabel }}</x-filament::badge>
-
-        @if ($orderTypeLabel)
-            <x-filament::badge color="gray" size="lg">{{ $orderTypeLabel }}</x-filament::badge>
+    <div style="display:flex; align-items:center; justify-content:flex-end; gap:0.5rem;" class="text-sm text-gray-500 dark:text-gray-400">
+        <span>Тип замовлення:</span>
+        @if ($canChange)
+            <select wire:change="setOrderType($event.target.value)"
+                    style="border-radius:3px; min-width:14rem;"
+                    class="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-800 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                <option value="" @selected(! $record->order_type)>— не вказано —</option>
+                @foreach ($orderTypeOptions as $key => $label)
+                    <option value="{{ $key }}" @selected($record->order_type === $key)>{{ $label }}</option>
+                @endforeach
+            </select>
+        @else
+            <strong class="text-gray-700 dark:text-gray-200">{{ $orderTypeLabel ?? '—' }}</strong>
         @endif
     </div>
 

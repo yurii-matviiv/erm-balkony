@@ -17,7 +17,9 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View as SchemaView;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\View\View;
@@ -92,6 +94,17 @@ class EditLead extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // Old CRM's "Прийняти заявку": an unassigned lead is taken by
+            // choosing yourself as its manager. Shown only while unassigned.
+            Action::make('acceptLead')
+                ->label('Прийняти заявку')
+                ->icon('heroicon-o-check-circle')
+                ->color('primary')
+                ->visible(fn (): bool => $this->getRecord()->manager_id === null)
+                ->action(function (): void {
+                    $this->getRecord()->update(['manager_id' => auth()->id()]);
+                    $this->fillForm();
+                }),
             DeleteAction::make(),
         ];
     }
@@ -103,6 +116,8 @@ class EditLead extends EditRecord
             'stageOptions' => Lead::stageOptions(),
             'createMeasurementAction' => $this->createMeasurementAction(),
             'createOrderAction' => $this->createOrderAction(),
+            'createReminderAction' => $this->createReminderAction(),
+            'reminders' => $this->getRecord()->reminders()->with('user')->get(),
         ]);
     }
 
@@ -112,7 +127,20 @@ class EditLead extends EditRecord
      */
     public function getFooter(): ?View
     {
-        return $this->renderPageDoc('leads', 'statuses', 'Статуси заявок');
+        // Two doc blocks: the old CRM's full "Інструкція / обов'язки" (ported
+        // verbatim for managers moving over) and the new-system stage/status
+        // explanation. Each carries its own edit action.
+        $block = fn (string $section, string $title): array => [
+            'doc' => $this->getPageDoc('leads', $section),
+            'canManage' => $this->canManagePageDocs(),
+            'defaultTitle' => $title,
+            'action' => $this->pageDocAction('leads', $section, $title),
+        ];
+
+        return view('filament.resources.lead-resource.pages.lead-docs', [
+            'instruction' => $block('instruction', "Інструкція / обов'язки"),
+            'statuses' => $block('statuses', 'Статуси заявок'),
+        ]);
     }
 
     /**
@@ -131,52 +159,67 @@ class EditLead extends EditRecord
      */
     public function form(Schema $schema): Schema
     {
+        // One card in the old CRM's order (ФИО → номер → адреса → спосіб →
+        // ресурс → тип → профіль → статус → коментарі → розрахунки), labels on
+        // the left, so managers moving over see the same layout.
         return $schema->columns(1)->components([
-            Section::make('Клієнт')
-                ->headerActions([$this->editClientAction()])
-                // 3 columns — per explicit feedback on the equivalent
-                // section in EditOrder, ПІБ/Телефон/Адреса read better as
-                // one tidy row than wrapping the 3rd field onto its own
-                // line (which a 2-column grid did).
-                ->columns(3)
+            Section::make('Картка ліда')
+                ->extraAttributes(['class' => 'record-card'])
+                ->inlineLabel()
+                ->columns(1)
                 ->schema([
-                    TextEntry::make('client.full_name')->label('ПІБ'),
-                    TextEntry::make('client.phone')->label('Телефон'),
-                    TextEntry::make('client.full_address')->label('Адреса клієнта')->default('—'),
-                ]),
+                    SchemaView::make('filament.resources.lead-resource.components.client-row')
+                        ->viewData(fn (?Lead $record): array => [
+                            'record' => $record,
+                            'editClientAction' => $this->editClientAction(),
+                        ]),
 
-            Section::make('Заявка')
-                ->schema([
-                    Select::make('application_type')
-                        ->label('Тип заявки')
-                        ->options(Lead::applicationTypeOptions())
-                        ->disabled()
-                        ->dehydrated()
-                        ->helperText('Визначається автоматично за клієнтом.'),
+                    SchemaView::make('filament.resources.lead-resource.components.phone-links')
+                        ->viewData(fn (?Lead $record): array => ['record' => $record]),
+
+                    SchemaView::make('filament.resources.lead-resource.components.address-row')
+                        ->viewData(fn (?Lead $record): array => [
+                            'record' => $record,
+                            'editAddressAction' => $this->editAddressAction(),
+                        ]),
 
                     Select::make('source')
-                        ->label('Звідки отримали заявку')
+                        ->label('Спосіб звернення')
                         ->options(Lead::sourceOptions())
                         ->required()
                         ->live(),
 
+                    Group::make()
+                        ->relationship('marketingData')
+                        ->schema([
+                            Select::make('site_source')
+                                ->label('Ресурс')
+                                ->options(Lead::siteSourceOptions())
+                                ->live(),
+                        ]),
+
                     Select::make('serviceTypes')
-                        ->label('Тип звернення (послуги)')
+                        ->label('Тип звернення')
                         ->relationship('serviceTypes', 'name')
                         ->multiple()
                         ->preload()
                         ->required()
                         ->live(),
 
+                    Select::make('profile')
+                        ->label('Тип профілю')
+                        ->options(Lead::profileOptions())
+                        ->placeholder('це поле обов\'язкове')
+                        ->live(),
+
                     Select::make('stage')
-                        ->label('Етап воронки')
+                        ->label('Статус')
                         ->options(Lead::stageOptions())
                         ->required()
-                        ->live()
-                        ->helperText('Можна також змінювати кліком по статус-бару вище.'),
+                        ->live(),
 
                     Select::make('status')
-                        ->label('Статус')
+                        ->label('Результат')
                         ->options(Lead::statusOptions())
                         ->required()
                         ->live(),
@@ -187,46 +230,101 @@ class EditLead extends EditRecord
                         ->visible(fn (Get $get): bool => $get('status') === 'lost'),
 
                     Textarea::make('comment')
-                        ->label('Коментар')
+                        ->label('Коментар / + тип клієнта')
+                        ->placeholder('вкажіть тип клієнта, які цінності його цікавлять')
+                        ->rows(3)
                         ->lazy(),
-                ])
-                // No ->columnSpanFull() on any field above — per explicit
-                // request, a single field maxes out at 1 of these 2
-                // columns (50%) on desktop, never 100%; mobile still gets
-                // 1 column (full width) automatically via the breakpoint
-                // fallback (only 'lg' is set — see HasColumns::columns()).
-                ->columns(2),
 
-            // The OBJECT's address — see Lead::getSiteAddressAttribute()
-            // docblock for why this is deliberately separate from the
-            // client's own address shown in the section above. One field
-            // per row (no ->columns() on the Section, so the grid never
-            // places two side by side) — but per explicit request, on
-            // desktop a single short field (Місто/Будинок/...) stretching
-            // to the full card width looks oversized, so each field's
-            // wrapper is capped at 50% width from the `lg` breakpoint up
-            // via a raw Tailwind class; below `lg` (mobile/tablet) the
-            // class doesn't apply and it's back to full width.
-            Section::make('Адреса об\'єкта')
-                ->description('Де виконуються роботи за цією заявкою. Може відрізнятися від адреси клієнта вище.')
-                ->schema([
-                    TextInput::make('site_city')->label('Місто')->default('Київ')->maxLength(255)
-                        ->lazy()
-                        ->extraFieldWrapperAttributes(['class' => 'lg:max-w-[50%]']),
-                    TextInput::make('site_street')->label('Вулиця')->maxLength(255)
-                        ->lazy()
-                        ->extraFieldWrapperAttributes(['class' => 'lg:max-w-[50%]']),
-                    TextInput::make('site_house_number')->label('Будинок')->maxLength(20)
-                        ->lazy()
-                        ->extraFieldWrapperAttributes(['class' => 'lg:max-w-[50%]']),
-                    TextInput::make('site_apartment_number')->label('Квартира')->maxLength(20)
-                        ->lazy()
-                        ->extraFieldWrapperAttributes(['class' => 'lg:max-w-[50%]']),
-                    TextInput::make('site_floor')->label('Поверх')->maxLength(20)
-                        ->lazy()
-                        ->extraFieldWrapperAttributes(['class' => 'lg:max-w-[50%]']),
+                    Textarea::make('comment_call')
+                        ->label('Що планую робити далі')
+                        ->placeholder('обов\'язково для заповнення! Вкажіть, що будемо робити, та коли')
+                        ->rows(3)
+                        ->lazy(),
+
+                    Textarea::make('comment_callback')
+                        ->label('Результат/дія: чому замовив або ні')
+                        ->rows(3)
+                        ->lazy(),
+
+                    TextInput::make('advance_calculation1')
+                        ->label('Розрахунок №1')
+                        ->helperText('Якщо ви відправили розрахунок клієнту, він повинен бути тут, обов\'язково!')
+                        ->lazy(),
+
+                    Section::make('Додаткові поля для розрахунків')
+                        ->collapsed()
+                        ->compact()
+                        ->inlineLabel()
+                        ->schema([
+                            TextInput::make('advance_calculation2')->label('Розрахунок №2')->lazy(),
+                            TextInput::make('advance_calculation3')->label('Розрахунок №3')->lazy(),
+                        ]),
                 ]),
         ]);
+    }
+
+    /**
+     * "Змінити адресу" — the old CRM had one free-text address input; here the
+     * address is shown as plain text and edited in a modal with the structured
+     * site_* fields. Data is resolved eagerly (plain array, not a Closure) —
+     * see the fillForm() gotcha in CLAUDE.md.
+     */
+    public function editAddressAction(): Action
+    {
+        $record = $this->getRecord();
+
+        return Action::make('editAddress')
+            ->label('Змінити адресу')
+            ->icon('heroicon-o-pencil-square')
+            ->link()
+            ->modalHeading('Адреса об\'єкта заявки')
+            ->modalDescription('Де виконуються роботи за цією заявкою. Якщо потрібно змінити адресу клієнта — скористайтеся кнопкою «Редагувати клієнта».')
+            ->modalSubmitActionLabel('Зберегти')
+            ->modalCancelActionLabel('Скасувати')
+            ->modalWidth('lg')
+            ->fillForm($record->only(['site_city', 'site_street', 'site_house_number', 'site_apartment_number', 'site_floor']))
+            ->schema([
+                TextInput::make('site_city')->label('Місто')->maxLength(255),
+                TextInput::make('site_street')->label('Вулиця')->maxLength(255),
+                TextInput::make('site_house_number')->label('Будинок')->maxLength(20),
+                TextInput::make('site_apartment_number')->label('Квартира')->maxLength(20),
+                TextInput::make('site_floor')->label('Поверх')->maxLength(20),
+            ])
+            ->action(function (array $data): void {
+                $this->getRecord()->update($data);
+                $this->fillForm();
+            });
+    }
+
+    /** Old CRM "Додати нагадування для ліда" — a reminder for the current manager tied to this lead. */
+    public function createReminderAction(): Action
+    {
+        return Action::make('createReminder')
+            ->label('Створити нагадування')
+            ->icon('heroicon-o-bell-alert')
+            ->color('warning')
+            ->modalHeading('Нове нагадування')
+            ->modalSubmitActionLabel('Зберегти')
+            ->modalCancelActionLabel('Скасувати')
+            ->schema([
+                Textarea::make('reminder_text')->label('Текст нагадування')->required()->rows(3),
+                \Filament\Forms\Components\DateTimePicker::make('reminder_datetime')->label('Дата і час нагадування')->seconds(false)->required(),
+                Select::make('reminder_type')->label('Тип нагадування')->options(\App\Models\ManagerReminder::typeOptions())->default('important_urgent')->required(),
+            ])
+            ->action(function (array $data): void {
+                $this->getRecord()->reminders()->create($data + ['user_id' => auth()->id()]);
+            });
+    }
+
+    /** Inline edit from the reminders table (text / date / done flag), saved on blur/change. */
+    public function updateReminderField(int $id, string $field, mixed $value): void
+    {
+        if (! in_array($field, ['reminder_text', 'reminder_datetime', 'is_completed'], true)) {
+            return;
+        }
+
+        $reminder = $this->getRecord()->reminders()->whereKey($id)->first();
+        $reminder?->update([$field => $field === 'is_completed' ? (bool) $value : $value]);
     }
 
     /**
@@ -303,6 +401,7 @@ class EditLead extends EditRecord
         return Action::make('createOrder')
             ->label('Створити замовлення')
             ->icon('heroicon-o-shopping-bag')
+            ->color('success')
             ->requiresConfirmation()
             ->modalHeading('Підтвердіть створення замовлення')
             ->modalDescription(function (): string {

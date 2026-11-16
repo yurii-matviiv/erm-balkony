@@ -7,9 +7,9 @@ use App\Filament\Resources\LeadResource\Pages\ListLeads;
 use App\Models\Client;
 use App\Models\Lead;
 use BackedEnum;
+use App\Support\RolePanels;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -19,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * "Заявки" (leads) — the start of the sales pipeline.
@@ -47,7 +48,7 @@ class LeadResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Заявки';
 
-    protected static ?string $navigationLabel = 'Ліди';
+    protected static ?string $navigationLabel = 'Лід - заявка';
 
     protected static ?string $modelLabel = 'заявка';
 
@@ -160,12 +161,79 @@ class LeadResource extends Resource
         ]);
     }
 
+    /**
+     * Visibility rule copied from the old CRM (Views/Enquiry/index.php: a row is
+     * rendered only when `$user_name == manager_name || empty(manager_name)`,
+     * and the admin role sees everything): in the manager panel a manager sees
+     * their OWN leads plus the still UNASSIGNED ones (new leads anybody may
+     * accept). Once somebody accepts a lead it disappears for everyone else.
+     * Other panels/roles keep the full list.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if ($user && RolePanels::idForUser($user) === RolePanels::MANAGER) {
+            $query->where(fn (Builder $q) => $q->where('manager_id', $user->getKey())->orWhereNull('manager_id'));
+        }
+
+        return $query;
+    }
+
+    /** Count of unaccepted leads (old CRM: `who_added_user_id IS NULL AND date > 2024-01-01`). */
+    public static function getNavigationBadge(): ?string
+    {
+        $user = auth()->user();
+
+        if (! $user || RolePanels::idForUser($user) !== RolePanels::MANAGER) {
+            return null;
+        }
+
+        $count = Lead::query()->whereNull('manager_id')->where('created_at', '>', '2024-01-01')->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
+
     public static function table(Table $table): Table
     {
         return $table
+            // Column order mirrors the old CRM list (date, status, client,
+            // type, address, contact method, comment) so managers moving over
+            // find everything where they expect it. The list is view-only:
+            // clicking anywhere on a row opens the lead (recordUrl below);
+            // stage changes happen on the lead page.
             ->columns([
+                TextColumn::make('created_at')
+                    ->label('Дата')
+                    ->formatStateUsing(fn ($state): string => $state->locale('uk')->isoFormat('dd DD.MM'))
+                    ->description(fn (Lead $record): string => $record->created_at->format('H:i'))
+                    ->sortable(),
+
+                // Old CRM had ONE merged status; the new model splits it into
+                // stage + status. Show the final outcome when there is one,
+                // otherwise the funnel stage.
+                TextColumn::make('stage')
+                    ->label('Статус')
+                    ->badge()
+                    ->state(fn (Lead $record): string => match ($record->status) {
+                        'won' => 'Угода укладена',
+                        'lost' => 'Втрачено',
+                        default => Lead::stageOptions()[$record->stage] ?? '—',
+                    })
+                    ->color(fn (Lead $record): string => match ($record->status) {
+                        'won' => 'success',
+                        'lost' => 'danger',
+                        default => 'info',
+                    }),
+
                 TextColumn::make('client.full_name')
-                    ->label('ПІБ')
+                    ->label('Клієнт')
                     ->description(fn (Lead $record): ?string => $record->client?->phone)
                     ->searchable(['last_name', 'first_name', 'phone']),
 
@@ -174,35 +242,42 @@ class LeadResource extends Resource
                     ->badge()
                     ->separator(','),
 
+                TextColumn::make('site_address')
+                    ->label('Адреса об\'єкта')
+                    ->state(fn (Lead $record): ?string => $record->site_address)
+                    ->placeholder('—')
+                    ->wrap()
+                    ->searchable(['site_city', 'site_street']),
+
                 TextColumn::make('source')
-                    ->label('Джерело')
+                    ->label('Спосіб звернення')
                     ->formatStateUsing(fn (?string $state): string => Lead::sourceOptions()[$state] ?? '—'),
+
+                TextColumn::make('comment')
+                    ->label('Коментар')
+                    ->limit(60)
+                    ->tooltip(fn (Lead $record): ?string => $record->comment)
+                    ->placeholder('—'),
+
+                TextColumn::make('comment_call')
+                    ->label('Що планую робити далі')
+                    ->limit(60)
+                    ->tooltip(fn (Lead $record): ?string => $record->comment_call)
+                    ->placeholder('—'),
+
+                TextColumn::make('comment_sales_head')
+                    ->label('Звернути увагу!')
+                    ->color('danger')
+                    ->limit(60)
+                    ->tooltip(fn (Lead $record): ?string => $record->comment_sales_head)
+                    ->placeholder('—'),
 
                 TextColumn::make('application_type')
                     ->label('Тип заявки')
                     ->badge()
                     ->color(fn (string $state): string => $state === 'repeat' ? 'warning' : 'success')
-                    ->formatStateUsing(fn (?string $state): string => Lead::applicationTypeOptions()[$state] ?? '—'),
-
-                TextColumn::make('stage')
-                    ->label('Етап')
-                    ->badge()
-                    ->formatStateUsing(fn (?string $state): string => Lead::stageOptions()[$state] ?? '—'),
-
-                TextColumn::make('status')
-                    ->label('Статус')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'won' => 'success',
-                        'lost' => 'danger',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (?string $state): string => Lead::statusOptions()[$state] ?? '—'),
-
-                TextColumn::make('created_at')
-                    ->label('Дата заявки')
-                    ->dateTime('d.m.Y H:i')
-                    ->sortable(),
+                    ->formatStateUsing(fn (?string $state): string => Lead::applicationTypeOptions()[$state] ?? '—')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('source')
@@ -221,19 +296,14 @@ class LeadResource extends Resource
                     ->label('Тип звернення')
                     ->relationship('serviceTypes', 'name'),
             ])
-            // EditAction navigates to the EditLead page (registered
-            // below) instead of opening a modal, because that page
-            // exists — recordAction('edit') makes clicking anywhere on
-            // the row do the same thing as clicking the edit button.
-            ->recordAction('edit')
-            ->recordActions([
-                EditAction::make('edit'),
-            ])
+            ->recordUrl(fn (Lead $record): string => static::getUrl('edit', ['record' => $record]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
             ])
+            ->paginationPageOptions([20, 100])
+            ->defaultPaginationPageOption(20)
             ->defaultSort('created_at', 'desc');
     }
 

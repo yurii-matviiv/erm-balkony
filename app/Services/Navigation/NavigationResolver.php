@@ -4,6 +4,7 @@ namespace App\Services\Navigation;
 
 use App\Models\NavigationLabel;
 use App\Models\NavigationSetting;
+use App\Support\RolePanels;
 use Illuminate\Support\Collection;
 
 /**
@@ -31,7 +32,8 @@ class NavigationResolver
      */
     public static function resolveForEditor(string $role): Collection
     {
-        $catalog = collect(NavigationCatalog::discover())->keyBy('key');
+        // Items = what exists in the panel this role works in (admin or manager).
+        $catalog = collect(NavigationCatalog::discover(RolePanels::idForRole($role)))->keyBy('key');
 
         $settings = NavigationSetting::where('role', $role)->get()->keyBy('item_key');
         $labels = NavigationLabel::pluck('label', 'item_key');
