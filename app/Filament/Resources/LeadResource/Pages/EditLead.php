@@ -85,6 +85,20 @@ class EditLead extends EditRecord
         return ! (auth()->user()?->can('Update:Lead') ?? false);
     }
 
+    /**
+     * Who may write the sales head's note ("Звернути увагу!"). Checked against
+     * the ACTIVE role (same convention as EditOrder::canReassignOwnership()).
+     * This is the one field a view-only head (Керівник компанії) can edit.
+     */
+    public function canEditSalesHeadComment(): bool
+    {
+        return in_array(
+            auth()->user()?->getActiveRoleName(),
+            ['Адмін', 'Керівник відділу продажу', 'Керівник компанії', 'super_admin'],
+            true,
+        );
+    }
+
     /** No save buttons anywhere — form auto-saves on every field change. */
     protected function getFormActions(): array
     {
@@ -98,6 +112,19 @@ class EditLead extends EditRecord
     public function updated(string $name): void
     {
         if (! str_starts_with($name, 'data.')) {
+            return;
+        }
+
+        // The sales head's note is saved on its own (only this column), so it
+        // works even for view-only roles, and is refused for everyone else.
+        if ($name === 'data.comment_sales_head') {
+            if ($this->canEditSalesHeadComment()) {
+                $value = trim((string) ($this->data['comment_sales_head'] ?? ''));
+                $this->getRecord()->update(['comment_sales_head' => $value !== '' ? $value : null]);
+            } else {
+                $this->fillForm();
+            }
+
             return;
         }
 
@@ -267,6 +294,13 @@ class EditLead extends EditRecord
                         ->placeholder('вкажіть тип клієнта, які цінності його цікавлять')
                         ->rows(3)
                         ->lazy(),
+
+                    Textarea::make('comment_sales_head')
+                        ->label('Коментар керівника відділу продажу')
+                        ->placeholder('Звернути увагу! Бачать усі, пише лише керівник')
+                        ->rows(3)
+                        ->lazy()
+                        ->disabled(fn (): bool => ! $this->canEditSalesHeadComment()),
 
                     Textarea::make('comment_call')
                         ->label('Що планую робити далі')

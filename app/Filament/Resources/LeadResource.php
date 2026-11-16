@@ -268,17 +268,17 @@ class LeadResource extends Resource
                     ->tooltip(fn (Lead $record): ?string => $record->comment)
                     ->placeholder('—'),
 
+                TextColumn::make('comment_sales_head')
+                    ->label('Коментар керівника')
+                    ->color('danger')
+                    ->limit(60)
+                    ->tooltip(fn (Lead $record): ?string => $record->comment_sales_head)
+                    ->placeholder('—'),
+
                 TextColumn::make('comment_call')
                     ->label('Що планую робити далі')
                     ->limit(60)
                     ->tooltip(fn (Lead $record): ?string => $record->comment_call)
-                    ->placeholder('—'),
-
-                TextColumn::make('comment_sales_head')
-                    ->label('Звернути увагу!')
-                    ->color('danger')
-                    ->limit(60)
-                    ->tooltip(fn (Lead $record): ?string => $record->comment_sales_head)
                     ->placeholder('—'),
 
                 TextColumn::make('application_type')
