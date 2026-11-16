@@ -35,7 +35,7 @@
 
     <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 rounded-lg bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
         <span>Менеджер: <strong class="text-gray-700 dark:text-gray-200">{{ $record->manager?->name ?? '—' }}</strong></span>
-        <span>Створено: <strong class="text-gray-700 dark:text-gray-200">{{ $record->created_at?->format('d.m.Y H:i') }}</strong></span>
+        <span>Створено: <strong class="text-gray-700 dark:text-gray-200">{{ $record->created_at?->locale('uk')->isoFormat('dd DD.MM.YYYY HH:mm') }}</strong></span>
         <span>Консультант: <strong class="text-gray-700 dark:text-gray-200">{{ $record->consultant?->name ?? 'немає' }}</strong></span>
         @if ($record->lead_id)
             <a href="{{ \App\Filament\Resources\LeadResource::getUrl('edit', ['record' => $record->lead_id]) }}" class="text-primary-600 hover:underline">
