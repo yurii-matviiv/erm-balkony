@@ -82,7 +82,8 @@ class Reminders extends Page implements HasTable
     {
         return $table
             ->query(fn (): Builder => $this->tabQuery($this->activeTab)->with('lead.client'))
-            ->modifyQueryUsing(fn (Builder $q): Builder => $q->reorder()->orderBy('is_completed')->orderBy('reminder_datetime'))
+            // Param MUST be named $query: Filament injects the table query by name; any other name gets an empty model-less Builder.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->reorder()->orderBy('is_completed')->orderBy('reminder_datetime'))
             ->striped()
             ->paginated([25, 50, 100])
             ->recordUrl(fn (ManagerReminder $record): ?string => $record->lead_id
