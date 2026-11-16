@@ -187,3 +187,10 @@ Route::get('/internal/montage-events', function () {
 
     return response()->json(array_values($events->all()));
 })->middleware(['web', 'auth'])->name('api.montage-events');
+
+// Web Push subscriptions (reminders page): the logged-in user registers / removes
+// this browser. See docs/SCHEDULER.md.
+Route::middleware('auth')->group(function () {
+    Route::post('/push/subscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'store'])->name('push.subscribe');
+    Route::delete('/push/subscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'destroy'])->name('push.unsubscribe');
+});
