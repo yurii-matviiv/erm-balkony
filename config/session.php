@@ -32,7 +32,11 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    // Deliberately NOT read from .env: a user stays logged in until they log
+    // out themselves (explicit requirement). Browsers cap a cookie's life at
+    // ~400 days, so 365 days (renewed on every request) is the practical
+    // "never". A stray SESSION_LIFETIME in a server .env must not shorten it.
+    'lifetime' => 525600,
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 
