@@ -118,6 +118,9 @@ class AdminPanelProvider extends PanelProvider
             // persisted by Filament itself (Alpine $persist → browser
             // localStorage), so the browser remembers the choice.
             ->sidebarCollapsibleOnDesktop()
+            // Narrower than Filament's default 20rem; the name in the user card is
+            // cut to "Прізвище Ім'я" and never stretches the sidebar anyway.
+            ->sidebarWidth('16rem')
             // Per-role sidebar (see App\Services\Navigation\NavigationResolver
             // and the "Бокова панель" settings page). Using ->navigation()
             // with a closure replaces Filament's automatic
@@ -213,7 +216,7 @@ HTML,
                 'panels::user-menu.after',
                 fn (): string => auth()->check()
                     ? '<div x-data="{}" x-show="$store.sidebar.isOpen" x-cloak style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:2px;color:#fff;min-width:0;">'
-                        . '<div style="font-size:14px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' . e(auth()->user()->name) . '</div>'
+                        . '<div style="font-size:14px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' . e(implode(' ', array_slice(preg_split('/\s+/u', trim(auth()->user()->name)), 0, 2))) . '</div>'
                         . '<div style="font-size:12px;line-height:1.25;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' . e(auth()->user()->email) . '</div>'
                         . '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:2px;">'
                         . '<span style="font-size:11px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' . e(auth()->user()->getActiveRoleName() ?? '—') . '</span>'
