@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
  */
 trait HasDateRangeBar
 {
-    public string $preset = 'last_30_days';
+    public string $preset = 'today';
 
     public string $dateFrom = '';
 
@@ -25,7 +25,38 @@ trait HasDateRangeBar
 
     public function mountHasDateRangeBar(): void
     {
+        // A period the user picked is remembered until the end of the
+        // current day (per page, in the session); the next day the bar
+        // starts again from "Сьогодні".
+        $saved = session($this->dateRangeSessionKey());
+
+        if (is_array($saved) && ($saved['day'] ?? null) === now()->toDateString()) {
+            $this->preset = (string) $saved['preset'];
+
+            if ($this->preset === 'custom') {
+                $this->dateFrom = (string) ($saved['from'] ?? '');
+                $this->dateTo = (string) ($saved['to'] ?? '');
+
+                return;
+            }
+        }
+
         $this->fillRangeFromPreset($this->preset);
+    }
+
+    private function dateRangeSessionKey(): string
+    {
+        return 'date_range_bar.' . static::class;
+    }
+
+    private function rememberDateRange(): void
+    {
+        session([$this->dateRangeSessionKey() => [
+            'day' => now()->toDateString(),
+            'preset' => $this->preset,
+            'from' => $this->dateFrom,
+            'to' => $this->dateTo,
+        ]]);
     }
 
     public function applyPreset(string $preset): void
@@ -36,12 +67,14 @@ trait HasDateRangeBar
             $this->fillRangeFromPreset($preset);
         }
 
+        $this->rememberDateRange();
         $this->resetPage();
     }
 
     public function dateChanged(): void
     {
         $this->preset = 'custom';
+        $this->rememberDateRange();
         $this->resetPage();
     }
 
