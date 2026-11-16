@@ -97,9 +97,23 @@ class EditLead extends EditRecord
      */
     public function updated(string $name): void
     {
-        if (! str_starts_with($name, 'data.') || $this->isReadOnly()) {
+        if (! str_starts_with($name, 'data.')) {
             return;
         }
+
+        // View-only roles can click/open every field to read its value, but
+        // nothing is saved: the form snaps back to the stored data.
+        if ($this->isReadOnly()) {
+            $this->fillForm();
+            \Filament\Notifications\Notification::make()
+                ->title('Лише перегляд')
+                ->body('У вас немає права змінювати дані — зміна не збережена.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
         try {
             $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
         } catch (\Illuminate\Validation\ValidationException) {
@@ -181,7 +195,7 @@ class EditLead extends EditRecord
         // One card in the old CRM's order (ФИО → номер → адреса → спосіб →
         // ресурс → тип → профіль → статус → коментарі → розрахунки), labels on
         // the left, so managers moving over see the same layout.
-        return $schema->columns(1)->disabled($this->isReadOnly())->components([
+        return $schema->columns(1)->components([
             Section::make('Картка ліда')
                 ->extraAttributes(['class' => 'record-card'])
                 ->inlineLabel()
