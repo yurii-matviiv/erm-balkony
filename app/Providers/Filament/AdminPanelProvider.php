@@ -159,6 +159,8 @@ button.sb-step{cursor:pointer;} button.sb-step:hover{filter:brightness(.96);}
 .fi-input-wrp, .fi-input-wrp > *, .fi-input, .fi-select-input, .fi-fo-textarea, .fi-fo-select-native, .fi-input-wrp .fi-badge { border-radius:3px; }
 .fi-input-wrp { border-radius:3px !important; }
 .fi-dropdown-panel { border-radius:4px; }
+/* Cards/containers (sections, tables, modals): minimal rounding (3px) everywhere — Filament default is rounded-xl. */
+.fi-section, .fi-section-content-ctn, .fi-section-header, .fi-ta-ctn, .fi-ta-content, .fi-ta-content-ctn, .fi-ta-header-ctn, .fi-modal-window, .fi-in-section, .fi-wi-stats-overview-stat, .fi-ta-ctn > * { border-radius:3px !important; }
 /* "Input-group" як у старій CRM (Bootstrap): підпис і поле — один суцільний блок, підпис завжди однакової ширини (11rem), решта — поле. Opt in: ->extraAttributes(['class' => 'ig-card'])->inlineLabel() на Section. */
 .ig-card .fi-fo-field, .ig-card .fi-in-entry { display:grid !important; grid-template-columns:11rem minmax(0,1fr) !important; gap:0 !important; align-items:stretch; }
 .ig-card .fi-fo-field-label-col, .ig-card .fi-in-entry-label-col { display:flex; align-items:center; background:#eef2f5; border:1px solid #cfd8de; border-right:0; border-radius:3px 0 0 3px; padding:.45rem .75rem; font-size:.85rem; font-weight:500; color:#41515c; }
