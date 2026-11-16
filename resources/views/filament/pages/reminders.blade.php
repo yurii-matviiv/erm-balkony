@@ -1,5 +1,10 @@
 <x-filament-panels::page>
 
+    {{-- Short how-to for managers, always at the very top. --}}
+    <div style="padding:.85rem 1rem;margin-bottom:1rem;border:1px solid #cfd8de;background:#f4f8fb;border-radius:3px;font-size:.9rem;line-height:1.5;">
+        <strong>Як це працює.</strong> У картці заявки натисни «Створити нагадування», обери дату й потрібну годину — і в цей час браузер сам нагадає про це спливаючим сповіщенням, навіть якщо вкладка з CRM закрита (головне — щоб браузер був запущений і ти дозволив сповіщення нижче). Усі свої нагадування бачиш тут; олівець справа дозволяє змінити текст чи час.
+    </div>
+
     {{-- Browser push permission: visible only while this browser is NOT subscribed, so a missing permission is obvious at once. --}}
     <div x-data="pushState(@js(config('webpush.public_key')), @js(csrf_token()))" x-init="init()" x-cloak>
         <template x-if="status === 'prompt'">
@@ -25,6 +30,12 @@
         </template>
         <div x-show="status === 'ok'" style="margin-bottom:1rem;font-size:.85rem;color:#2e7d32;">✔ Сповіщення в цьому браузері увімкнені</div>
     </div>
+
+    @if ($this->canTestPush())
+        <div style="margin-bottom:1rem;">
+            <button type="button" wire:click="sendTestPush" style="padding:.4rem .9rem;background:#fff;color:#2874A6;border:1px solid #2874A6;border-radius:3px;cursor:pointer;font-size:.85rem;">Надіслати тестове сповіщення (адмін)</button>
+        </div>
+    @endif
 
     <script>
         function pushState(publicKey, csrf) {

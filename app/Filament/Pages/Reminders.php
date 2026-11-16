@@ -11,6 +11,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
@@ -55,6 +56,40 @@ class Reminders extends Page implements HasTable
         return [
             'leads' => 'Заявки',
         ];
+    }
+
+    /** Admin-only "send a test push to my browsers" button — checks the whole chain without creating a reminder. */
+    public function canTestPush(): bool
+    {
+        return in_array(auth()->user()?->getActiveRoleName(), ['Адмін', 'super_admin'], true);
+    }
+
+    public function sendTestPush(): void
+    {
+        abort_unless($this->canTestPush(), 403);
+
+        $result = app(\App\Services\WebPushSender::class)->sendToUser(
+            auth()->user(),
+            'Тестове сповіщення',
+            'Якщо ви це бачите — push-сповіщення працюють.',
+            url()->current(),
+        );
+
+        if ($result['subscriptions'] === 0) {
+            Notification::make()->warning()->title('Немає підписаних браузерів')
+                ->body('Спершу натисни «Дозволити сповіщення» на цій сторінці в потрібному браузері.')->send();
+
+            return;
+        }
+
+        if ($result['failed'] > 0) {
+            Notification::make()->danger()->title("Надіслано: {$result['sent']}, помилок: {$result['failed']}")
+                ->body(implode('; ', array_unique($result['errors'])))->persistent()->send();
+
+            return;
+        }
+
+        Notification::make()->success()->title("Тестове сповіщення надіслано ({$result['sent']})")->send();
     }
 
     public function setTab(string $tab): void
