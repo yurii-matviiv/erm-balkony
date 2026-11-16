@@ -68,6 +68,15 @@ class EditLead extends EditRecord
     protected static string $resource = LeadResource::class;
 
     /**
+     * Explicit page heading: the default one is derived from the record title
+     * and can come out empty, so the page no longer says it is a lead.
+     */
+    public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
+    {
+        return 'Заявка №' . $this->getRecord()->id;
+    }
+
+    /**
      * Filament's EditRecord authorizes by `update`, so a role with only
      * View:Lead (e.g. "Керівник компанії") got 403 when opening a lead from
      * the list. Same fix as EditOrder: let view-only roles in, read-only.
