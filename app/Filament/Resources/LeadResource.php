@@ -11,7 +11,6 @@ use App\Support\RolePanels;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use App\Models\User;
-use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -315,31 +314,28 @@ class LeadResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                // Manager checkboxes: tick one or several managers (or
-                // "Не призначено"); untick to widen again. Only for roles that
-                // oversee all leads.
-                Filter::make('managers')
+                // Manager multi-select (a normal dropdown like every other filter):
+                // pick one or several ACTIVE managers, or "Не призначено". Only for
+                // roles that oversee all leads.
+                SelectFilter::make('managers')
                     ->label('Менеджер')
+                    ->multiple()
                     ->visible(fn (): bool => static::canSeeManagers())
-                    ->schema([
-                        CheckboxList::make('ids')
-                            ->label('Менеджер')
-                            ->options(function (): array {
-                                $users = User::query()
-                                    ->whereIn('id', Lead::query()->whereNotNull('manager_id')->select('manager_id')->distinct())
-                                    ->orderBy('name')
-                                    ->get()
-                                    ->mapWithKeys(fn (User $u): array => [
-                                        $u->id => implode(' ', array_slice(preg_split('/\s+/u', trim($u->name)), 0, 2)),
-                                    ])
-                                    ->all();
+                    ->options(function (): array {
+                        $users = User::query()
+                            ->where('is_active', true)
+                            ->whereHas('roles', fn (Builder $q) => $q->whereIn('name', config('panels.manager_roles', [])))
+                            ->orderBy('name')
+                            ->get()
+                            ->mapWithKeys(fn (User $u): array => [
+                                $u->id => implode(' ', array_slice(preg_split('/\s+/u', trim($u->name)), 0, 2)),
+                            ])
+                            ->all();
 
-                                return ['none' => 'Не призначено'] + $users;
-                            })
-                            ->columns(1),
-                    ])
+                        return ['none' => 'Не призначено'] + $users;
+                    })
                     ->query(function (Builder $query, array $data): Builder {
-                        $ids = array_filter((array) ($data['ids'] ?? []), fn ($v): bool => filled($v));
+                        $ids = array_filter((array) ($data['values'] ?? []), fn ($v): bool => filled($v));
 
                         if ($ids === []) {
                             return $query;
@@ -357,11 +353,6 @@ class LeadResource extends Resource
                                 $q->orWhereNull('leads.manager_id');
                             }
                         });
-                    })
-                    ->indicateUsing(function (array $data): ?string {
-                        $count = count(array_filter((array) ($data['ids'] ?? []), fn ($v): bool => filled($v)));
-
-                        return $count > 0 ? "Менеджери: {$count}" : null;
                     }),
 
                 // Same name as the column (and the same values it shows).
