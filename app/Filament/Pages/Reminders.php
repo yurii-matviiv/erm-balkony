@@ -7,6 +7,10 @@ use App\Filament\Resources\LeadResource;
 use App\Models\Lead;
 use App\Models\ManagerReminder;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
@@ -112,6 +116,24 @@ class Reminders extends Page implements HasTable
 
                 ToggleColumn::make('is_completed')
                     ->label('Виконано'),
+            ])
+            ->recordActions([
+                // Pencil at the end of the row: edit text/date/type in a modal.
+                // Queries are already limited to the current user's reminders.
+                Action::make('editReminder')
+                    ->iconButton()
+                    ->icon('heroicon-o-pencil-square')
+                    ->tooltip('Редагувати')
+                    ->modalHeading('Редагувати нагадування')
+                    ->modalSubmitActionLabel('Зберегти')
+                    ->modalCancelActionLabel('Скасувати')
+                    ->fillForm(fn (ManagerReminder $record): array => $record->only(['reminder_text', 'reminder_datetime', 'reminder_type']))
+                    ->schema([
+                        Textarea::make('reminder_text')->label('Текст нагадування')->required()->rows(3),
+                        DateTimePicker::make('reminder_datetime')->label('Дата і час нагадування')->seconds(false)->required(),
+                        Select::make('reminder_type')->label('Тип нагадування')->options(ManagerReminder::typeOptions())->required(),
+                    ])
+                    ->action(fn (array $data, ManagerReminder $record) => $record->update($data)),
             ])
             ->emptyStateHeading('Немає нагадувань');
     }
