@@ -215,6 +215,15 @@ class LeadResource extends Resource
                     ->description(fn (Lead $record): string => $record->created_at->format('H:i'))
                     ->sortable(),
 
+                // Who owns the lead — surname only (names are stored surname-first),
+                // right after the date. Hidden in the manager panel: a manager
+                // already sees only their own (and unassigned) leads.
+                TextColumn::make('manager.name')
+                    ->label('Менеджер')
+                    ->formatStateUsing(fn (?string $state): string => $state ? (explode(' ', trim($state))[0] ?: $state) : '')
+                    ->placeholder('—')
+                    ->visible(fn (): bool => RolePanels::idForUser(auth()->user()) !== RolePanels::MANAGER),
+
                 // Old CRM had ONE merged status; the new model splits it into
                 // stage + status. Show the final outcome when there is one,
                 // otherwise the funnel stage.
@@ -236,13 +245,6 @@ class LeadResource extends Resource
                     ->label('Клієнт')
                     ->description(fn (Lead $record): ?string => $record->client?->phone)
                     ->searchable(['last_name', 'first_name', 'phone']),
-
-                // Who owns the lead. Hidden in the manager panel: a manager
-                // already sees only their own (and unassigned) leads.
-                TextColumn::make('manager.name')
-                    ->label('Менеджер')
-                    ->placeholder('не призначено')
-                    ->visible(fn (): bool => RolePanels::idForUser(auth()->user()) !== RolePanels::MANAGER),
 
                 TextColumn::make('serviceTypes.name')
                     ->label('Тип звернення')
