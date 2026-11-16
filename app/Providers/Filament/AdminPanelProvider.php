@@ -181,6 +181,18 @@ button.sb-step{cursor:pointer;} button.sb-step:hover{filter:brightness(.96);}
 .fi-sidebar { border-inline-end:0 !important; box-shadow:2px 0 12px rgba(0,0,0,.18); }
 .fi-sidebar-header-ctn { box-shadow:none !important; border-bottom:1px solid rgba(255,255,255,.08) !important; }
 .fi-sidebar-footer { border-top:1px solid rgba(255,255,255,.08) !important; }
+/* Dark scrollbar in the sidebar (default one is white and breaks the black look, esp. when collapsed). */
+.fi-sidebar, .fi-sidebar-nav { scrollbar-width:thin; scrollbar-color:#3a4047 #0e1012; }
+.fi-sidebar ::-webkit-scrollbar, .fi-sidebar-nav::-webkit-scrollbar { width:6px; height:6px; background:#0e1012; }
+.fi-sidebar ::-webkit-scrollbar-track, .fi-sidebar-nav::-webkit-scrollbar-track { background:#0e1012; }
+.fi-sidebar ::-webkit-scrollbar-thumb, .fi-sidebar-nav::-webkit-scrollbar-thumb { background:#3a4047; border-radius:3px; }
+.fi-sidebar ::-webkit-scrollbar-thumb:hover, .fi-sidebar-nav::-webkit-scrollbar-thumb:hover { background:#4b535b; }
+/* Global search in the sidebar: dark, a notch lighter than the black sidebar so the field is still visible. */
+.fi-sidebar .fi-global-search-field .fi-input-wrp { background-color:#1a1e22 !important; box-shadow:none !important; border:1px solid rgba(255,255,255,.12); }
+.fi-sidebar .fi-global-search-field .fi-input-wrp:focus-within { border-color:#4aa3df; }
+.fi-sidebar .fi-global-search-field .fi-input { background:transparent !important; color:#fff !important; }
+.fi-sidebar .fi-global-search-field .fi-input::placeholder { color:rgba(255,255,255,.5) !important; }
+.fi-sidebar .fi-global-search-field svg { color:rgba(255,255,255,.6) !important; }
 .fi-sidebar .fi-logo, .fi-sidebar .fi-sidebar-header a, .fi-sidebar .fi-sidebar-header span { color:#fff !important; }
 .fi-sidebar-item-label { color:#fff !important; }
 .fi-sidebar-item-icon, .fi-sidebar-item-btn svg { color:#4aa3df !important; }
