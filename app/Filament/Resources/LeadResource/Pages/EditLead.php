@@ -357,7 +357,14 @@ class EditLead extends EditRecord
      */
     public function setStage(string $stage): void
     {
+        // View-only roles may click the status bar, but nothing is saved.
         if ($this->isReadOnly()) {
+            \Filament\Notifications\Notification::make()
+                ->title('Лише перегляд')
+                ->body('У вас немає права змінювати етап — зміна не збережена.')
+                ->warning()
+                ->send();
+
             return;
         }
 

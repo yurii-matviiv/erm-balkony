@@ -21,7 +21,7 @@
 
 
     {{-- Статус-бар — єдиний компонент x-status-bar --}}
-    <x-status-bar :steps="collect($stageOptions)->map(fn ($l) => ['label' => $l])->all()" :current="$currentStage" :click="$readOnly ? null : 'setStage'" />
+    <x-status-bar :steps="collect($stageOptions)->map(fn ($l) => ['label' => $l])->all()" :current="$currentStage" click="setStage" />
 
     {{-- Хто відповідальний за лід — видно всім ролям (раніше на картці ліда менеджера не було взагалі). --}}
     <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 rounded-lg bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
