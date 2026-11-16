@@ -10,6 +10,8 @@ use BackedEnum;
 use App\Support\RolePanels;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use App\Models\User;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -17,6 +19,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -200,6 +203,19 @@ class LeadResource extends Resource
         return 'danger';
     }
 
+    /**
+     * Roles that oversee all leads and therefore see the manager column and
+     * the "Менеджер" filter (checked against the ACTIVE role).
+     */
+    public static function canSeeManagers(): bool
+    {
+        return in_array(
+            auth()->user()?->getActiveRoleName(),
+            ['Адмін', 'Керівник відділу продажу', 'Керівник компанії', 'super_admin'],
+            true,
+        );
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -224,7 +240,7 @@ class LeadResource extends Resource
                     ->label('Менеджер')
                     ->formatStateUsing(fn (?string $state): string => $state ? (explode(' ', trim($state))[0] ?: $state) : '')
                     ->placeholder('—')
-                    ->visible(fn (): bool => RolePanels::idForUser(auth()->user()) !== RolePanels::MANAGER),
+                    ->visible(fn (): bool => static::canSeeManagers()),
 
                 // Old CRM had ONE merged status; the new model splits it into
                 // stage + status. Show the final outcome when there is one,
@@ -299,6 +315,55 @@ class LeadResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                // Manager checkboxes: tick one or several managers (or
+                // "Не призначено"); untick to widen again. Only for roles that
+                // oversee all leads.
+                Filter::make('managers')
+                    ->label('Менеджер')
+                    ->visible(fn (): bool => static::canSeeManagers())
+                    ->schema([
+                        CheckboxList::make('ids')
+                            ->label('Менеджер')
+                            ->options(function (): array {
+                                $users = User::query()
+                                    ->whereIn('id', Lead::query()->whereNotNull('manager_id')->select('manager_id')->distinct())
+                                    ->orderBy('name')
+                                    ->get()
+                                    ->mapWithKeys(fn (User $u): array => [
+                                        $u->id => implode(' ', array_slice(preg_split('/\s+/u', trim($u->name)), 0, 2)),
+                                    ])
+                                    ->all();
+
+                                return ['none' => 'Не призначено'] + $users;
+                            })
+                            ->columns(1),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $ids = array_filter((array) ($data['ids'] ?? []), fn ($v): bool => filled($v));
+
+                        if ($ids === []) {
+                            return $query;
+                        }
+
+                        $withNone = in_array('none', $ids, true);
+                        $real = array_values(array_diff($ids, ['none']));
+
+                        return $query->where(function (Builder $q) use ($real, $withNone): void {
+                            if ($real !== []) {
+                                $q->whereIn('leads.manager_id', $real);
+                            }
+
+                            if ($withNone) {
+                                $q->orWhereNull('leads.manager_id');
+                            }
+                        });
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        $count = count(array_filter((array) ($data['ids'] ?? []), fn ($v): bool => filled($v)));
+
+                        return $count > 0 ? "Менеджери: {$count}" : null;
+                    }),
+
                 // Same name as the column (and the same values it shows).
                 SelectFilter::make('source')
                     ->label('Спосіб звернення')
