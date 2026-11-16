@@ -9,7 +9,7 @@
 <div class="mb-6 space-y-3">
 
     {{-- STANDARD: who owns this record, when it was created and the order type — always the very first strip. --}}
-    <div style="justify-content:flex-end;" class="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+    <div style="justify-content:flex-end;padding:.65rem 1rem;" class="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
         <span>Менеджер: <strong class="text-gray-700 dark:text-gray-200">{{ $record->manager?->name ?? '—' }}</strong></span>
         <span>Створено: <strong class="text-gray-700 dark:text-gray-200">{{ $record->created_at?->locale('uk')->isoFormat('dd DD.MM.YYYY HH:mm') }}</strong></span>
         <span>Консультант: <strong class="text-gray-700 dark:text-gray-200">{{ $record->consultant?->name ?? 'немає' }}</strong></span>
