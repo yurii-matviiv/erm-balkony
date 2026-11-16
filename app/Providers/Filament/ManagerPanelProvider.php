@@ -8,6 +8,7 @@ use App\Filament\Manager\Pages\SalaryModule;
 use App\Filament\Manager\Pages\UnacceptedCalls;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\MontageCalendar;
+use App\Filament\Pages\Reminders;
 use App\Filament\Resources\LeadResource;
 use App\Filament\Resources\OrderResource;
 use Filament\Panel;
@@ -45,6 +46,7 @@ class ManagerPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
                 MontageCalendar::class,
+                Reminders::class,
                 // Stubs for the rest of the old CRM menu (see PlaceholderPage).
                 UnacceptedCalls::class,
                 ManagerPayments::class,
