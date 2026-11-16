@@ -10,8 +10,6 @@ use BackedEnum;
 use App\Support\RolePanels;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use App\Services\Finance\FinanceDateRange;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -19,7 +17,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -302,47 +299,6 @@ class LeadResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                // Same presets/logic as the finance pages (FinanceDateRange), by
-                // lead creation date. Not set = all leads.
-                Filter::make('created_range')
-                    ->label('Період')
-                    ->schema([
-                        Select::make('preset')
-                            ->label('Період (дата створення)')
-                            ->options(FinanceDateRange::presetOptions())
-                            ->placeholder('Весь час')
-                            ->live(),
-                        DatePicker::make('from')
-                            ->label('З')
-                            ->native(false)->displayFormat('d.m.Y')
-                            ->visible(fn (Get $get): bool => $get('preset') === 'custom'),
-                        DatePicker::make('to')
-                            ->label('По')
-                            ->native(false)->displayFormat('d.m.Y')
-                            ->visible(fn (Get $get): bool => $get('preset') === 'custom'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        if (blank($data['preset'] ?? null)) {
-                            return $query;
-                        }
-
-                        $range = FinanceDateRange::parseDateRange($data['preset'], $data['from'] ?? null, $data['to'] ?? null);
-
-                        return $query
-                            ->whereDate('leads.created_at', '>=', $range['from'])
-                            ->whereDate('leads.created_at', '<=', $range['to']);
-                    })
-                    ->indicateUsing(function (array $data): ?string {
-                        if (blank($data['preset'] ?? null)) {
-                            return null;
-                        }
-
-                        $range = FinanceDateRange::parseDateRange($data['preset'], $data['from'] ?? null, $data['to'] ?? null);
-
-                        return 'Період: ' . \Illuminate\Support\Carbon::parse($range['from'])->format('d.m.Y')
-                            . ' – ' . \Illuminate\Support\Carbon::parse($range['to'])->format('d.m.Y');
-                    }),
-
                 SelectFilter::make('source')
                     ->label('Джерело')
                     ->options(Lead::sourceOptions()),

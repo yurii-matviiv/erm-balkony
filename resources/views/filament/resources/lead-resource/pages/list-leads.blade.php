@@ -12,6 +12,8 @@
     {{-- Документація сторінки тепер живе на сторінці конкретного ліда
          (EditLead), не тут — список має лишатись просто таблицею. --}}
 
+    @include('filament.components.date-bar')
+
     {{ $this->table }}
 
 </x-filament-panels::page>

@@ -2,12 +2,16 @@
 
 namespace App\Filament\Resources\LeadResource\Pages;
 
+use App\Filament\Concerns\HasDateRangeBar;
 use App\Filament\Resources\LeadResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListLeads extends ListRecords
 {
+    use HasDateRangeBar;
+
     protected static string $resource = LeadResource::class;
 
     /**
@@ -39,5 +43,11 @@ class ListLeads extends ListRecords
                     return $data;
                 }),
         ];
+    }
+
+    /** Page-level date bar filters by lead creation date. */
+    protected function getTableQuery(): Builder|\Illuminate\Database\Eloquent\Relations\Relation|null
+    {
+        return $this->applyDateRange(parent::getTableQuery(), 'leads.created_at');
     }
 }
