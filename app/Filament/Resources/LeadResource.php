@@ -210,6 +210,7 @@ class LeadResource extends Resource
             // stage changes happen on the lead page.
             ->columns([
                 TextColumn::make('created_at')
+                    ->toggleable()
                     ->label('Дата')
                     ->formatStateUsing(fn ($state): string => $state->locale('uk')->isoFormat('dd DD.MM'))
                     ->description(fn (Lead $record): string => $record->created_at->format('H:i'))
@@ -219,6 +220,7 @@ class LeadResource extends Resource
                 // right after the date. Hidden in the manager panel: a manager
                 // already sees only their own (and unassigned) leads.
                 TextColumn::make('manager.name')
+                    ->toggleable()
                     ->label('Менеджер')
                     ->formatStateUsing(fn (?string $state): string => $state ? (explode(' ', trim($state))[0] ?: $state) : '')
                     ->placeholder('—')
@@ -228,6 +230,7 @@ class LeadResource extends Resource
                 // stage + status. Show the final outcome when there is one,
                 // otherwise the funnel stage.
                 TextColumn::make('stage')
+                    ->toggleable()
                     ->label('Статус')
                     ->badge()
                     ->state(fn (Lead $record): string => match ($record->status) {
@@ -242,16 +245,19 @@ class LeadResource extends Resource
                     }),
 
                 TextColumn::make('client.full_name')
+                    ->toggleable()
                     ->label('Клієнт')
                     ->description(fn (Lead $record): ?string => $record->client?->phone)
                     ->searchable(['last_name', 'first_name', 'phone']),
 
                 TextColumn::make('serviceTypes.name')
+                    ->toggleable()
                     ->label('Тип звернення')
                     ->badge()
                     ->separator(','),
 
                 TextColumn::make('site_address')
+                    ->toggleable()
                     ->label('Адреса об\'єкта')
                     ->state(fn (Lead $record): ?string => $record->site_address)
                     ->placeholder('—')
@@ -259,16 +265,19 @@ class LeadResource extends Resource
                     ->searchable(['site_city', 'site_street']),
 
                 TextColumn::make('source')
+                    ->toggleable()
                     ->label('Спосіб звернення')
                     ->formatStateUsing(fn (?string $state): string => Lead::sourceOptions()[$state] ?? '—'),
 
                 TextColumn::make('comment')
+                    ->toggleable()
                     ->label('Коментар')
                     ->limit(60)
                     ->tooltip(fn (Lead $record): ?string => $record->comment)
                     ->placeholder('—'),
 
                 TextColumn::make('comment_sales_head')
+                    ->toggleable()
                     ->label('Коментар керівника')
                     ->color('danger')
                     ->limit(60)
@@ -276,6 +285,7 @@ class LeadResource extends Resource
                     ->placeholder('—'),
 
                 TextColumn::make('comment_call')
+                    ->toggleable()
                     ->label('Що планую робити далі')
                     ->limit(60)
                     ->tooltip(fn (Lead $record): ?string => $record->comment_call)
@@ -313,7 +323,8 @@ class LeadResource extends Resource
             ])
             ->paginationPageOptions([20, 100])
             ->defaultPaginationPageOption(20)
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->persistColumnsInSession();
     }
 
     public static function getPages(): array
