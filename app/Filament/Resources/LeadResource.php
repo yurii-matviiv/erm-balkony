@@ -299,17 +299,35 @@ class LeadResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                // Same name as the column (and the same values it shows).
                 SelectFilter::make('source')
-                    ->label('Джерело')
+                    ->label('Спосіб звернення')
                     ->options(Lead::sourceOptions()),
 
-                SelectFilter::make('stage')
-                    ->label('Етап')
-                    ->options(Lead::stageOptions()),
-
-                SelectFilter::make('status')
+                // Mirrors the "Статус" column exactly: a final outcome
+                // (Угода укладена / Втрачено) when there is one, otherwise
+                // the funnel stage — so what you pick is what you see.
+                SelectFilter::make('lead_status')
                     ->label('Статус')
-                    ->options(Lead::statusOptions()),
+                    ->options(Lead::stageOptions() + [
+                        'won' => Lead::statusOptions()['won'],
+                        'lost' => Lead::statusOptions()['lost'],
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (blank($value)) {
+                            return $query;
+                        }
+
+                        if (in_array($value, ['won', 'lost'], true)) {
+                            return $query->where('leads.status', $value);
+                        }
+
+                        return $query
+                            ->where('leads.stage', $value)
+                            ->where(fn (Builder $q) => $q->whereNull('leads.status')->orWhereNotIn('leads.status', ['won', 'lost']));
+                    }),
 
                 SelectFilter::make('serviceTypes')
                     ->label('Тип звернення')
