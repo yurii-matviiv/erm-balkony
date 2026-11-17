@@ -145,7 +145,6 @@
             <div style="font-weight:800;color:#c0392b;font-size:1.05rem;text-transform:uppercase;letter-spacing:.02em;">
                 Обов'язковий наступний крок — заповнити потребу клієнта
             </div>
-            <div style="font-size:.85rem;color:#566573;">Виявлення потреби: заповніть, що ще порожнє. Заповнене тут одразу з'являється в картці нижче.</div>
 
             {{ $this->needForm }}
 
