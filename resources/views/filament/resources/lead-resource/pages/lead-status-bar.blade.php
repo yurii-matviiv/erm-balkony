@@ -48,7 +48,7 @@
             <strong style="color:{{ $color }};">Швидкість реакції</strong>
             @if ($reaction['done'])
                 <span>перший дзвінок клієнту @if ($reaction['before']) <strong>до створення заявки в системі</strong> @else через <strong>{{ $fmt($reaction['min']) }}</strong> після створення заявки @endif
-                    ({{ $firstCall->occurred_at->locale('uk')->isoFormat('dd DD.MM HH:mm') }})</span>
+                    ({{ $firstCall->occurred_at->copy()->setTimezone('Europe/Kyiv')->locale('uk')->isoFormat('dd DD.MM HH:mm') }})</span>
                 @if ($firstCall->comment)<span class="text-gray-500">{{ $firstCall->comment }}</span>@endif
             @else
                 <span>дзвінка клієнту ще не було, минуло <strong>{{ $fmt($reaction['min']) }}</strong></span>
