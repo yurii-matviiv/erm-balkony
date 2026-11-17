@@ -137,6 +137,8 @@ class Lead extends Model
             'openteck_elite_70' => 'OpenTeck ELITE 70', 'salamander_bluevolution_82' => 'Salamander bluEvolution 82',
             'ukr_teple' => 'ukr teple', 'ukr_holodne' => 'ukr holodne', 'ukr_sliding' => 'ukr sliding',
             'ne_vikna' => 'не вікна',
+            // Послуги без профілю (напр. внутрішня обшивка балкону): профілю немає, у полі стоїть «Послуга».
+            'service' => 'Послуга',
         ];
     }
 
