@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Support\RolePanels;
 use BackedEnum;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -90,6 +89,7 @@ class OrderResource extends Resource
                 // FIRST column, shown only to roles that oversee all orders (see canSeeManagers()).
                 TextColumn::make('manager.name')
                     ->label('Менеджер')
+                    ->wrapHeader()
                     ->toggleable()
                     ->formatStateUsing(fn (?string $state): string => $state ? (explode(' ', trim($state))[0] ?: $state) : '')
                     ->placeholder('—')
@@ -97,47 +97,81 @@ class OrderResource extends Resource
 
                 TextColumn::make('id')
                     ->label('Дог. № замовлення')
+                    ->wrapHeader()
+                    ->width('1%')
+                    // Clickable cells are shown in the link colour (primary): the order number, the client
+                    // and the installer — so it is obvious where a click goes.
+                    ->url(fn (Order $record): string => EditOrder::getUrl(['record' => $record]))
+                    ->color('primary')
                     ->toggleable()
-                    ->formatStateUsing(fn ($state): string => 'замовл. №'.$state)
                     ->sortable()
                     ->searchable(),
 
                 TextColumn::make('invoice_from_supplier')
                     ->label('№ у постачальника')
+                    ->wrapHeader()
+                    ->width('1%')
                     ->toggleable()
                     ->wrap()
+                    ->extraCellAttributes(['style' => 'min-width: 7rem; max-width: 10rem; white-space: normal;'])
                     ->searchable(),
 
                 TextColumn::make('address')
                     ->label('Адреса')
+                    ->wrapHeader()
                     ->toggleable()
-                    ->limit(60)
-                    ->tooltip(fn (Order $record): ?string => $record->address)
+                    // Long addresses wrap inside a limited column width instead of stretching the table.
+                    ->wrap()
+                    ->extraCellAttributes(['style' => 'max-width: 16rem; white-space: normal;'])
                     ->searchable(),
+
+                TextColumn::make('auto_address')
+                    ->label('Автовизначена адреса')
+                    ->wrapHeader()
+                    ->placeholder('—')
+                    ->visible(fn (): bool => static::canSeeManagers())
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('client.full_name')
                     ->label('Клієнт')
+                    ->wrapHeader()
                     ->toggleable()
                     ->description(fn (Order $record): ?string => $record->client?->phone)
+                    // The row opens the order; THIS cell opens the client card (as in the old CRM: /client/{id}).
+                    ->url(fn (Order $record): ?string => $record->client && ClientResource::canEdit($record->client)
+                        ? ClientResource::getUrl('edit', ['record' => $record->client_id])
+                        : null)
+                    ->color(fn (Order $record): ?string => $record->client && ClientResource::canEdit($record->client) ? 'primary' : null)
                     ->searchable(['client.last_name', 'client.first_name', 'client.phone']),
 
                 TextColumn::make('montage_date')
                     ->label('Монтаж')
+                    ->wrapHeader()
+                    ->width('1%')
                     ->toggleable()
                     ->formatStateUsing(fn ($state): string => $state ? $state->locale('uk')->isoFormat('dd DD.MM') : '—')
                     ->sortable(),
 
                 TextColumn::make('installer.name')
                     ->label('Монтажник')
-                    ->toggleable(),
+                    ->wrapHeader()
+                    ->toggleable()
+                    // This cell opens the installer card (old CRM: /installer/{id}); the row opens the order.
+                    ->url(fn (Order $record): ?string => $record->installer_id
+                        ? InstallerResource::cardUrl($record->installer_id)
+                        : null)
+                    ->color(fn (Order $record): ?string => $record->installer_id ? 'primary' : null),
 
                 TextColumn::make('order_type')
                     ->label('Тип')
+                    ->wrapHeader()
                     ->formatStateUsing(fn (?string $state): string => Order::orderTypeOptions()[$state] ?? '—')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('stage')
                     ->label('Етап')
+                    ->wrapHeader()
+                    ->width('1%')
                     ->toggleable()
                     ->filledBadge(fn (?string $state): string => match ($state) {
                         'ready', 'success' => 'success',
@@ -151,6 +185,7 @@ class OrderResource extends Resource
 
                 TextColumn::make('status')
                     ->label('Статус')
+                    ->wrapHeader()
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
@@ -162,6 +197,7 @@ class OrderResource extends Resource
 
                 TextColumn::make('total_price')
                     ->label('Сума')
+                    ->wrapHeader()
                     ->numeric()
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(fn (?int $state): string => $state ? number_format($state, 0, '', ' ').' грн' : '—'),
@@ -169,6 +205,8 @@ class OrderResource extends Resource
                 // The page-level date bar filters by this date, so it is shown by default.
                 TextColumn::make('created_at')
                     ->label('Дата створення')
+                    ->wrapHeader()
+                    ->width('1%')
                     ->dateTime('d.m.Y')
                     ->toggleable()
                     ->sortable(),
@@ -229,16 +267,14 @@ class OrderResource extends Resource
             ->persistColumnsInSession()
             ->paginationPageOptions([20, 100])
             ->defaultPaginationPageOption(100)
-            ->recordActions([
-                EditAction::make('edit'),
-            ])
-            // Rows must be clickable for VIEW-only roles too (Керівник
-            // компанії): EditAction hides itself without Update:Order,
-            // but the page itself now accepts the view permission and
-            // renders read-only — see EditOrder::authorizeAccess().
+            // No pencil button: the whole row opens the order. Rows must be clickable for
+            // VIEW-only roles too (Керівник компанії): the page accepts the view permission
+            // and renders read-only — see EditOrder::authorizeAccess().
             ->recordUrl(fn (Order $record): string => EditOrder::getUrl(['record' => $record]))
             // Old CRM lists by montage date, newest first.
-            ->defaultSort('montage_date', 'desc');
+            // Newest montage first; orders with the SAME montage date go by number ascending
+            // (that is how the old CRM list shows them; Filament would otherwise add id DESC).
+            ->defaultSort(fn (Builder $query): Builder => $query->orderBy('montage_date', 'desc')->orderBy('id', 'asc'));
     }
 
     public static function getPages(): array

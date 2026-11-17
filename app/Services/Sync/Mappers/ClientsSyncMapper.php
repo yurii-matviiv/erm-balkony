@@ -96,13 +96,17 @@ class ClientsSyncMapper extends AbstractSyncMapper
                 ->value('id');
         }
 
+        // «Автовизначення: <місто>» goes to its own column; the real address stays empty.
+        [$address, $autoAddress] = \App\Support\AutoAddress::split($oldRow['address'] ?? null);
+
         return [
             'first_name' => (string) ($oldRow['name'] ?? ''),
             'phone' => $oldRow['phone'] ?? '',
             'phone2' => $oldRow['phone2'] ?? null,
             'email' => $oldRow['email'] ?? null,
             'viber' => $oldRow['viber'] ?? null,
-            'address' => $oldRow['address'] ?? null,
+            'address' => $address,
+            'auto_address' => $autoAddress,
             'comment' => $oldRow['comment'] ?? null,
             'caller_type' => $oldRow['caller_type'] ?? null,
             'manager_id' => $managerId,

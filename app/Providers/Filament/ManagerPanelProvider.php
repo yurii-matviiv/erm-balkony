@@ -9,6 +9,8 @@ use App\Filament\Manager\Pages\UnacceptedCalls;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\MontageCalendar;
 use App\Filament\Pages\Reminders;
+use App\Filament\Resources\ClientResource;
+use App\Filament\Resources\InstallerResource;
 use App\Filament\Resources\LeadResource;
 use App\Filament\Resources\OrderResource;
 use Filament\Panel;
@@ -40,6 +42,10 @@ class ManagerPanelProvider extends PanelProvider
             ->id('manager')
             ->path('manager')
             ->resources([
+                // Client card is opened from the orders table (cell «Клієнт»); scoped to own clients.
+                ClientResource::class,
+                // Installer card (read-only) is opened from the «Монтажник» cell of the orders table.
+                InstallerResource::class,
                 LeadResource::class,
                 OrderResource::class,
             ])

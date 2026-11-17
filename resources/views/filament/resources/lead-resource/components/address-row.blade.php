@@ -13,6 +13,9 @@
     </div>
     <div class="text-sm" style="display:flex;align-items:center;gap:16px;width:100%;">
         <span class="text-gray-950 dark:text-white">{{ $address ?: '—' }}</span>
+        @if (! empty($autoAddress))
+            <span class="text-xs text-gray-500">автовизначено: {{ $autoAddress }}</span>
+        @endif
         <div style="margin-left:auto;">{{ $editAddressAction }}</div>
     </div>
 </div>

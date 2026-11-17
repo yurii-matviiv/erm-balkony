@@ -13,7 +13,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'last_name', 'middle_name', 'email', 'phone', 'password', 'legacy_id', 'active_role', 'is_active'])]
+#[Fillable(['name', 'last_name', 'middle_name', 'email', 'phone', 'password', 'legacy_id', 'active_role', 'is_active', 'additional_phone', 'viber_is', 'district_kyiv', 'registration_address', 'residence_address', 'user_percent', 'comment'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
@@ -29,6 +29,7 @@ class User extends Authenticatable implements FilamentUser
     {
         return [
             'email_verified_at' => 'datetime',
+            'viber_is' => 'boolean',
             'password' => 'hashed',
         ];
     }
@@ -58,5 +59,11 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return $this->roles()->first()?->name;
+    }
+
+    /** Orders where this user is the installer (card «Монтажник»). */
+    public function installerOrders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Order::class, 'installer_id');
     }
 }

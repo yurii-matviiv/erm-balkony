@@ -153,7 +153,8 @@ class OrdersSyncMapper extends AbstractSyncMapper
             'surveyor_id' => $surveyorId,
             'supplier_id' => $supplierId,
 
-            'address' => $oldRow['address'] ?? '',
+            'address' => \App\Support\AutoAddress::split($oldRow['address'] ?? null)[0] ?? '',
+            'auto_address' => \App\Support\AutoAddress::split($oldRow['address'] ?? null)[1],
             'order_type' => $oldRow['order_type'] ?? null,
 
             'contract_number' => $oldRow['contract_number'] ?? null,

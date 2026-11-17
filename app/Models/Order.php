@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'legacy_id', 'lead_id', 'client_id', 'manager_id', 'consultant_id', 'installer_id', 'surveyor_id', 'supplier_id',
-    'address', 'order_type', 'contract_number', 'vendor_number', 'calculation_number',
+    'address', 'auto_address', 'order_type', 'contract_number', 'vendor_number', 'calculation_number',
     'square_meters', 'montage_price_m2', 'montage_price', 'montage_salary',
     'additional_price', 'additional_salary', 'measuring_price', 'gazda_price', 'cost_of_lifts',
     'total_price', 'balance', 'discount', 'bonus', 'formula_salary', 'percentage_value',

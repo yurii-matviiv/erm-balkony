@@ -208,7 +208,9 @@ class LeadsSyncMapper extends AbstractSyncMapper
             // Old system stored the full site address as one string — we
             // write it into site_street as-is. The manager can split it
             // into city/house/apartment/floor manually if needed.
-            'site_street' => ! empty($oldRow['address']) ? $oldRow['address'] : null,
+            // «Автовизначення: <місто>» is split off into auto_address (hidden from managers).
+            'site_street' => \App\Support\AutoAddress::split($oldRow['address'] ?? null)[0],
+            'auto_address' => \App\Support\AutoAddress::split($oldRow['address'] ?? null)[1],
             'created_at' => $oldRow['created_at'] ?? now(),
             'updated_at' => now(),
         ];

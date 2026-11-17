@@ -14,6 +14,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -38,9 +39,44 @@ class ClientResource extends Resource
 
     protected static ?string $pluralModelLabel = 'клієнти';
 
+    /**
+     * Manager panel: a manager opens the client card from his orders/leads (as in the old CRM),
+     * but only for clients he works with (own orders or own leads). Admin panel sees everyone.
+     */
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if ($user && \App\Support\RolePanels::idForUser($user) === \App\Support\RolePanels::MANAGER) {
+            $query->where(function ($q) use ($user): void {
+                $q->whereHas('orders', fn ($o) => $o->where('manager_id', $user->id))
+                    ->orWhereHas('leads', fn ($l) => $l->where('manager_id', $user->id));
+            });
+        }
+
+        return $query;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
+            Section::make()->columns(2)->schema([
+            // Contact type goes first, alone in its row (half width: the other half stays empty); a red hint nags until chosen.
+            Select::make('caller_type')
+                ->label('Тип контакту')
+                ->options([
+                    'client' => 'Клієнт',
+                    'supplier' => 'Постачальник',
+                    'spam' => 'Спам',
+                    'other' => 'Інше',
+                ])
+                ->required()
+                ->live()
+                ->columnSpan(1)
+                ->hint(fn ($state): ?string => blank($state) ? "Обов'язково вкажіть тип контакту" : null)
+                ->hintColor('danger'),
+
             // No separate "old name" field anymore — the old system's
             // single free-text name lives in `first_name` now (see
             // ClientsSyncMapper), so for old synced clients it's normal
@@ -75,30 +111,41 @@ class ClientResource extends Resource
                 ->maxLength(255)
                 ->helperText('Залишено для клієнтів зі старої бази. Для нових — поля нижче.'),
 
+            // Old CRM «Автовизначення»: only for roles that oversee managers, read-only.
+            TextInput::make('auto_address')
+                ->label('Автовизначена адреса')
+                ->visible(fn (): bool => OrderResource::canSeeManagers())
+                ->disabled()
+                ->dehydrated(false),
+
             TextInput::make('city')->label('Місто')->default('Київ')->maxLength(255),
             TextInput::make('street')->label('Вулиця')->maxLength(255),
             TextInput::make('house_number')->label('Будинок')->maxLength(20),
             TextInput::make('apartment_number')->label('Квартира')->maxLength(20),
             TextInput::make('floor')->label('Поверх')->maxLength(20),
 
-            Select::make('caller_type')
-                ->label('Тип')
-                ->options([
-                    'client' => 'Клієнт',
-                    'supplier' => 'Постачальник',
-                    'spam' => 'Спам',
-                    'other' => 'Інше',
-                ]),
-
+            // Assigning a manager is only for roles that oversee managers (Адмін, Керівник
+            // відділу продажу, Керівник компанії); a manager never sees this field.
+            // Options = ACTIVE users with a manager role, shown as «Прізвище Ім'я».
             Select::make('manager_id')
                 ->label('Менеджер')
-                ->relationship('manager', 'name')
+                ->visible(fn (): bool => OrderResource::canSeeManagers())
+                ->options(fn (): array => \App\Models\User::query()
+                    ->where('is_active', true)
+                    ->whereHas('roles', fn ($q) => $q->whereIn('name', config('panels.manager_roles', [])))
+                    ->orderBy('name')
+                    ->get()
+                    ->mapWithKeys(fn (\App\Models\User $u): array => [
+                        $u->id => implode(' ', array_slice(preg_split('/\s+/u', trim($u->name)), 0, 2)),
+                    ])
+                    ->all())
                 ->searchable()
-                ->preload(),
+                ->placeholder('Не призначено'),
 
             Textarea::make('comment')
                 ->label('Коментар')
                 ->columnSpanFull(),
+            ]),
         ]);
     }
 
@@ -175,6 +222,15 @@ class ClientResource extends Resource
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    /** Tabs of the client card: «Контактні дані» (the form) + «Замовлення» + «Заявки». */
+    public static function getRelations(): array
+    {
+        return [
+            ClientResource\RelationManagers\OrdersRelationManager::class,
+            ClientResource\RelationManagers\LeadsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

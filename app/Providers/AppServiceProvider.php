@@ -45,7 +45,8 @@ class AppServiceProvider extends ServiceProvider
         FilamentView::registerRenderHook(
             PanelsRenderHook::STYLES_AFTER,
             fn (): string => view('filament.components.filled-badge-styles')->render()
-                .view('filament.components.table-header-styles')->render(),
+                .view('filament.components.table-header-styles')->render()
+                .view('filament.components.tabs-styles')->render(),
         );
 
         // Who may edit "Документація сторінки" blocks (see PageDoc /

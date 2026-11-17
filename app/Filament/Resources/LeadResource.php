@@ -262,6 +262,11 @@ class LeadResource extends Resource
                     ->toggleable()
                     ->label('Клієнт')
                     ->description(fn (Lead $record): ?string => $record->client?->phone)
+                    // The row opens the lead; THIS cell opens the client card (link colour shows it).
+                    ->url(fn (Lead $record): ?string => $record->client && ClientResource::canEdit($record->client)
+                        ? ClientResource::getUrl('edit', ['record' => $record->client_id])
+                        : null)
+                    ->color(fn (Lead $record): ?string => $record->client && ClientResource::canEdit($record->client) ? 'primary' : null)
                     ->searchable(['last_name', 'first_name', 'phone']),
 
                 TextColumn::make('serviceTypes.name')
@@ -277,6 +282,14 @@ class LeadResource extends Resource
                     ->placeholder('—')
                     ->wrap()
                     ->searchable(['site_city', 'site_street']),
+
+                // Auto-detected city (old CRM «Автовизначення»): never shown to managers.
+                TextColumn::make('auto_address')
+                    ->label('Автовизначена адреса')
+                    ->wrapHeader()
+                    ->placeholder('—')
+                    ->visible(fn (): bool => static::canSeeManagers())
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('source')
                     ->toggleable()

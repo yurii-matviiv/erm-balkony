@@ -22,10 +22,10 @@ class ListOrders extends ListRecords
     /** Custom view only to put the standard date bar above the table. */
     protected string $view = 'filament.resources.order-resource.pages.list-orders';
 
-    /** Orders list opens on the current month (not "today": few orders are created per day). */
+    /** Opens on the whole current year (01.01–31.12), so the date inputs are never empty; any period can be picked. */
     protected function defaultDatePreset(): string
     {
-        return 'current_month';
+        return 'current_year';
     }
 
     /** Page-level date bar filters by order creation date. */
@@ -34,11 +34,11 @@ class ListOrders extends ListRecords
         return $this->applyDateRange(parent::getTableQuery(), 'orders.created_at');
     }
 
-    // Same heading as the old CRM: "Мої замовлення: 720".
+    // Manager panel heading: "Мої замовлення" (the old CRM also showed a count; dropped on purpose).
     public function getHeading(): string|Htmlable
     {
         if (RolePanels::idForUser(auth()->user()) === RolePanels::MANAGER) {
-            return 'Мої замовлення: '.number_format(OrderResource::getEloquentQuery()->count(), 0, '', ' ');
+            return 'Мої замовлення';
         }
 
         return parent::getHeading();

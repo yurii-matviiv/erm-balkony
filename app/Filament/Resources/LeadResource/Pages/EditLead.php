@@ -249,6 +249,7 @@ class EditLead extends EditRecord
                     SchemaView::make('filament.resources.lead-resource.components.address-row')
                         ->viewData(fn (?Lead $record): array => [
                             'record' => $record,
+                            'autoAddress' => \App\Filament\Resources\LeadResource::canSeeManagers() ? $record?->auto_address : null,
                             'editAddressAction' => $this->isReadOnly() ? null : $this->editAddressAction(),
                         ]),
 

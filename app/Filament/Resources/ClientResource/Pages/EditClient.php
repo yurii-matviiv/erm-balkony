@@ -10,6 +10,27 @@ class EditClient extends EditRecord
 {
     protected static string $resource = ClientResource::class;
 
+    /** One row of tabs: «Контактні дані» | «Замовлення» | «Заявки». */
+    public function hasCombinedRelationManagerTabsWithContent(): bool
+    {
+        return true;
+    }
+
+    public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
+    {
+        return 'Картка клієнта';
+    }
+
+    public function getContentTabLabel(): ?string
+    {
+        return 'Контактні дані';
+    }
+
+    public function getContentTabIcon(): ?string
+    {
+        return 'heroicon-o-identification';
+    }
+
     protected function getHeaderActions(): array
     {
         return [
