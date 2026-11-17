@@ -163,19 +163,25 @@ class EditLead extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            // Old CRM's "Прийняти заявку": an unassigned lead is taken by
-            // choosing yourself as its manager. Shown only while unassigned.
-            Action::make('acceptLead')
-                ->label('Прийняти заявку')
-                ->icon('heroicon-o-check-circle')
-                ->color('primary')
-                ->visible(fn (): bool => ! $this->isReadOnly() && $this->getRecord()->manager_id === null)
-                ->action(function (): void {
-                    $this->getRecord()->update(['manager_id' => auth()->id()]);
-                    $this->fillForm();
-                }),
             DeleteAction::make(),
         ];
+    }
+
+    /**
+     * Old CRM's "Прийняти заявку": an unassigned lead is taken by choosing yourself as its manager.
+     * Rendered in the action bar (lead-status-bar view) — getHeader() replaces Filament's header, so a header action would never show.
+     */
+    public function acceptLeadAction(): Action
+    {
+        return Action::make('acceptLead')
+            ->label('Прийняти заявку')
+            ->icon('heroicon-o-check-circle')
+            ->color('primary')
+            ->visible(fn (): bool => ! $this->isReadOnly() && $this->getRecord()->manager_id === null)
+            ->action(function (): void {
+                $this->getRecord()->update(['manager_id' => auth()->id()]);
+                $this->fillForm();
+            });
     }
 
     /** Full-screen explanation of stages and what is automatic (kept in sync with docs/STAGES.md). Shown in the action bar. */
@@ -203,6 +209,7 @@ class EditLead extends EditRecord
             'createOrderAction' => $this->createOrderAction(),
             'createReminderAction' => $this->createReminderAction(),
             'stagesInstructionAction' => $this->stagesInstructionAction(),
+            'acceptLeadAction' => $this->acceptLeadAction(),
             'reminders' => $this->getRecord()->reminders()->with('user')->get(),
         ]);
     }

@@ -44,6 +44,10 @@
     @unless ($readOnly)
     <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
         <div class="flex flex-wrap items-center gap-3">
+            @if ($record->manager_id === null)
+                {{ $acceptLeadAction }}
+            @endif
+
             @if (! $latestMeasurement)
                 {{ $createMeasurementAction }}
             @else
