@@ -317,7 +317,7 @@ class LeadResource extends Resource
                     ->weight('semibold')
                     // Unaccepted lead: a REAL button («Прийняти»), not a status.
                     ->state(fn (Lead $record): string => static::hiddenUntilAccepted($record)
-                        ? \Illuminate\Support\Facades\Blade::render('<span class="accept-glow"><x-filament::button size="sm" icon="heroicon-m-check" wire:click.stop="acceptLead({{ $id }})">Прийняти</x-filament::button></span>', ['id' => $record->getKey()])
+                        ? \Illuminate\Support\Facades\Blade::render('<x-filament::button size="sm" icon="heroicon-m-check" wire:click.stop="acceptLead({{ $id }})">Прийняти</x-filament::button>', ['id' => $record->getKey()])
                         : e(match ($record->status) {
                             'won' => 'Угода укладена',
                             'lost' => 'Втрачено',
