@@ -59,7 +59,8 @@ class FirstCallDetector
                 }
             }
 
-            $from = self::createdAt($lead)->timestamp;
+            // Шукаємо з ПОЧАТКУ дня подання заявки: менеджер міг подзвонити клієнту до того, як заявку створили в системі.
+            $from = self::createdAt($lead)->startOfDay()->timestamp;
             $first = collect($r->json('callDetails') ?? [])
                 ->filter(fn ($c) => is_array($c) && (string) ($c['callType'] ?? '') === self::OUTGOING && (int) ($c['startTime'] ?? 0) >= $from)
                 ->sortBy(fn ($c) => (int) $c['startTime'])

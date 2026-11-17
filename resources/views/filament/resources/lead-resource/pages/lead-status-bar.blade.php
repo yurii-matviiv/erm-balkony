@@ -36,8 +36,8 @@
         };
         $reaction = null;
         if ($firstCall?->occurred_at) {
-            $min = max(0, (int) floor(\App\Services\Leads\FirstCallDetector::createdAt($record)->diffInSeconds($firstCall->occurred_at, false) / 60));
-            $reaction = ['min' => $min, 'done' => true];
+            $secs = \App\Services\Leads\FirstCallDetector::createdAt($record)->diffInSeconds($firstCall->occurred_at, false);
+            $reaction = ['min' => max(0, (int) floor($secs / 60)), 'done' => true, 'before' => $secs < 0];
         } elseif (! $firstCall && $record->created_at) {
             $reaction = ['min' => max(0, (int) floor(\App\Services\Leads\FirstCallDetector::createdAt($record)->diffInMinutes(now()))), 'done' => false];
         }
@@ -47,7 +47,7 @@
         <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:.65rem 1rem;border-radius:.5rem;border-left:4px solid {{ $color }};background:{{ $color }}14;font-size:.875rem;">
             <strong style="color:{{ $color }};">Швидкість реакції</strong>
             @if ($reaction['done'])
-                <span>перший дзвінок клієнту через <strong>{{ $fmt($reaction['min']) }}</strong> після створення заявки
+                <span>перший дзвінок клієнту @if ($reaction['before']) <strong>до створення заявки в системі</strong> @else через <strong>{{ $fmt($reaction['min']) }}</strong> після створення заявки @endif
                     ({{ $firstCall->occurred_at->locale('uk')->isoFormat('dd DD.MM HH:mm') }})</span>
                 @if ($firstCall->comment)<span class="text-gray-500">{{ $firstCall->comment }}</span>@endif
             @else
