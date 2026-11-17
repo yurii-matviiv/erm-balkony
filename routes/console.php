@@ -36,6 +36,15 @@ Schedule::command('reminders:dispatch')
     ->runInBackground();
 
 /*
+ * Журнал кроків замовлень за фактами в даних (аванс, оплата повністю, виготовлено, монтаж). Платежі й дати
+ * приходять синхронізацією напряму в БД, тому окрема перевірка, а не хук моделі. Не впливає на конверсії Google.
+ */
+Schedule::command('steps:detect-orders')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();
+
+/*
  * Offline conversions -> Google Ads (Data Manager API).
  * Exits immediately while mode = off (default). Modes: php artisan conversions:mode.
  */
