@@ -286,7 +286,7 @@ class LeadResource extends Resource
     {
         return $table
             // Column order (set by the owner 2026-11-17): date, client, type, address,
-            // status, contact method, head's comment; then the manager's comment and the
+            // status, contact method, manager's comment, head's comment; then the
             // rest. The list is view-only:
             // clicking anywhere on a row opens the lead (recordUrl below);
             // stage changes happen on the lead page.
@@ -366,6 +366,14 @@ class LeadResource extends Resource
                     })
                     ->tooltip(fn (?string $state): ?string => Lead::sourceOptions()[$state] ?? null),
 
+                TextColumn::make('comment')
+                    ->toggleable()
+                    ->label('Коментар')
+                    ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
+                    ->limit(60)
+                    ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment))
+                    ->placeholder('—'),
+
                 TextColumn::make('comment_sales_head')
                     ->toggleable()
                     ->label('Коментар керівника')
@@ -373,14 +381,6 @@ class LeadResource extends Resource
                     ->color('danger')
                     ->limit(60)
                     ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment_sales_head))
-                    ->placeholder('—'),
-
-                TextColumn::make('comment')
-                    ->toggleable()
-                    ->label('Коментар')
-                    ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
-                    ->limit(60)
-                    ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment))
                     ->placeholder('—'),
 
 

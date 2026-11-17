@@ -88,11 +88,6 @@ class EditLead extends EditRecord
 
         // Перший вихідний дзвінок: питаємо Binotel вже ПІСЛЯ відповіді сторінки, щоб відкриття заявки не гальмувало.
         $lead = $this->getRecord();
-        $this->needShow = [
-            'service_types' => $lead->serviceTypes()->doesntExist(),
-            'profile' => blank($lead->profile),
-            'comment' => blank(trim((string) $lead->comment)),
-        ];
         defer(fn () => \App\Services\Leads\FirstCallDetector::check($lead->loadMissing('client')));
     }
 
@@ -438,8 +433,18 @@ class EditLead extends EditRecord
     /** Дані інтерактивного блока «Виявлення потреби» (lead-status-bar): ті самі поля, що в картці. Зберігаються одразу при зміні. */
     public ?array $needData = ['service_types' => [], 'profile' => null, 'comment' => null];
 
-    /** Які поля блока показувати: визначається при завантаженні сторінки (що було порожнім), щоб поле не зникало, поки менеджер його заповнює. */
-    public array $needShow = ['service_types' => false, 'profile' => false, 'comment' => false];
+    /** Поточний крок блока «Виявлення потреби»: перше порожнє поле (тип звернення → тип профілю → потреба); null — усе заповнено. */
+    public function needCurrent(): ?string
+    {
+        $lead = $this->getRecord();
+
+        return match (true) {
+            $lead->serviceTypes()->doesntExist() => 'service_types',
+            blank($lead->profile) => 'profile',
+            blank(trim((string) $lead->comment)) => 'comment',
+            default => null,
+        };
+    }
 
     public function needForm(Schema $schema): Schema
     {
@@ -451,32 +456,29 @@ class EditLead extends EditRecord
                     ->options(fn () => \App\Models\LeadServiceType::orderBy('name')->pluck('name', 'id'))
                     ->multiple()
                     ->preload()
-                    ->live()
+                    ->live(onBlur: true)
                     ->afterStateUpdated(fn () => $this->saveNeedField('service_types'))
-                    ->extraFieldWrapperAttributes(['data-need' => 'service_types'])
-                    ->visible(fn (): bool => $this->needShow['service_types']),
+                                        ->visible(fn (): bool => $this->needCurrent() === 'service_types'),
                 Select::make('profile')
                     ->label('Тип профілю (для послуг без профілю — «Послуга»)')
                     ->options(Lead::profileOptions())
                     ->live()
                     ->afterStateUpdated(fn () => $this->saveNeedField('profile'))
-                    ->extraFieldWrapperAttributes(['data-need' => 'profile'])
-                    ->visible(fn (): bool => $this->needShow['profile']),
+                                        ->visible(fn (): bool => $this->needCurrent() === 'profile'),
                 Textarea::make('comment')
                     ->label('Потреба клієнта')
                     ->placeholder('що саме потрібно клієнту, який тип клієнта, які цінності його цікавлять')
                     ->rows(3)
                     ->live(onBlur: true)
                     ->afterStateUpdated(fn () => $this->saveNeedField('comment'))
-                    ->extraFieldWrapperAttributes(['data-need' => 'comment'])
-                    ->visible(fn (): bool => $this->needShow['comment']),
+                                        ->visible(fn (): bool => $this->needCurrent() === 'comment'),
             ]);
     }
 
     /** Зберігає одне поле блока одразу після зміни й просить сторінку м'яко підсвітити його зеленим. */
     public function saveNeedField(string $field): void
     {
-        if ($this->isReadOnly() || ! ($this->needShow[$field] ?? false)) {
+        if ($this->isReadOnly() || $this->needCurrent() !== $field) {
             return;
         }
 
@@ -496,9 +498,9 @@ class EditLead extends EditRecord
             return;
         }
 
+        $this->needData[$field] = $field === 'service_types' ? [] : null;
         $this->record->refresh();
         $this->fillForm();
-        $this->dispatch('need-saved', field: $field);
     }
 
     /** Inline edit from the reminders table (text / date / done flag), saved on blur/change. */

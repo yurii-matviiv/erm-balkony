@@ -137,20 +137,18 @@
     @php
         $contactDone = $record->hasStep('contacted') || ! in_array($record->stage, \App\Models\Lead::PRE_QUALIFIED_STAGES, true);
     @endphp
-    @if ($contactDone && ! $readOnly && ! $unaccepted && count(array_filter($this->needShow)) > 0)
+    @if ($contactDone && ! $readOnly && ! $unaccepted && $this->needCurrent() !== null)
         <div style="padding:1rem 1.25rem;border:1px solid #2874A6;border-radius:6px;background:#eaf2f8;display:flex;flex-direction:column;gap:.9rem;">
             <div style="font-weight:800;color:#c0392b;font-size:1.05rem;text-transform:uppercase;letter-spacing:.02em;">
-                Обов'язковий наступний крок — заповнити потребу клієнта
+                Обов'язковий наступний крок —
+                {{ match ($this->needCurrent()) {
+                    'service_types' => 'оберіть, яку послугу хотів клієнт',
+                    'profile' => 'вкажіть тип профілю (немає профілю — «Послуга»)',
+                    default => 'опишіть потребу клієнта',
+                } }}
             </div>
 
             {{ $this->needForm }}
-
-            {{-- Поле зберіглося: дуже м'яке зелене підсвічування, повільно згасає. --}}
-            <style>
-                @keyframes need-saved-flash { 0% { background-color: rgba(34,197,94,.16); } 100% { background-color: transparent; } }
-                .need-saved-flash .fi-input-wrp, .need-saved-flash .fi-fo-textarea { animation: need-saved-flash 2.4s ease-out 1; }
-            </style>
-            <div x-data x-on:need-saved.window="const w = document.querySelector('[data-need=' + $event.detail.field + ']'); if (w) { w.classList.remove('need-saved-flash'); void w.offsetWidth; w.classList.add('need-saved-flash'); }"></div>
 
         </div>
     @endif
