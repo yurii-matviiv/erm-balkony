@@ -27,7 +27,10 @@ class FirstCallDetector
 
     public static function check(Lead $lead): void
     {
-        if ($lead->hasStep(self::STEP)) {
+        // Ознака «заявка з сайту» не потребує Binotel — ставимо одразу.
+        self::syncSourceFromSite($lead);
+
+        if ($lead->hasStep(self::STEP) && ! self::sourceNeedsBinotel($lead)) {
             return;
         }
 
@@ -61,7 +64,26 @@ class FirstCallDetector
 
             // Шукаємо з ПОЧАТКУ дня подання заявки: менеджер міг подзвонити клієнту до того, як заявку створили в системі.
             $from = self::createdAt($lead)->startOfDay()->timestamp;
-            $first = collect($r->json('callDetails') ?? [])
+            $calls = collect($r->json('callDetails') ?? [])->filter(fn ($c) => is_array($c));
+
+            // Спосіб звернення «Дзвінок»: клієнт дзвонив у день створення (до створення або одразу після), а заявка не з сайту.
+            if (self::sourceNeedsBinotel($lead)) {
+                $till = self::createdAt($lead)->copy()->addHour()->timestamp;
+                $hasIncoming = $calls->contains(fn ($c) => (string) ($c['callType'] ?? '') === '0'
+                    && (int) ($c['startTime'] ?? 0) >= $from && (int) ($c['startTime'] ?? 0) <= $till);
+
+                if ($hasIncoming) {
+                    self::setSource($lead, 'call', 'є вхідний дзвінок Binotel, заявка не з сайту');
+                }
+            }
+
+            if ($lead->hasStep(self::STEP)) {
+                DB::table('leads')->where('id', $lead->id)->update(['first_call_checked_at' => now()]);
+
+                return;
+            }
+
+            $first = $calls
                 ->filter(fn ($c) => is_array($c) && (string) ($c['callType'] ?? '') === self::OUTGOING && (int) ($c['startTime'] ?? 0) >= $from)
                 ->sortBy(fn ($c) => (int) $c['startTime'])
                 ->first();
@@ -83,6 +105,39 @@ class FirstCallDetector
         } catch (\Throwable $e) {
             Log::info('Binotel first-call check error', ['lead' => $lead->id, 'error' => $e->getMessage()]);
         }
+    }
+
+    /** Форма на сайті залишила слід (form_name або ip) — це заявка з сайту. */
+    private static function hasSiteMarker(Lead $lead): bool
+    {
+        $m = $lead->marketingData;
+
+        return $m && (filled($m->form_name) || filled($m->ip_address));
+    }
+
+    /** «Дзвінок» ставимо лише там, де спосіб не вказано/невідомий/«з сайту» без сліду форми; явні вибори (візит, рекомендація, чати, Fb) не чіпаємо. */
+    private static function sourceNeedsBinotel(Lead $lead): bool
+    {
+        return ! self::hasSiteMarker($lead) && in_array($lead->source, [null, '', 'unknown', 'site'], true);
+    }
+
+    private static function syncSourceFromSite(Lead $lead): void
+    {
+        if (self::hasSiteMarker($lead) && in_array($lead->source, [null, '', 'unknown', 'call'], true)) {
+            self::setSource($lead, 'site', 'є слід форми на сайті');
+        }
+    }
+
+    private static function setSource(Lead $lead, string $source, string $why): void
+    {
+        if ($lead->source === $source) {
+            return;
+        }
+
+        DB::table('leads')->where('id', $lead->id)->update(['source' => $source]);
+        Log::info('Lead source auto-set', ['lead' => $lead->id, 'from' => $lead->source, 'to' => $source, 'why' => $why]);
+        $lead->source = $source;
+        $lead->syncOriginalAttribute('source');
     }
 
     /** Справжній момент створення заявки (legacy-заявки лежать у «настінному» часі старого сервера, нові — в UTC). */
