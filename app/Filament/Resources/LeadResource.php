@@ -237,7 +237,7 @@ class LeadResource extends Resource
     private static function blurUnaccepted(array $columns): array
     {
         foreach ($columns as $column) {
-            if (in_array($column->getName(), ['created_at', 'accept'], true)) {
+            if (in_array($column->getName(), ['created_at', 'stage'], true)) {
                 continue;
             }
 
@@ -259,33 +259,25 @@ class LeadResource extends Resource
     }
 
     /** Кнопка «Прийняти» у списку: закріплює заявку за менеджером (атомарно), пише крок «Прийнято» й відкриває заявку. */
-    private static function acceptColumn(): TextColumn
+    private static function acceptAction(Lead $record, $livewire): void
     {
-        return TextColumn::make('accept')
-            ->label('')
-            ->state(fn (Lead $record): ?string => $record->manager_id === null ? 'Прийняти' : null)
-            ->badge()
-            ->color('primary')
-            ->icon('heroicon-o-check-circle')
-            ->action(function (Lead $record, $livewire): void {
-                $user = auth()->user();
+        $user = auth()->user();
 
-                if (! $user || $record->manager_id !== null) {
-                    return;
-                }
+        if (! $user || $record->manager_id !== null) {
+            return;
+        }
 
-                $taken = Lead::query()->whereKey($record->getKey())->whereNull('manager_id')->update(['manager_id' => $user->getKey()]);
+        $taken = Lead::query()->whereKey($record->getKey())->whereNull('manager_id')->update(['manager_id' => $user->getKey()]);
 
-                if (! $taken) {
-                    Notification::make()->title('Заявку вже прийняв інший менеджер')->warning()->send();
+        if (! $taken) {
+            Notification::make()->title('Заявку вже прийняв інший менеджер')->warning()->send();
 
-                    return;
-                }
+            return;
+        }
 
-                $record->refresh();
-                \App\Services\Leads\ProcessSteps::reach($record, 'assigned', 'manual', $user->getKey(), 'Менеджер прийняв заявку зі списку');
-                $livewire->redirect(static::getUrl('edit', ['record' => $record]));
-            });
+        $record->refresh();
+        \App\Services\Leads\ProcessSteps::reach($record, 'assigned', 'manual', $user->getKey(), 'Менеджер прийняв заявку зі списку');
+        $livewire->redirect(static::getUrl('edit', ['record' => $record]));
     }
 
     public static function table(Table $table): Table
@@ -304,7 +296,6 @@ class LeadResource extends Resource
                     ->description(fn (Lead $record): string => $record->created_at->format('H:i'))
                     ->sortable(),
 
-                static::acceptColumn(),
 
                 // Who owns the lead — surname only (names are stored surname-first),
                 // right after the date. Hidden in the manager panel: a manager
@@ -322,16 +313,17 @@ class LeadResource extends Resource
                 TextColumn::make('stage')
                     ->toggleable()
                     ->label('Статус')
-                    ->state(fn (Lead $record): string => match ($record->status) {
+                    ->state(fn (Lead $record): string => static::hiddenUntilAccepted($record) ? 'Прийняти' : match ($record->status) {
                         'won' => 'Угода укладена',
                         'lost' => 'Втрачено',
                         default => Lead::stageOptions()[$record->stage] ?? '—',
                     })
-                    ->filledBadge(fn ($state, Lead $record): string => match ($record->status) {
+                    ->filledBadge(fn ($state, Lead $record): string => static::hiddenUntilAccepted($record) ? 'primary' : match ($record->status) {
                         'won' => 'success',
                         'lost' => 'danger',
                         default => 'info',
-                    }),
+                    })
+                    ->action(fn (Lead $record, $livewire) => static::hiddenUntilAccepted($record) ? static::acceptAction($record, $livewire) : null),
 
                 TextColumn::make('client.full_name')
                     ->toggleable()
