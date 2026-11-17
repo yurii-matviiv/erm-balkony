@@ -35,6 +35,7 @@
         </tr></thead>
         <tbody>
         <tr><td style="{{ $td }}">Новий</td><td style="{{ $td }}"><code>new</code></td><td style="{{ $td }}">заявка з'явилась</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#eaecee;color:#566573;font-weight:600;">— ще ні</span></td></tr>
+        <tr><td style="{{ $td }}"><strong>Прийнято</strong></td><td style="{{ $td }}"><code>assigned</code></td><td style="{{ $td }}">менеджер натиснув «Прийняти заявку»</td><td style="{{ $td }}"><span style="{{ $auto }}">автоматично</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#d5f5e3;color:#1e8449;font-weight:600;">✔ реалізовано</span></td></tr>
         <tr><td style="{{ $td }}">Контакт</td><td style="{{ $td }}"><code>contacted</code></td><td style="{{ $td }}">є контакт із клієнтом (визначення — уточнюємо)</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#eaecee;color:#566573;font-weight:600;">— ще ні</span></td></tr>
         <tr><td style="{{ $td }}"><strong>Замір</strong></td><td style="{{ $td }}"><code>measurement_scheduled</code></td><td style="{{ $td }}">створено «Заявку на замір»</td><td style="{{ $td }}"><span style="{{ $auto }}">автоматично</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#d5f5e3;color:#1e8449;font-weight:600;">✔ реалізовано</span></td></tr>
         <tr><td style="{{ $td }}">Заміряно</td><td style="{{ $td }}"><code>measurement_done</code></td><td style="{{ $td }}">замірник провів замір</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#eaecee;color:#566573;font-weight:600;">— ще ні</span></td></tr>
@@ -119,7 +120,7 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(22rem,1fr));gap:.8rem;">
         <div style="{{ $card }}"><strong>Кваліфікована заявка</strong>
             <ul style="{{ $p }}padding-left:1.3rem;list-style:disc;">
-                <li>Рішення завжди за <strong>етапом і результатом</strong>: не йде, якщо «Втрачено» або етап «Новий». <strong>Вихід із «Новий» = конверсія.</strong></li>
+                <li>Рішення завжди за <strong>етапом і результатом</strong>: не йде, якщо «Втрачено» або етап «Новий»/«Прийнято». <strong>Кваліфікованою стає з «Контакт».</strong></li>
                 <li>Старі статуси з синхронізації вже переведені в етап/результат, тому це однаково працює для лідів зі старої CRM і для нових.</li>
                 <li>Рекламація (тип послуги «Рекламація») не йде.</li>
                 <li>Потрібні: gclid або хеш телефону/email, не старше 90 днів, джерело — сайт чи дзвінок.</li>
@@ -142,7 +143,7 @@
         <div style="{{ $card }}border-color:#e6b0aa;background:#fdf2f0;"><strong>Правила для змін</strong>
             <ul style="{{ $p }}padding-left:1.3rem;list-style:disc;">
                 <li>Не перейменовувати коди <code>new</code>, <code>lost</code>, <code>cancelled</code>, поля <code>total_price</code>, <code>legacy_status</code> без правки <code>ConversionPlanner</code> і <code>AudienceClassify</code>.</li>
-                <li>Автокрок, що виводить заявку з «Новий», створює конверсію: зсувати лише за реальної кваліфікації.</li>
+                <li>Автокрок, що виводить заявку за межі «Новий»/«Прийнято» (від «Контакт» і далі), створює конверсію: зсувати лише за реальної кваліфікації. Список «ще не кваліфікованих» етапів — <code>Lead::PRE_QUALIFIED_STAGES</code>.</li>
                 <li>Автоматика не ставить «Втрачено» й не повертає на «Новий» без причини.</li>
                 <li>Не змінювати автоматично типи послуг ліда й суму замовлення; не втрачати gclid, джерело, контакти, дату створення.</li>
                 <li>Журнал кроків поки не впливає на конверсії; перехід на конверсію за кроком — окрема обережна зміна з новим baseline.</li>

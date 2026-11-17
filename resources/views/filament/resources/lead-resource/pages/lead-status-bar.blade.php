@@ -35,19 +35,24 @@
 
 
     {{-- Статус-бар — єдиний компонент x-status-bar --}}
-    <x-status-bar :steps="collect($stageOptions)->map(fn ($l) => ['label' => $l])->all()" :current="$currentStage" click="setStage" />
+    {{-- Нова заявка без менеджера: замість статус-бару кнопка «Прийняти заявку»; решта рядків розмита й неактивна, доки заявку не прийнято. --}}
+    @php($unaccepted = $record->manager_id === null && ! $readOnly)
+    @if ($unaccepted)
+        <div style="display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;padding:1rem;border:2px dashed #2874A6;border-radius:6px;background:#eaf2f8;">
+            <span style="font-size:.95rem;color:#1b4f72;">Заявка ще не прийнята менеджером.</span>
+            {{ $acceptLeadAction }}
+        </div>
+    @else
+        <x-status-bar :steps="collect($stageOptions)->map(fn ($l) => ['label' => $l])->all()" :current="$currentStage" click="setStage" />
+    @endif
 
     {{-- Action-бар: рівно одна підказка, що робити далі. Реалізовано два
          кроки (замір -> замовлення) — наступні кроки (КП, узгодження тощо)
          додамо окремо, етап за етапом. Після створення замовлення кнопка
          зникає — лишається тільки посилання на саме замовлення. --}}
     @unless ($readOnly)
-    <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+    <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3" @if ($unaccepted) style="filter:blur(2px);opacity:.55;pointer-events:none;user-select:none;" aria-hidden="true" @endif>
         <div class="flex flex-wrap items-center gap-3">
-            @if ($record->manager_id === null)
-                {{ $acceptLeadAction }}
-            @endif
-
             @if (! $latestMeasurement)
                 {{ $createMeasurementAction }}
             @else

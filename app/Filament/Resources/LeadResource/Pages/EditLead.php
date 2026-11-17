@@ -178,8 +178,12 @@ class EditLead extends EditRecord
             ->icon('heroicon-o-check-circle')
             ->color('primary')
             ->visible(fn (): bool => ! $this->isReadOnly() && $this->getRecord()->manager_id === null)
+            ->size('lg')
             ->action(function (): void {
-                $this->getRecord()->update(['manager_id' => auth()->id()]);
+                $record = $this->getRecord();
+                $record->update(['manager_id' => auth()->id()]);
+                // Крок журналу «Прийнято»: етап зсувається лише вперед (docs/STAGES.md).
+                \App\Services\Leads\ProcessSteps::reach($record, 'assigned', 'manual', auth()->id(), 'Менеджер прийняв заявку');
                 $this->fillForm();
             });
     }

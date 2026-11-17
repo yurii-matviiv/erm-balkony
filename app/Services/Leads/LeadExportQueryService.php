@@ -143,7 +143,7 @@ class LeadExportQueryService
         return match (true) {
             $status === 'won' => 'цільовий',
             $status === 'lost' => 'не цільовий',
-            $status === 'open' && $stage !== 'new' => 'цільовий',
+            $status === 'open' && ! in_array($stage, \App\Models\Lead::PRE_QUALIFIED_STAGES, true) => 'цільовий',
             default => 'невідомо',
         };
     }
@@ -167,7 +167,7 @@ class LeadExportQueryService
         return match (true) {
             $status === 'won' => 'продано',
             $status === 'lost' => 'скасовано',
-            $status === 'open' && $stage === 'new' => 'новий',
+            $status === 'open' && in_array($stage, \App\Models\Lead::PRE_QUALIFIED_STAGES, true) => 'новий',
             $status === 'open' => 'в роботі',
             default => 'невідомо',
         };

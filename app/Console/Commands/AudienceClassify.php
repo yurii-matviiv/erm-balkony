@@ -17,7 +17,7 @@ class AudienceClassify extends Command
         // і це не рекламація (тип послуги «Рекламація» або старий статус reklamatsiya_amtech).
         // Рішення лише за stage/status — і для лідів зі старої CRM, і для нових (sync:legacy вже перевів старі статуси).
         $complaint = (string) config('conversions.complaint_service_type', 'Рекламація');
-        $leadCond = "l.status <> 'lost' AND l.stage <> 'new'"
+        $leadCond = "l.status <> 'lost' AND l.stage NOT IN ('new', 'assigned')" // = Lead::PRE_QUALIFIED_STAGES
             ." AND COALESCE(l.legacy_status, '') <> 'reklamatsiya_amtech'" // LEGACY-CLEANUP: прибрати після повного переходу
             .' AND NOT EXISTS (SELECT 1 FROM lead_lead_service_type x JOIN lead_service_types t ON t.id = x.lead_service_type_id'
             .' WHERE x.lead_id = l.id AND t.name = ?)';

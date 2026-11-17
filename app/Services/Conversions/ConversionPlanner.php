@@ -34,7 +34,7 @@ class ConversionPlanner
             return $this->skip('lost', $base);
         }
 
-        if ($lead->stage === 'new') {
+        if (in_array($lead->stage, Lead::PRE_QUALIFIED_STAGES, true)) {
             return $this->skip('status_new', $base);
         }
 

@@ -17,13 +17,14 @@
     <table style="border-collapse:collapse;width:100%;font-size:.95rem;">
         <thead><tr><th style="{{ $th }}">№</th><th style="{{ $th }}">Етап</th><th style="{{ $th }}">Як встановлюється</th></tr></thead>
         <tbody>
-        <tr><td style="{{ $td }}">1</td><td style="{{ $td }}">Новий</td><td style="{{ $td }}">Вручну / при створенні заявки. Автоматика: пізніше.</td></tr>
-        <tr><td style="{{ $td }}">2</td><td style="{{ $td }}">Контакт</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
-        <tr><td style="{{ $td }}">3</td><td style="{{ $td }}">Замір</td><td style="{{ $td }}"><strong>Автоматично</strong>, коли менеджер створює «Заявку на замір». Не спрацьовує, якщо заявка вже на етапі «Заміряно» або далі.</td></tr>
-        <tr><td style="{{ $td }}">4</td><td style="{{ $td }}">Заміряно</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
-        <tr><td style="{{ $td }}">5</td><td style="{{ $td }}">КП</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
-        <tr><td style="{{ $td }}">6</td><td style="{{ $td }}">Узгодження</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
-        <tr><td style="{{ $td }}">7</td><td style="{{ $td }}">Замовлення</td><td style="{{ $td }}"><strong>Автоматично</strong>, коли із заявки створюється замовлення.</td></tr>
+        <tr><td style="{{ $td }}">1</td><td style="{{ $td }}">Новий</td><td style="{{ $td }}">Вручну / при створенні заявки. Нова заявка без менеджера показує кнопку «Прийняти заявку» замість етапів.</td></tr>
+        <tr><td style="{{ $td }}">2</td><td style="{{ $td }}">Прийнято</td><td style="{{ $td }}"><strong>Автоматично</strong>, коли менеджер натискає «Прийняти заявку» (заявка закріплюється за ним).</td></tr>
+        <tr><td style="{{ $td }}">3</td><td style="{{ $td }}">Контакт</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
+        <tr><td style="{{ $td }}">4</td><td style="{{ $td }}">Замір</td><td style="{{ $td }}"><strong>Автоматично</strong>, коли менеджер створює «Заявку на замір». Не спрацьовує, якщо заявка вже на етапі «Заміряно» або далі.</td></tr>
+        <tr><td style="{{ $td }}">5</td><td style="{{ $td }}">Заміряно</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
+        <tr><td style="{{ $td }}">6</td><td style="{{ $td }}">КП</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
+        <tr><td style="{{ $td }}">7</td><td style="{{ $td }}">Узгодження</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
+        <tr><td style="{{ $td }}">8</td><td style="{{ $td }}">Замовлення</td><td style="{{ $td }}"><strong>Автоматично</strong>, коли із заявки створюється замовлення.</td></tr>
         </tbody>
     </table>
 
