@@ -82,6 +82,15 @@ class EditLead extends EditRecord
      * View:Lead (e.g. "Керівник компанії") got 403 when opening a lead from
      * the list. Same fix as EditOrder: let view-only roles in, read-only.
      */
+    public function mount(int | string $record): void
+    {
+        parent::mount($record);
+
+        // Перший вихідний дзвінок: питаємо Binotel вже ПІСЛЯ відповіді сторінки, щоб відкриття заявки не гальмувало.
+        $lead = $this->getRecord();
+        defer(fn () => \App\Services\Leads\FirstCallDetector::check($lead->loadMissing('client')));
+    }
+
     protected function authorizeAccess(): void
     {
         abort_unless(

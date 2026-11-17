@@ -25,6 +25,37 @@
         @endif
     </div>
 
+    {{-- Швидкість реакції: від створення заявки до першого вихідного дзвінка клієнту (крок first_call, див. FirstCallDetector). --}}
+    @php
+        $firstCall = $record->steps()->where('step', 'first_call')->where('state', 'done')->first();
+        $fmt = function (int $min): string {
+            if ($min < 1) return 'менше хвилини';
+            if ($min < 60) return $min.' хв';
+            if ($min < 1440) return intdiv($min, 60).' год '.($min % 60).' хв';
+            return intdiv($min, 1440).' дн '.intdiv($min % 1440, 60).' год';
+        };
+        $reaction = null;
+        if ($firstCall?->occurred_at) {
+            $min = max(0, (int) floor(\App\Services\Leads\FirstCallDetector::createdAt($record)->diffInSeconds($firstCall->occurred_at, false) / 60));
+            $reaction = ['min' => $min, 'done' => true];
+        } elseif (! $firstCall && $record->created_at) {
+            $reaction = ['min' => max(0, (int) floor(\App\Services\Leads\FirstCallDetector::createdAt($record)->diffInMinutes(now()))), 'done' => false];
+        }
+        $color = $reaction ? ($reaction['min'] <= 15 ? '#1e8449' : ($reaction['min'] <= 60 ? '#b9770e' : '#c0392b')) : null;
+    @endphp
+    @if ($reaction)
+        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:.65rem 1rem;border-radius:.5rem;border-left:4px solid {{ $color }};background:{{ $color }}14;font-size:.875rem;">
+            <strong style="color:{{ $color }};">Швидкість реакції</strong>
+            @if ($reaction['done'])
+                <span>перший дзвінок клієнту через <strong>{{ $fmt($reaction['min']) }}</strong> після створення заявки
+                    ({{ $firstCall->occurred_at->locale('uk')->isoFormat('dd DD.MM HH:mm') }})</span>
+                @if ($firstCall->comment)<span class="text-gray-500">{{ $firstCall->comment }}</span>@endif
+            @else
+                <span>дзвінка клієнту ще не було, минуло <strong>{{ $fmt($reaction['min']) }}</strong></span>
+            @endif
+        </div>
+    @endif
+
     {{-- Old CRM: manager-facing warning from the sales head, shown above the card. --}}
     @if (filled($record->comment_sales_head))
         <div class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-center text-amber-900">

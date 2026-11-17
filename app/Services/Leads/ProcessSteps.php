@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 class ProcessSteps
 {
     /** @return bool true if a new step was written */
-    public static function reach(Model $subject, string $step, string $source = 'auto', ?int $userId = null, ?string $comment = null, bool $alsoAdvance = true): bool
+    public static function reach(Model $subject, string $step, string $source = 'auto', ?int $userId = null, ?string $comment = null, bool $alsoAdvance = true, ?\DateTimeInterface $occurredAt = null): bool
     {
         $created = false;
 
@@ -30,7 +30,7 @@ class ProcessSteps
                 'state' => 'done',
                 'source' => $source,
                 'user_id' => $userId ?? auth()->id(),
-                'occurred_at' => now(),
+                'occurred_at' => $occurredAt ?? now(),
                 'comment' => $comment,
             ]);
             $created = true;
