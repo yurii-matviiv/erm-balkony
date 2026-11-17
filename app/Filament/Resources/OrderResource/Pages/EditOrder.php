@@ -283,6 +283,71 @@ class EditOrder extends EditRecord
      * Saves immediately, then refills the form so the "Тип замовлення"
      * select in the Замовлення card stays in sync.
      */
+    /**
+     * «Потрібен монтаж / замір» is derived from the pickers: a person chosen = needed, «Не призначено» =
+     * not needed. Recomputed ONLY for the picker the manager actually changed, so historical orders
+     * (where the old flags and the people do not match) are not rewritten silently on every save.
+     */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $record = $this->getRecord();
+
+        if (array_key_exists('installer_id', $data) && (int) $data['installer_id'] !== (int) $record->installer_id) {
+            $data['is_need_install'] = filled($data['installer_id']);
+        }
+
+        if (array_key_exists('surveyor_id', $data) && (int) $data['surveyor_id'] !== (int) $record->surveyor_id) {
+            $data['is_need_measuring'] = filled($data['surveyor_id']);
+        }
+
+        return $data;
+    }
+
+    /** «30.12.2026, 10:30»; without a time «30.12.2026, --:--» (the time is optional). */
+    private function removalLabel(): string
+    {
+        $record = $this->getRecord();
+
+        if (! $record->removal_date) {
+            return '';
+        }
+
+        // No time set -> show an empty-time marker so it is visible that hours are not set.
+        $time = ', '.($record->delivery_time ? substr((string) $record->delivery_time, 0, 5) : '--:--');
+
+        return $record->removal_date->format('d.m.Y').$time;
+    }
+
+    /** Modal for «На вивіз»: date + (optional) time, entered separately. */
+    public function editRemovalAction(): Action
+    {
+        // Eager array (not a Closure) on purpose — see HasEditClientAction about fillForm(Closure).
+        $record = $this->getRecord();
+
+        return Action::make('editRemoval')
+            ->modalHeading('На вивіз')
+            ->modalSubmitActionLabel('Зберегти')
+            ->modalCancelActionLabel('Скасувати')
+            ->modalWidth('md')
+            ->visible(fn (): bool => ! $this->isReadOnly())
+            ->fillForm([
+                'removal_date' => $record->removal_date?->format('Y-m-d'),
+                'delivery_time' => $record->delivery_time ? substr((string) $record->delivery_time, 0, 5) : null,
+            ])
+            ->schema([
+                DatePicker::make('removal_date')->label('Дата вивозу')->native(false)->displayFormat('d.m.Y'),
+                // Optional: the time may stay empty.
+                TimePicker::make('delivery_time')->label('Час (необов\'язково)')->seconds(false)->nullable(),
+            ])
+            ->action(function (array $data): void {
+                $this->getRecord()->update([
+                    'removal_date' => $data['removal_date'] ? \Illuminate\Support\Carbon::parse($data['removal_date'])->toDateString() : null,
+                    'delivery_time' => ($data['delivery_time'] ?? null) ?: null,
+                ]);
+                $this->fillForm();
+            });
+    }
+
     /** Modal editor for the object address (clicked from the read-only field). */
     public function editAddressAction(): Action
     {
@@ -372,11 +437,22 @@ class EditOrder extends EditRecord
                     Grid::make(['default' => 1, '@3xl' => 2, '@6xl' => 3])->gridContainer()->schema([
                         DatePicker::make('measurement_date')->label('Замір')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
                         DatePicker::make('readiness_date')->label('Готовність')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
-                        TimePicker::make('delivery_time')->label('Час доставки')->seconds(false)->lazy(),
                     ]),
 
                     Grid::make(['default' => 1, '@3xl' => 2, '@6xl' => 3])->gridContainer()->schema([
-                        DatePicker::make('removal_date')->label('На вивіз')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
+                        // ONE compact read-only field «дата, час»; click opens a modal
+                        // (editRemovalAction) with the date and the OPTIONAL time.
+                        TextInput::make('removal_display')
+                            ->label('На вивіз')
+                            ->readOnly()
+                            ->dehydrated(false)
+                            ->placeholder('—')
+                            ->suffixIcon('heroicon-o-calendar-days')
+                            ->formatStateUsing(fn (): string => $this->removalLabel())
+                            ->extraInputAttributes(fn (): array => $this->isReadOnly() ? [] : [
+                                'wire:click' => "mountAction('editRemoval')",
+                                'style' => 'cursor:pointer;',
+                            ]),
                         DatePicker::make('montage_date')->label('Монтаж')->native(false)->displayFormat('d.m.Y')->suffixIcon('heroicon-o-calendar-days')->live(),
                     ]),
 
@@ -425,7 +501,8 @@ class EditOrder extends EditRecord
                     // («надіслано» / ні), тому чекбокс, а не перемикач.
                     Checkbox::make('removal_request_sent')
                         ->label('Заявку на вивіз надіслано')
-                        ->inline(false)
+                        ->inline()
+                        ->inlineLabel(false)
                         ->live(),
                 ]),
 
@@ -433,21 +510,22 @@ class EditOrder extends EditRecord
                 ->icon('heroicon-o-user')
                 ->compact()
                 ->extraAttributes(['class' => 'ig-card'])
-                ->inlineLabel()
-                // Pencil button next to the heading — see
-                // HasEditClientAction docblock for why this is
-                // deliberately NOT role-gated (a manager with no menu
-                // access to the Клієнти module should still be able to
-                // fix THIS client's details from right here).
-                ->headerActions($this->isReadOnly() ? [] : [$this->editClientAction()])
-                // 3 columns — per explicit feedback, ПІБ/Телефон/Адреса
-                // read better as one tidy row than wrapping the 3rd field
-                // onto its own line (which a 2-column grid did).
-                ->columns(['default' => 1, '@3xl' => 2, '@6xl' => 3])->gridContainer()
+                // Read-only client card (avatar, name -> client card, phone/email/address).
+                // No edit modal here any more: editing happens in the full client card
+                // (pencil next to the name / «Повна картка клієнта»).
                 ->schema([
-                    TextEntry::make('client.full_name')->label('ПІБ'),
-                    TextEntry::make('client.phone')->label('Телефон'),
-                    TextEntry::make('client.full_address')->label('Адреса клієнта')->default('—'),
+                    \Filament\Schemas\Components\View::make('filament.resources.order-resource.components.client-card')
+                        ->viewData(fn (): array => [
+                            'client' => $this->getRecord()->client,
+                            'clientUrl' => $this->getRecord()->client && \App\Filament\Resources\ClientResource::canEdit($this->getRecord()->client)
+                                ? \App\Filament\Resources\ClientResource::getUrl('edit', ['record' => $this->getRecord()->client_id])
+                                : null,
+                            // The lead this order was created from (old CRM: order.lead_id).
+                            'leadId' => $this->getRecord()->lead_id,
+                            'leadUrl' => ($lead = $this->getRecord()->lead_id ? \App\Models\Lead::find($this->getRecord()->lead_id) : null) && \App\Filament\Resources\LeadResource::canEdit($lead)
+                                ? \App\Filament\Resources\LeadResource::getUrl('edit', ['record' => $lead->id])
+                                : null,
+                        ]),
                 ]),
 
             Section::make('Замовлення')
@@ -502,12 +580,13 @@ class EditOrder extends EditRecord
                     Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
                         Select::make('installer_id')
                             ->label('Монтажник')
+                            ->placeholder('Не призначено')
                             ->options(fn () => User::query()->orderBy('name')->pluck('name', 'id'))
                             ->searchable()->live(),
 
                         Select::make('surveyor_id')
-                            ->label('Замірник (відповідальний)')
-                            ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Відповідальний за бригаду — навіть якщо монтажник інший.')
+                            ->label('Замірник')
+                            ->placeholder('Не призначено')
                             ->options(fn () => User::query()->orderBy('name')->pluck('name', 'id'))
                             ->searchable()->live(),
                     ]),
@@ -524,11 +603,9 @@ class EditOrder extends EditRecord
                     // reasoning. The `supplier_id` column/relation on Order
                     // itself is NOT removed — historical synced orders from
                     // the old system still have it, kept for reference.
-                    // Both "needed" checkboxes share one row; stage/status the next.
-                    Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
-                        Checkbox::make('is_need_measuring')->label('Потрібен замір')->inline(false)->live(),
-                        Checkbox::make('is_need_install')->label('Потрібен монтаж')->inline(false)->live(),
-                    ]),
+                    // No «Потрібен замір / монтаж» checkboxes any more: the flags are DERIVED from the
+                    // pickers above (a person chosen = needed, «Не призначено» = not needed) and still
+                    // stored in is_need_measuring / is_need_install — see mutateFormDataBeforeSave().
 
                     Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
                         Select::make('stage')

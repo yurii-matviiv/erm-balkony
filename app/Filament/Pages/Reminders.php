@@ -23,8 +23,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * "Нагадування" — a tabbed page; each tab is one TYPE of reminder. Only the
- * "Заявки" tab (reminders attached to leads) exists so far; it is the default
- * and the first tab. More types are added by extending getTabs() and the
+ * "Заявки" tab (manual reminders on leads, kind=lead) is the default; the
+ * "Заміри" tab holds the automatic measurement reminders (kind=measurement,
+ * config/measurement_reminders.php, sent by reminders:dispatch). More types are added by extending getTabs() and the
  * switch in tabQuery().
  *
  * Everyone sees ONLY their own reminders (user_id = current user) — no manager
@@ -55,6 +56,7 @@ class Reminders extends Page implements HasTable
     {
         return [
             'leads' => 'Заявки',
+            'measurements' => 'Заміри',
         ];
     }
 
@@ -62,6 +64,19 @@ class Reminders extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
+            // «Інструкція» — only on the «Заміри» tab: the exact rules (hours, repeats) in a full-screen modal.
+            Action::make('measurementInstruction')
+                ->label('Інструкція')
+                ->icon('heroicon-o-question-mark-circle')
+                ->color('gray')
+                ->outlined()
+                ->visible(fn (): bool => $this->activeTab === 'measurements')
+                ->modalHeading('Нагадування про заміри — як це працює')
+                ->modalWidth(Width::Screen)
+                ->modalContent(fn () => view('filament.pages.reminders-measurement-instruction', ['cfg' => config('measurement_reminders')]))
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Закрити'),
+
             Action::make('notificationSettings')
                 ->iconButton()
                 ->icon('heroicon-o-cog-6-tooth')
@@ -125,8 +140,22 @@ class Reminders extends Page implements HasTable
         $query = ManagerReminder::query()->where('user_id', auth()->id());
 
         return match ($tab) {
-            default => $query->whereNotNull('lead_id'), // 'leads'
+            'measurements' => $query->where('kind', 'measurement'),
+            default => $query->where('kind', 'lead')->whereNotNull('lead_id'), // 'leads'
         };
+    }
+
+    /** Measurement reminders that are due but the manager has not confirmed with «Побачив» — shown in red. */
+    public function attentionCount(): int
+    {
+        return ManagerReminder::needsAttention((int) auth()->id())->count();
+    }
+
+    /** reminder_datetime is Kyiv wall-clock time (see config/measurement_reminders.php), so «overdue» is judged by the Kyiv clock. */
+    private function isOverdue(ManagerReminder $record): bool
+    {
+        return ! $record->is_completed
+            && $record->reminder_datetime->format('Y-m-d H:i:s') <= now(config('measurement_reminders.timezone'))->format('Y-m-d H:i:s');
     }
 
     public function table(Table $table): Table
@@ -144,7 +173,7 @@ class Reminders extends Page implements HasTable
                 TextColumn::make('reminder_datetime')
                     ->label('Коли нагадати')
                     ->formatStateUsing(fn ($state): string => $state->locale('uk')->isoFormat('dd DD.MM.YYYY HH:mm'))
-                    ->color(fn (ManagerReminder $record): ?string => ! $record->is_completed && $record->reminder_datetime->isPast() ? 'danger' : null),
+                    ->color(fn (ManagerReminder $record): ?string => $this->isOverdue($record) ? 'danger' : null),
 
                 TextColumn::make('lead.client.full_name')
                     ->label('Клієнт')
@@ -161,10 +190,24 @@ class Reminders extends Page implements HasTable
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => ManagerReminder::typeOptions()[$state] ?? '—'),
 
+                TextColumn::make('acknowledged_at')
+                    ->label('Побачив')
+                    ->visible(fn (): bool => $this->activeTab === 'measurements')
+                    ->formatStateUsing(fn ($state): string => $state ? 'Так, '.$state->format('d.m H:i') : 'Ні')
+                    ->color(fn (ManagerReminder $record): ?string => ! $record->acknowledged_at && $this->isOverdue($record) ? 'danger' : null),
+
                 ToggleColumn::make('is_completed')
                     ->label('Виконано'),
             ])
             ->recordActions([
+                // «Побачив» stops the repeated push for a measurement reminder.
+                Action::make('acknowledge')
+                    ->label('Побачив')
+                    ->icon('heroicon-o-eye')
+                    ->color('success')
+                    ->visible(fn (ManagerReminder $record): bool => $record->kind === 'measurement' && ! $record->acknowledged_at && ! $record->is_completed)
+                    ->action(fn (ManagerReminder $record) => $record->update(['acknowledged_at' => now()])),
+
                 // Pencil at the end of the row: edit text/date/type in a modal.
                 // Queries are already limited to the current user's reminders.
                 Action::make('editReminder')

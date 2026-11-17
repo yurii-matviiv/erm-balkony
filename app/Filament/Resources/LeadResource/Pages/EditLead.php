@@ -17,6 +17,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View as SchemaView;
@@ -232,67 +233,74 @@ class EditLead extends EditRecord
         // ресурс → тип → профіль → статус → коментарі → розрахунки), labels on
         // the left, so managers moving over see the same layout.
         return $schema->columns(1)->components([
-            Section::make('Картка ліда')
-                ->extraAttributes(['class' => 'record-card'])
-                ->inlineLabel()
-                ->columns(1)
+            // Client + contacts + quick actions: the same card as in the order page.
+            Section::make('Клієнт')
+                ->icon('heroicon-o-user')
+                ->compact()
+                ->extraAttributes(['class' => 'ig-card'])
                 ->schema([
-                    SchemaView::make('filament.resources.lead-resource.components.client-row')
+                    SchemaView::make('filament.resources.order-resource.components.client-card')
                         ->viewData(fn (?Lead $record): array => [
-                            'record' => $record,
-                            'editClientAction' => $this->isReadOnly() ? null : $this->editClientAction(),
-                        ]),
-
-                    SchemaView::make('filament.resources.lead-resource.components.phone-links')
-                        ->viewData(fn (?Lead $record): array => ['record' => $record]),
-
-                    SchemaView::make('filament.resources.lead-resource.components.address-row')
-                        ->viewData(fn (?Lead $record): array => [
-                            'record' => $record,
+                            'client' => $record?->client,
+                            'clientUrl' => $record?->client && \App\Filament\Resources\ClientResource::canEdit($record->client)
+                                ? \App\Filament\Resources\ClientResource::getUrl('edit', ['record' => $record->client_id])
+                                : null,
+                            'showObjectAddress' => true,
+                            'objectAddress' => $record?->site_address,
                             'autoAddress' => \App\Filament\Resources\LeadResource::canSeeManagers() ? $record?->auto_address : null,
                             'editAddressAction' => $this->isReadOnly() ? null : $this->editAddressAction(),
                         ]),
+                ]),
 
-                    Select::make('source')
-                        ->label('Спосіб звернення')
-                        ->options(Lead::sourceOptions())
-                        ->required()
-                        ->live(),
+            Section::make('Заявка')
+                ->icon('heroicon-o-inbox-arrow-down')
+                ->compact()
+                ->extraAttributes(['class' => 'ig-card'])
+                ->columns(1)
+                ->schema([
+                    // Short selects in two columns, labels above the fields.
+                    Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
+                        Select::make('source')
+                            ->label('Спосіб звернення')
+                            ->options(Lead::sourceOptions())
+                            ->required()
+                            ->live(),
 
-                    Group::make()
-                        ->relationship('marketingData')
-                        ->schema([
-                            Select::make('site_source')
-                                ->label('Ресурс')
-                                ->options(Lead::siteSourceOptions())
-                                ->live(),
-                        ]),
+                        Group::make()
+                            ->relationship('marketingData')
+                            ->schema([
+                                Select::make('site_source')
+                                    ->label('Ресурс')
+                                    ->options(Lead::siteSourceOptions())
+                                    ->live(),
+                            ]),
 
-                    Select::make('serviceTypes')
-                        ->label('Тип звернення')
-                        ->relationship('serviceTypes', 'name')
-                        ->multiple()
-                        ->preload()
-                        ->required()
-                        ->live(),
+                        Select::make('serviceTypes')
+                            ->label('Тип звернення')
+                            ->relationship('serviceTypes', 'name')
+                            ->multiple()
+                            ->preload()
+                            ->required()
+                            ->live(),
 
-                    Select::make('profile')
-                        ->label('Тип профілю')
-                        ->options(Lead::profileOptions())
-                        ->placeholder('це поле обов\'язкове')
-                        ->live(),
+                        Select::make('profile')
+                            ->label('Тип профілю')
+                            ->options(Lead::profileOptions())
+                            ->placeholder('це поле обов\'язкове')
+                            ->live(),
 
-                    Select::make('stage')
-                        ->label('Статус')
-                        ->options(Lead::stageOptions())
-                        ->required()
-                        ->live(),
+                        Select::make('stage')
+                            ->label('Статус')
+                            ->options(Lead::stageOptions())
+                            ->required()
+                            ->live(),
 
-                    Select::make('status')
-                        ->label('Результат')
-                        ->options(Lead::statusOptions())
-                        ->required()
-                        ->live(),
+                        Select::make('status')
+                            ->label('Результат')
+                            ->options(Lead::statusOptions())
+                            ->required()
+                            ->live(),
+                    ]),
 
                     Textarea::make('lost_reason')
                         ->label('Причина втрати')
@@ -331,7 +339,6 @@ class EditLead extends EditRecord
                     Section::make('Додаткові поля для розрахунків')
                         ->collapsed()
                         ->compact()
-                        ->inlineLabel()
                         ->schema([
                             TextInput::make('advance_calculation2')->label('Розрахунок №2')->lazy(),
                             TextInput::make('advance_calculation3')->label('Розрахунок №3')->lazy(),
@@ -448,8 +455,7 @@ class EditLead extends EditRecord
                     ->seconds(false),
 
                 Select::make('surveyor_id')
-                    ->label('Замірник (відповідальний)')
-                    ->helperText('Саме ця людина вважається відповідальною за бригаду — навіть якщо монтажник інший.')
+                    ->label('Замірник')
                     ->options(fn () => User::query()->orderBy('name')->pluck('name', 'id'))
                     ->searchable()
                     ->required(),
@@ -467,8 +473,11 @@ class EditLead extends EditRecord
             ->action(function (array $data): void {
                 $record = $this->getRecord();
 
-                $record->measurements()->create($data);
+                $measurement = $record->measurements()->create($data);
                 $record->update(['stage' => 'measurement_scheduled']);
+
+                // Automatic reminders for the lead's manager (tab «Заміри» on «Нагадування»).
+                app(\App\Services\Reminders\MeasurementReminders::class)->create($measurement);
 
                 $this->fillForm();
             });
@@ -513,6 +522,9 @@ class EditLead extends EditRecord
                     'manager_id' => $record->manager_id,
                     'surveyor_id' => $measurement?->surveyor_id,
                     'installer_id' => $measurement?->installer_id,
+                    // «Потрібен» is derived from the people: nobody assigned yet = not needed (see EditOrder).
+                    'is_need_measuring' => filled($measurement?->surveyor_id),
+                    'is_need_install' => filled($measurement?->installer_id),
                     'address' => $record->site_address ?? $record->client?->full_address ?? '',
                     'stage' => 'new',
                     'status' => 'open',

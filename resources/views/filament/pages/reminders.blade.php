@@ -1,9 +1,20 @@
 <x-filament-panels::page>
 
-    {{-- Short how-to for managers, always at the very top. --}}
+    {{-- Short how-to for managers: its own text per tab, always at the very top. --}}
     <div style="padding:.85rem 1rem;margin-bottom:1rem;border:1px solid #cfd8de;background:#f4f8fb;border-radius:3px;font-size:.9rem;line-height:1.5;">
-        <strong>Як це працює.</strong> У картці заявки натисни «Створити нагадування», обери дату й потрібну годину — і в цей час браузер сам нагадає про це спливаючим сповіщенням, навіть якщо вкладка з CRM закрита (головне — щоб браузер був запущений і ти дозволив сповіщення нижче). Усі свої нагадування бачиш тут; олівець справа дозволяє змінити текст чи час.
+        @if ($this->activeTab === 'measurements')
+            <strong>Нагадування про заміри.</strong> Створюються автоматично, коли в заявці створюєш запис на замір: ввечері напередодні та в день заміру. Поки не натиснеш «Побачив», сповіщення повторюється. Повні правила та години — кнопка «Інструкція» справа вгорі.
+        @else
+            <strong>Як це працює.</strong> У картці заявки натисни «Створити нагадування», обери дату й потрібну годину — і в цей час браузер сам нагадає про це спливаючим сповіщенням, навіть якщо вкладка з CRM закрита (головне — щоб браузер був запущений і ти дозволив сповіщення нижче). Усі свої нагадування бачиш тут; олівець справа дозволяє змінити текст чи час.
+        @endif
     </div>
+
+    {{-- Unconfirmed measurement reminders: visible on any tab. --}}
+    @if (($attention = $this->attentionCount()) > 0)
+        <div style="padding:.6rem 1rem;margin-bottom:1rem;border:1px solid #e6a5a5;background:#fdeeee;border-radius:3px;font-size:.9rem;">
+            🔔 Нагадувань про заміри без підтвердження: <strong>{{ $attention }}</strong>. Відкрий вкладку «Заміри» і натисни «Побачив».
+        </div>
+    @endif
 
     {{-- Compact warning only while this browser is not subscribed; the actual switch lives behind the gear (top right). --}}
     <div x-data="pushState(@js(config('webpush.public_key')), @js(csrf_token()))" x-init="init()" x-cloak>
@@ -60,16 +71,19 @@
         }
     </script>
 
-    {{-- Tab bar: a line across the top; one button per reminder type. --}}
-    <div style="display:flex;gap:.25rem;border-bottom:1px solid #cfd8de;margin-bottom:1rem;">
+    {{-- Standard Filament tabs: the look comes from the global tabs-styles (same as the client card). --}}
+    <x-filament::tabs class="mb-4">
         @foreach ($this->getTabs() as $key => $label)
-            @php $active = $this->activeTab === $key; $open = $this->openCount($key); @endphp
-            <button type="button" wire:click="setTab('{{ $key }}')"
-                style="padding:.6rem 1.1rem;font-size:.9rem;cursor:pointer;background:none;border:0;border-bottom:3px solid {{ $active ? '#2874A6' : 'transparent' }};margin-bottom:-1px;font-weight:{{ $active ? '600' : '400' }};color:{{ $active ? '#2874A6' : 'inherit' }};">
-                {{ $label }}@if ($open > 0) <span style="margin-left:.35rem;font-size:.75rem;background:#2874A6;color:#fff;border-radius:3px;padding:1px 6px;">{{ $open }}</span>@endif
-            </button>
+            @php $open = $this->openCount($key); $red = $key === 'measurements' && $this->attentionCount() > 0; @endphp
+            <x-filament::tabs.item
+                :active="$this->activeTab === $key"
+                :badge="$open > 0 ? $open : null"
+                :badge-color="$red ? 'danger' : 'primary'"
+                wire:click="setTab('{{ $key }}')">
+                {{ $label }}
+            </x-filament::tabs.item>
         @endforeach
-    </div>
+    </x-filament::tabs>
 
     {{ $this->table }}
 

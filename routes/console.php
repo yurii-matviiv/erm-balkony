@@ -27,6 +27,14 @@ Schedule::command('sync:legacy --scheduled')
     ->runInBackground();
 
 /*
+ * Push reminders for managers (incl. «Заміри»). Exits in milliseconds when nothing is due.
+ */
+Schedule::command('reminders:dispatch')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->runInBackground();
+
+/*
  * Offline conversions -> Google Ads (Data Manager API).
  * Exits immediately while mode = off (default). Modes: php artisan conversions:mode.
  */

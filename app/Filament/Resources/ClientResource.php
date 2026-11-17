@@ -97,11 +97,6 @@ class ClientResource extends Resource
                 ->tel()
                 ->maxLength(30),
 
-            TextInput::make('email')
-                ->label('Email')
-                ->email()
-                ->maxLength(255),
-
             TextInput::make('viber')
                 ->label('Viber')
                 ->maxLength(30),
@@ -123,6 +118,13 @@ class ClientResource extends Resource
             TextInput::make('house_number')->label('Будинок')->maxLength(20),
             TextInput::make('apartment_number')->label('Квартира')->maxLength(20),
             TextInput::make('floor')->label('Поверх')->maxLength(20),
+
+            TextInput::make('email')
+                ->label('Електронна адреса')
+                ->email()
+                ->maxLength(255)
+                ->columnSpanFull(),
+
 
             // Assigning a manager is only for roles that oversee managers (Адмін, Керівник
             // відділу продажу, Керівник компанії); a manager never sees this field.
