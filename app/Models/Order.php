@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'address', 'order_type', 'contract_number', 'vendor_number', 'calculation_number',
     'square_meters', 'montage_price_m2', 'montage_price', 'montage_salary',
     'additional_price', 'additional_salary', 'measuring_price', 'gazda_price', 'cost_of_lifts',
-    'total_price', 'balance', 'discount', 'bonus',
+    'total_price', 'balance', 'discount', 'bonus', 'formula_salary', 'percentage_value',
     'invoice_from_supplier', 'paid_invoice_to_supplier',
     'is_need_install', 'is_need_measuring',
     'measurement_date', 'readiness_date', 'delivery_time', 'removal_date', 'removal_request_sent',

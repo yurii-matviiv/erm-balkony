@@ -46,7 +46,9 @@ class AdminPanelProvider extends PanelProvider
             // replaces it — it redirects each user to the first page of
             // their role's sidebar instead of showing the generic
             // "Інфопанель". See that class's docblock.
-            ->pages([])
+            // «Модуль З/П» живе в App\Filament\Manager\Pages (там заглушки менеджерської панелі), але
+            // потрібен і адміну/бухгалтеру/керівнику відділу продажу — тому підключений явно.
+            ->pages([\App\Filament\Manager\Pages\SalaryModule::class])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,

@@ -14,6 +14,9 @@
 
     @include('filament.components.date-bar')
 
-    {{ $this->table }}
+    @include('filament.components.sticky-table-header')
+    <div class="sticky-table-header">
+        {{ $this->table }}
+    </div>
 
 </x-filament-panels::page>

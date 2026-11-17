@@ -247,13 +247,12 @@ class LeadResource extends Resource
                 TextColumn::make('stage')
                     ->toggleable()
                     ->label('Статус')
-                    ->badge()
                     ->state(fn (Lead $record): string => match ($record->status) {
                         'won' => 'Угода укладена',
                         'lost' => 'Втрачено',
                         default => Lead::stageOptions()[$record->stage] ?? '—',
                     })
-                    ->color(fn (Lead $record): string => match ($record->status) {
+                    ->filledBadge(fn ($state, Lead $record): string => match ($record->status) {
                         'won' => 'success',
                         'lost' => 'danger',
                         default => 'info',
@@ -396,7 +395,7 @@ class LeadResource extends Resource
                 ]),
             ])
             ->paginationPageOptions([20, 100])
-            ->defaultPaginationPageOption(20)
+            ->defaultPaginationPageOption(100)
             ->defaultSort('created_at', 'desc')
             ->persistColumnsInSession();
     }

@@ -86,6 +86,15 @@ class OrderResource extends Resource
         // so managers recognise it; extras stay available in the column toggle.
         return $table
             ->columns([
+                // Surname only (names are stored surname-first), like in the leads table.
+                // FIRST column, shown only to roles that oversee all orders (see canSeeManagers()).
+                TextColumn::make('manager.name')
+                    ->label('Менеджер')
+                    ->toggleable()
+                    ->formatStateUsing(fn (?string $state): string => $state ? (explode(' ', trim($state))[0] ?: $state) : '')
+                    ->placeholder('—')
+                    ->visible(fn (): bool => static::canSeeManagers()),
+
                 TextColumn::make('id')
                     ->label('Дог. № замовлення')
                     ->toggleable()
@@ -127,19 +136,10 @@ class OrderResource extends Resource
                     ->formatStateUsing(fn (?string $state): string => Order::orderTypeOptions()[$state] ?? '—')
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                // Surname only (names are stored surname-first), like in the leads table.
-                TextColumn::make('manager.name')
-                    ->label('Менеджер')
-                    ->toggleable()
-                    ->formatStateUsing(fn (?string $state): string => $state ? (explode(' ', trim($state))[0] ?: $state) : '')
-                    ->placeholder('—')
-                    ->visible(fn (): bool => static::canSeeManagers()),
-
                 TextColumn::make('stage')
                     ->label('Етап')
                     ->toggleable()
-                    ->badge()
-                    ->color(fn (?string $state): string => match ($state) {
+                    ->filledBadge(fn (?string $state): string => match ($state) {
                         'ready', 'success' => 'success',
                         'in_work' => 'info',
                         'in_process' => 'primary',
@@ -228,7 +228,7 @@ class OrderResource extends Resource
             ])
             ->persistColumnsInSession()
             ->paginationPageOptions([20, 100])
-            ->defaultPaginationPageOption(20)
+            ->defaultPaginationPageOption(100)
             ->recordActions([
                 EditAction::make('edit'),
             ])

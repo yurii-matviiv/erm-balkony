@@ -173,6 +173,9 @@ class OrdersSyncMapper extends AbstractSyncMapper
             'balance' => $oldRow['balance'] ?? null,
             'discount' => $oldRow['discount'] ?? null,
             'bonus' => $oldRow['bonus'] ?? null,
+            // Модуль «Зарплата»: формула нарахування менеджеру і відсоток (стара CRM: orders.formula_salary / percentage_value).
+            'formula_salary' => ($oldRow['formula_salary'] ?? null) === 'multiplier' ? 'multiplier' : 'percentage',
+            'percentage_value' => $oldRow['percentage_value'] ?? null,
 
             'invoice_from_supplier' => $oldRow['invoice_from_supplier'] ?? null,
             // Old column name literally has a space in it ("paid_invoice
