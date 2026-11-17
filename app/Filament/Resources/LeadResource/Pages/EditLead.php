@@ -88,6 +88,11 @@ class EditLead extends EditRecord
 
         // Перший вихідний дзвінок: питаємо Binotel вже ПІСЛЯ відповіді сторінки, щоб відкриття заявки не гальмувало.
         $lead = $this->getRecord();
+        $this->needShow = [
+            'service_types' => $lead->serviceTypes()->doesntExist(),
+            'profile' => blank($lead->profile),
+            'comment' => blank(trim((string) $lead->comment)),
+        ];
         defer(fn () => \App\Services\Leads\FirstCallDetector::check($lead->loadMissing('client')));
     }
 
@@ -430,8 +435,11 @@ class EditLead extends EditRecord
             });
     }
 
-    /** Дані інтерактивного блока «Виявлення потреби» (lead-status-bar): ті самі поля, що в картці, тільки порожні. */
+    /** Дані інтерактивного блока «Виявлення потреби» (lead-status-bar): ті самі поля, що в картці. Зберігаються одразу при зміні. */
     public ?array $needData = [];
+
+    /** Які поля блока показувати: визначається при завантаженні сторінки (що було порожнім), щоб поле не зникало, поки менеджер його заповнює. */
+    public array $needShow = ['service_types' => false, 'profile' => false, 'comment' => false];
 
     public function needForm(Schema $schema): Schema
     {
@@ -443,53 +451,54 @@ class EditLead extends EditRecord
                     ->options(fn () => \App\Models\LeadServiceType::orderBy('name')->pluck('name', 'id'))
                     ->multiple()
                     ->preload()
-                    ->visible(fn (): bool => $this->getRecord()->serviceTypes()->doesntExist()),
+                    ->live()
+                    ->afterStateUpdated(fn () => $this->saveNeedField('service_types'))
+                    ->extraFieldWrapperAttributes(['data-need' => 'service_types'])
+                    ->visible(fn (): bool => $this->needShow['service_types']),
                 Select::make('profile')
                     ->label('Тип профілю (для послуг без профілю — «Послуга»)')
                     ->options(Lead::profileOptions())
-                    ->visible(fn (): bool => blank($this->getRecord()->profile)),
+                    ->live()
+                    ->afterStateUpdated(fn () => $this->saveNeedField('profile'))
+                    ->extraFieldWrapperAttributes(['data-need' => 'profile'])
+                    ->visible(fn (): bool => $this->needShow['profile']),
                 Textarea::make('comment')
                     ->label('Потреба клієнта')
                     ->placeholder('що саме потрібно клієнту, який тип клієнта, які цінності його цікавлять')
                     ->rows(3)
-                    ->visible(fn (): bool => blank(trim((string) $this->getRecord()->comment))),
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(fn () => $this->saveNeedField('comment'))
+                    ->extraFieldWrapperAttributes(['data-need' => 'comment'])
+                    ->visible(fn (): bool => $this->needShow['comment']),
             ]);
     }
 
-    public function saveNeed(): void
+    /** Зберігає одне поле блока одразу після зміни й просить сторінку м'яко підсвітити його зеленим. */
+    public function saveNeedField(string $field): void
     {
-        if ($this->isReadOnly()) {
+        if ($this->isReadOnly() || ! ($this->needShow[$field] ?? false)) {
             return;
         }
 
-        $state = $this->needForm->getState();
         $record = $this->getRecord();
-        $data = [];
+        $value = $this->needData[$field] ?? null;
 
-        $profile = (string) ($state['profile'] ?? '');
-        if ($profile !== '' && array_key_exists($profile, Lead::profileOptions()) && blank($record->profile)) {
-            $data['profile'] = $profile;
+        if ($field === 'service_types') {
+            $ids = \App\Models\LeadServiceType::whereIn('id', array_map('intval', (array) $value))->pluck('id')->all();
+            $record->serviceTypes()->sync($ids);
+        } elseif ($field === 'profile') {
+            $profile = (string) $value;
+            $record->update(['profile' => array_key_exists($profile, Lead::profileOptions()) ? $profile : null]);
+        } elseif ($field === 'comment') {
+            $comment = trim((string) $value);
+            $record->update(['comment' => $comment !== '' ? $comment : null]);
+        } else {
+            return;
         }
 
-        $comment = trim((string) ($state['comment'] ?? ''));
-        if ($comment !== '' && blank($record->comment)) {
-            $data['comment'] = $comment;
-        }
-
-        if ($data !== []) {
-            $record->update($data);
-        }
-
-        $ids = array_values(array_filter(array_map('intval', (array) ($state['service_types'] ?? []))));
-        if ($ids !== [] && $record->serviceTypes()->doesntExist()) {
-            $record->serviceTypes()->sync(\App\Models\LeadServiceType::whereIn('id', $ids)->pluck('id')->all());
-        }
-
-        $this->needForm->fill();
         $this->record->refresh();
         $this->fillForm();
-
-        \Filament\Notifications\Notification::make()->title('Збережено')->success()->send();
+        $this->dispatch('need-saved', field: $field);
     }
 
     /** Inline edit from the reminders table (text / date / done flag), saved on blur/change. */
