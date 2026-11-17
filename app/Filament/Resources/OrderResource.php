@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\OrderResource\Pages\EditOrder;
 use App\Filament\Resources\OrderResource\Pages\ListOrders;
 use App\Models\Order;
+use App\Models\User;
 use App\Support\RolePanels;
 use BackedEnum;
 use Illuminate\Database\Eloquent\Builder;
@@ -64,56 +65,79 @@ class OrderResource extends Resource
         return $query;
     }
 
+    /**
+     * Roles that oversee ALL orders get the manager column and the manager filter
+     * (same list as LeadResource::canSeeManagers()). A manager sees only their own
+     * orders — see getEloquentQuery() — so for them both would be pointless.
+     */
+    public static function canSeeManagers(): bool
+    {
+        return in_array(
+            auth()->user()?->getActiveRoleName(),
+            ['Адмін', 'Керівник відділу продажу', 'Керівник компанії', 'super_admin'],
+            true,
+        );
+    }
+
     public static function table(Table $table): Table
     {
         // Columns follow the old CRM's "Замовлення" list (order №, supplier
         // invoice №, address, client, montage date, installer, stage chip)
         // so managers recognise it; extras stay available in the column toggle.
-        $isManagerPanel = fn (): bool => RolePanels::idForUser(auth()->user()) === RolePanels::MANAGER;
-
         return $table
             ->columns([
                 TextColumn::make('id')
                     ->label('Дог. № замовлення')
+                    ->toggleable()
                     ->formatStateUsing(fn ($state): string => 'замовл. №'.$state)
                     ->sortable()
                     ->searchable(),
 
                 TextColumn::make('invoice_from_supplier')
                     ->label('№ у постачальника')
+                    ->toggleable()
                     ->wrap()
                     ->searchable(),
 
                 TextColumn::make('address')
                     ->label('Адреса')
+                    ->toggleable()
                     ->limit(60)
                     ->tooltip(fn (Order $record): ?string => $record->address)
                     ->searchable(),
 
                 TextColumn::make('client.full_name')
                     ->label('Клієнт')
+                    ->toggleable()
                     ->description(fn (Order $record): ?string => $record->client?->phone)
                     ->searchable(['client.last_name', 'client.first_name', 'client.phone']),
 
                 TextColumn::make('montage_date')
                     ->label('Монтаж')
+                    ->toggleable()
                     ->formatStateUsing(fn ($state): string => $state ? $state->locale('uk')->isoFormat('dd DD.MM') : '—')
                     ->sortable(),
 
                 TextColumn::make('installer.name')
-                    ->label('Монтажник'),
+                    ->label('Монтажник')
+                    ->toggleable(),
 
                 TextColumn::make('order_type')
                     ->label('Тип')
                     ->formatStateUsing(fn (?string $state): string => Order::orderTypeOptions()[$state] ?? '—')
                     ->toggleable(isToggledHiddenByDefault: true),
 
+                // Surname only (names are stored surname-first), like in the leads table.
                 TextColumn::make('manager.name')
                     ->label('Менеджер')
-                    ->visible(fn (): bool => ! $isManagerPanel()),
+                    ->toggleable()
+                    ->formatStateUsing(fn (?string $state): string => $state ? (explode(' ', trim($state))[0] ?: $state) : '')
+                    ->placeholder('—')
+                    ->visible(fn (): bool => static::canSeeManagers()),
 
                 TextColumn::make('stage')
                     ->label('Етап')
+                    ->toggleable()
                     ->badge()
                     ->color(fn (?string $state): string => match ($state) {
                         'ready', 'success' => 'success',
@@ -142,13 +166,54 @@ class OrderResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(fn (?int $state): string => $state ? number_format($state, 0, '', ' ').' грн' : '—'),
 
+                // The page-level date bar filters by this date, so it is shown by default.
                 TextColumn::make('created_at')
                     ->label('Дата створення')
                     ->dateTime('d.m.Y')
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->toggleable()
                     ->sortable(),
             ])
             ->filters([
+                // Same manager multi-select as in the leads table: active managers
+                // (+ "Не призначено"), only for roles that oversee all orders.
+                SelectFilter::make('managers')
+                    ->label('Менеджер')
+                    ->multiple()
+                    ->visible(fn (): bool => static::canSeeManagers())
+                    ->options(function (): array {
+                        $users = User::query()
+                            ->where('is_active', true)
+                            ->whereHas('roles', fn (Builder $q) => $q->whereIn('name', config('panels.manager_roles', [])))
+                            ->orderBy('name')
+                            ->get()
+                            ->mapWithKeys(fn (User $u): array => [
+                                $u->id => implode(' ', array_slice(preg_split('/\s+/u', trim($u->name)), 0, 2)),
+                            ])
+                            ->all();
+
+                        return ['none' => 'Не призначено'] + $users;
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        $ids = array_filter((array) ($data['values'] ?? []), fn ($v): bool => filled($v));
+
+                        if ($ids === []) {
+                            return $query;
+                        }
+
+                        $withNone = in_array('none', $ids, true);
+                        $real = array_values(array_diff($ids, ['none']));
+
+                        return $query->where(function (Builder $q) use ($real, $withNone): void {
+                            if ($real !== []) {
+                                $q->whereIn('orders.manager_id', $real);
+                            }
+
+                            if ($withNone) {
+                                $q->orWhereNull('orders.manager_id');
+                            }
+                        });
+                    }),
+
                 SelectFilter::make('stage')
                     ->label('Етап')
                     ->options(Order::stageOptions()),
@@ -161,6 +226,7 @@ class OrderResource extends Resource
                     ->label('Тип')
                     ->options(Order::orderTypeOptions()),
             ])
+            ->persistColumnsInSession()
             ->recordActions([
                 EditAction::make('edit'),
             ])
