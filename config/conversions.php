@@ -8,8 +8,9 @@ return [
     // Minutes a planned conversion waits before sending (default; override in app_settings).
     'buffer_minutes' => 50,
 
-    // Legacy lead statuses that are junk and never become a conversion.
-    'junk_statuses' => ['not_targeted', 'another_city', 'canceled', 'reklamatsiya_amtech', 'propushcheno'],
+    // Тип послуги, що позначає «Рекламацію» (звернення щодо вже встановлених вікон): конверсія не шлеться.
+    // (Раніше тут був список junk_statuses зі старих статусів; тепер рішення за stage/status, див. ConversionPlanner.)
+    'complaint_service_type' => 'Рекламація',
 
     // lead.source -> Google Ads conversion action id (same actions the old CRM used).
     'qualified_actions' => [

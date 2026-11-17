@@ -25,22 +25,25 @@ class ConversionPlanner
         $state = $this->leadState($lead);
         $base = ['lead_state' => $state];
 
-        if ($lead->legacy_status !== null) {
-            if ($lead->legacy_status === 'new') {
-                return $this->skip('status_new', $base);
-            }
+        // Рішення «кваліфікований чи ні» ЗАВЖДИ за новими полями stage/status — і для лідів зі старої CRM,
+        // і для створених у новій ERM. Старі статуси sync:legacy вже переводить у ці поля
+        // (LeadsSyncMapper::STATUS_MAP: new/не-цільові/скасовані/інше місто/пропущено → етап «Новий» або «Втрачено»),
+        // тому для лідів зі старої бази результат не змінюється (звірено 2026-11-17 на всіх 15 343 лідах).
+        // Це дозволяє працювати і зі старою CRM, і з новою без перемикача.
+        if ($lead->status === 'lost') {
+            return $this->skip('lost', $base);
+        }
 
-            if (in_array($lead->legacy_status, config('conversions.junk_statuses', []), true)) {
-                return $this->skip('junk_status', $base);
-            }
-        } else {
-            if ($lead->status === 'lost') {
-                return $this->skip('lost', $base);
-            }
+        if ($lead->stage === 'new') {
+            return $this->skip('status_new', $base);
+        }
 
-            if ($lead->stage === 'new') {
-                return $this->skip('status_new', $base);
-            }
+        // Рекламація — це звернення щодо вже встановлених вікон, а не новий продаж: конверсію в рекламу не шлемо.
+        // Позначається типом послуги «Рекламація» (LeadsSyncMapper ставить його для старого статусу reklamatsiya_amtech).
+        // LEGACY-CLEANUP: другу умову (legacy_status) можна прибрати, коли тип послуги проставлено всім лідам.
+        if ($lead->serviceTypes->contains('name', config('conversions.complaint_service_type', 'Рекламація'))
+            || $lead->legacy_status === 'reklamatsiya_amtech') {
+            return $this->skip('complaint', $base);
         }
 
         $identity = $this->identity($lead);
@@ -136,6 +139,10 @@ class ConversionPlanner
         return ['click_id_type' => $gclid !== null ? 'gclid' : null, 'click_id' => $gclid];
     }
 
+    /**
+     * Мітка стану ліда для outbox (лише для відображення й перезапуску буфера при зміні стану).
+     * LEGACY-CLEANUP: після повного переходу на нову ERM прибрати `legacy_status ??` — лишити `stage/status`.
+     */
     public function leadState(Lead $lead): string
     {
         return $lead->legacy_status ?? ($lead->stage.'/'.$lead->status);

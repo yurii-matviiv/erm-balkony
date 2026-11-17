@@ -13,19 +13,21 @@ class AudienceClassify extends Command
 
     public function handle(): int
     {
-        $junk = (array) config('conversions.junk_statuses', []);
-        $in = implode(',', array_fill(0, max(1, count($junk)), '?'));
-
-        // Кваліфікована заявка — як у ConversionPlanner::planQualified
-        $leadCond = "(l.legacy_status IS NOT NULL AND l.legacy_status <> 'new' AND l.legacy_status NOT IN ($in))"
-            ." OR (l.legacy_status IS NULL AND l.status <> 'lost' AND l.stage <> 'new')";
+        // Кваліфікована заявка — як у ConversionPlanner::planQualified: етап не «Новий», результат не «Втрачено»
+        // і це не рекламація (тип послуги «Рекламація» або старий статус reklamatsiya_amtech).
+        // Рішення лише за stage/status — і для лідів зі старої CRM, і для нових (sync:legacy вже перевів старі статуси).
+        $complaint = (string) config('conversions.complaint_service_type', 'Рекламація');
+        $leadCond = "l.status <> 'lost' AND l.stage <> 'new'"
+            ." AND COALESCE(l.legacy_status, '') <> 'reklamatsiya_amtech'" // LEGACY-CLEANUP: прибрати після повного переходу
+            .' AND NOT EXISTS (SELECT 1 FROM lead_lead_service_type x JOIN lead_service_types t ON t.id = x.lead_service_type_id'
+            .' WHERE x.lead_id = l.id AND t.name = ?)';
 
         $toCheck = fn () => DB::table('clients as c')->where(fn ($q) => $q->whereNull('c.ad_status')->orWhere('c.ad_status', 'unqualified'));
 
         $qualifiedSql = "EXISTS (SELECT 1 FROM leads l WHERE l.client_id = c.id AND ($leadCond))"
             .' OR EXISTS (SELECT 1 FROM orders o WHERE o.client_id = c.id)';
 
-        $q = $toCheck()->whereRaw("($qualifiedSql)", $junk);
+        $q = $toCheck()->whereRaw("($qualifiedSql)", [$complaint]);
         $newQualified = (clone $q)->count();
 
         $this->line('до перевірки: '.$toCheck()->count().'; стануть qualified: '.$newQualified);
@@ -38,7 +40,7 @@ class AudienceClassify extends Command
 
         DB::table('clients as c')
             ->where(fn ($q) => $q->whereNull('c.ad_status')->orWhere('c.ad_status', 'unqualified'))
-            ->whereRaw("($qualifiedSql)", $junk)
+            ->whereRaw("($qualifiedSql)", [$complaint])
             ->update(['c.ad_status' => 'qualified', 'c.ad_status_checked_at' => $now]);
 
         DB::table('clients')

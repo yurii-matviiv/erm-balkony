@@ -21,6 +21,7 @@ Artisan::command('inspire', function () {
  * To activate the scheduler on the server, add to crontab:
  *   * * * * * cd /path-to-project && php artisan schedule:run >> /dev/null 2>&1
  */
+// LEGACY-CLEANUP: синхронізація зі старою CRM; прибрати після повного переходу на нову базу.
 Schedule::command('sync:legacy --scheduled')
     ->everyFiveMinutes()
     ->withoutOverlapping()

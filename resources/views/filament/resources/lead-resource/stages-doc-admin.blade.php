@@ -90,4 +90,43 @@
         <li>Синхронізація зі старою CRM (<code>sync:legacy</code>) оновлює етапи за старими даними й може перезаписати їх у локальній базі; журнал їх не відновлює.</li>
         <li>Проєктна документація: <code>docs/STAGES.md</code> — змінювати разом із цим вікном.</li>
     </ul>
+
+    <div style="{{ $h }}">8. Google Ads: що не можна зламати <span style="{{ $manual }}">пріоритет №1</span></div>
+    <p style="{{ $p }}">Передача заявок і продажів у Google (<code>conversion_outbox</code>, <code>conversions:run</code> кожні 15 хв) важливіша за будь-яку автоматику етапів. Етапи, результат і суми — її вхідні дані.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(22rem,1fr));gap:.8rem;">
+        <div style="{{ $card }}"><strong>Кваліфікована заявка</strong>
+            <ul style="{{ $p }}padding-left:1.3rem;list-style:disc;">
+                <li>Рішення завжди за <strong>етапом і результатом</strong>: не йде, якщо «Втрачено» або етап «Новий». <strong>Вихід із «Новий» = конверсія.</strong></li>
+                <li>Старі статуси з синхронізації вже переведені в етап/результат, тому це однаково працює для лідів зі старої CRM і для нових.</li>
+                <li>Рекламація (тип послуги «Рекламація») не йде.</li>
+                <li>Потрібні: gclid або хеш телефону/email, не старше 90 днів, джерело — сайт чи дзвінок.</li>
+            </ul>
+        </div>
+        <div style="{{ $card }}"><strong>Продаж</strong>
+            <ul style="{{ $p }}padding-left:1.3rem;list-style:disc;">
+                <li>Перше замовлення ліда, статус не «Відмінено», сума більша за 0.</li>
+                <li>Значення = сума замовлення. Змінилась після відправки — повторна відправка з новою сумою.</li>
+            </ul>
+        </div>
+        <div style="{{ $card }}"><strong>Механіка</strong>
+            <ul style="{{ $p }}padding-left:1.3rem;list-style:disc;">
+                <li>Одна кваліфікована подія й один продаж на лід, дублів немає.</li>
+                <li>Буфер 50 хв: якщо стан повернули назад до відправки — подію скасовано.</li>
+                <li><strong>Вже відправлене назад не відкликається.</strong></li>
+                <li>Час події = момент постановки в чергу.</li>
+            </ul>
+        </div>
+        <div style="{{ $card }}border-color:#e6b0aa;background:#fdf2f0;"><strong>Правила для змін</strong>
+            <ul style="{{ $p }}padding-left:1.3rem;list-style:disc;">
+                <li>Не перейменовувати коди <code>new</code>, <code>lost</code>, <code>cancelled</code>, поля <code>total_price</code>, <code>legacy_status</code> без правки <code>ConversionPlanner</code> і <code>AudienceClassify</code>.</li>
+                <li>Автокрок, що виводить заявку з «Новий», створює конверсію: зсувати лише за реальної кваліфікації.</li>
+                <li>Автоматика не ставить «Втрачено» й не повертає на «Новий» без причини.</li>
+                <li>Не змінювати автоматично типи послуг ліда й суму замовлення; не втрачати gclid, джерело, контакти, дату створення.</li>
+                <li>Журнал кроків поки не впливає на конверсії; перехід на конверсію за кроком — окрема обережна зміна з новим baseline.</li>
+            </ul>
+        </div>
+    </div>
+    <p style="{{ $p }}"><strong>Перехід на нову ERM:</strong> окремий перемикач не потрібен. Коли синхронізацію зі старою CRM вимкнуть, конверсії й далі йдуть за етапом і результатом. Що прибрати після переходу — <code>docs/LEGACY-CLEANUP.md</code> (пошук: <code>LEGACY-CLEANUP</code>).</p>
+    <p style="{{ $p }}">Перед і після змін: <code>php artisan conversions:status</code>; локально не запускати <code>conversions:run</code>, не перевіривши <code>conversions:mode</code>. Повний текст: <code>docs/STAGES.md</code>, розділ «Google Ads: що не можна зламати».</p>
 </div>

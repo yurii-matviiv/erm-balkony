@@ -1,4 +1,5 @@
 <?php
+// LEGACY-CLEANUP (файл): потрібен лише для синхронізації зі старою CRM. Видалити після повного переходу на нову базу (див. docs/LEGACY-CLEANUP.md).
 
 namespace App\Services\Sync;
 

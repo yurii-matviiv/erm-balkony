@@ -1,4 +1,5 @@
 <?php
+// LEGACY-CLEANUP (файл): потрібен лише для синхронізації зі старою CRM. Видалити після повного переходу на нову базу (див. docs/LEGACY-CLEANUP.md).
 
 namespace App\Services\Sync\Mappers;
 
@@ -68,6 +69,9 @@ class LeadsSyncMapper extends AbstractSyncMapper
     ];
 
     /**
+     * LEGACY-CLEANUP: мапа старих статусів тут потрібна, доки йде синхронізація; ConversionPlanner на неї більше не дивиться
+     * напряму, лише на отримані stage/status.
+     *
      * Old `status` enum -> new (stage, status, lost_reason). The old enum
      * mixed real pipeline stages with disqualification reasons — this is
      * a deliberate, lossy simplification; the raw value is preserved in
