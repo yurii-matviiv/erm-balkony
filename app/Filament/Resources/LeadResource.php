@@ -259,7 +259,7 @@ class LeadResource extends Resource
     }
 
     /** Кнопка «Прийняти» у списку: закріплює заявку за менеджером (атомарно), пише крок «Прийнято» й відкриває заявку. */
-    private static function acceptAction(Lead $record, $livewire): void
+    public static function acceptAction(Lead $record, $livewire): void
     {
         $user = auth()->user();
 
@@ -313,17 +313,23 @@ class LeadResource extends Resource
                 TextColumn::make('stage')
                     ->toggleable()
                     ->label('Статус')
-                    ->state(fn (Lead $record): string => static::hiddenUntilAccepted($record) ? 'Прийняти' : match ($record->status) {
-                        'won' => 'Угода укладена',
-                        'lost' => 'Втрачено',
-                        default => Lead::stageOptions()[$record->stage] ?? '—',
-                    })
-                    ->filledBadge(fn ($state, Lead $record): string => static::hiddenUntilAccepted($record) ? 'primary' : match ($record->status) {
-                        'won' => 'success',
-                        'lost' => 'danger',
-                        default => 'info',
-                    })
-                    ->action(fn (Lead $record, $livewire) => static::hiddenUntilAccepted($record) ? static::acceptAction($record, $livewire) : null),
+                    ->html()
+                    ->weight('semibold')
+                    // Unaccepted lead: a REAL button («Прийняти»), not a status.
+                    ->state(fn (Lead $record): string => static::hiddenUntilAccepted($record)
+                        ? \Illuminate\Support\Facades\Blade::render('<x-filament::button size="sm" icon="heroicon-m-check" wire:click.stop="acceptLead({{ $id }})">Прийняти</x-filament::button>', ['id' => $record->getKey()])
+                        : e(match ($record->status) {
+                            'won' => 'Угода укладена',
+                            'lost' => 'Втрачено',
+                            default => Lead::stageOptions()[$record->stage] ?? '—',
+                        }))
+                    ->extraCellAttributes(fn (Lead $record): array => static::hiddenUntilAccepted($record)
+                        ? []
+                        : ['class' => 'filled-badge-cell', 'style' => '--badge-color: var(--'.match ($record->status) {
+                            'won' => 'success',
+                            'lost' => 'danger',
+                            default => 'info',
+                        }.'-500);']),
 
                 TextColumn::make('client.full_name')
                     ->toggleable()
@@ -382,7 +388,7 @@ class LeadResource extends Resource
                     ->placeholder('—'),
 
                 TextColumn::make('comment_call')
-                    ->toggleable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->label('Що планую робити далі')
                     ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
                     ->limit(60)

@@ -27,6 +27,16 @@ class ListLeads extends ListRecords
      */
     protected string $view = 'filament.resources.lead-resource.pages.list-leads';
 
+    /** «Прийняти» з кнопки в списку заявок. */
+    public function acceptLead(int $id): void
+    {
+        $record = \App\Models\Lead::query()->find($id);
+
+        if ($record && LeadResource::hiddenUntilAccepted($record)) {
+            LeadResource::acceptAction($record, $this);
+        }
+    }
+
     protected function getHeaderActions(): array
     {
         return [
