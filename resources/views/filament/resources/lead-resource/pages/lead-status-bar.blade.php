@@ -28,6 +28,7 @@
     {{-- Швидкість реакції: від створення заявки до першого вихідного дзвінка клієнту (крок first_call, див. FirstCallDetector). --}}
     @php
         $firstCall = $record->steps()->where('step', 'first_call')->where('state', 'done')->first();
+        $contactStep = $record->steps()->where('step', 'contacted')->where('state', 'done')->whereNotNull('occurred_at')->first();
         $fmt = function (int $min): string {
             if ($min < 1) return 'менше хвилини';
             if ($min < 60) return $min.' хв';
@@ -49,7 +50,11 @@
             @if ($reaction['done'])
                 <span>перший дзвінок клієнту @if ($reaction['before']) <strong>до створення заявки в системі</strong> @else через <strong>{{ $fmt($reaction['min']) }}</strong> після створення заявки @endif
                     ({{ $firstCall->occurred_at->copy()->setTimezone('Europe/Kyiv')->locale('uk')->isoFormat('dd DD.MM HH:mm') }})</span>
-                @if ($firstCall->comment)<span class="text-gray-500">{{ $firstCall->comment }}</span>@endif
+                @if ($contactStep?->occurred_at)
+                    <span style="color:#1e8449;">· контакт: клієнт відповів {{ $contactStep->occurred_at->copy()->setTimezone('Europe/Kyiv')->locale('uk')->isoFormat('dd DD.MM HH:mm') }}</span>
+                @elseif (in_array($record->stage, \App\Models\Lead::PRE_QUALIFIED_STAGES, true))
+                    <span style="color:#c0392b;font-weight:600;">· спроба невдала: клієнт не відповів, контакту ще немає</span>
+                @endif
             @else
                 <span>дзвінка клієнту ще не було, минуло <strong>{{ $fmt($reaction['min']) }}</strong></span>
             @endif

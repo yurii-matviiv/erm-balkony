@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Log;
 class FirstCallDetector
 {
     public const STEP = 'first_call';
+    /** Крок «Контакт»: клієнт ВІДПОВІВ на вихідний дзвінок (Binotel disposition = ANSWER). */
+    public const CONTACT_STEP = 'contacted';
     public const CHECK_EVERY_MINUTES = 3;
     private const URL = 'https://api.binotel.com/api/4.0/stats/history-by-external-number.json';
     /** Binotel callType: 0 — вхідний, 1 — вихідний. */
@@ -30,7 +32,8 @@ class FirstCallDetector
         // Ознака «заявка з сайту» не потребує Binotel — ставимо одразу.
         self::syncSourceFromSite($lead);
 
-        if ($lead->hasStep(self::STEP) && ! self::sourceNeedsBinotel($lead)) {
+        // Питати Binotel далі треба, поки немає першого дзвінка, або немає контакту (клієнт ще не відповів), або спосіб звернення не визначено.
+        if ($lead->hasStep(self::STEP) && $lead->hasStep(self::CONTACT_STEP) && ! self::sourceNeedsBinotel($lead)) {
             return;
         }
 
@@ -77,28 +80,26 @@ class FirstCallDetector
                 }
             }
 
-            if ($lead->hasStep(self::STEP)) {
-                DB::table('leads')->where('id', $lead->id)->update(['first_call_checked_at' => now()]);
+            $outgoing = $calls
+                ->filter(fn ($c) => (string) ($c['callType'] ?? '') === self::OUTGOING && (int) ($c['startTime'] ?? 0) >= $from)
+                ->sortBy(fn ($c) => (int) $c['startTime'])
+                ->values();
+            $first = $outgoing->first();
+            $answered = $outgoing->first(fn ($c) => ($c['disposition'] ?? '') === 'ANSWER');
+            $who = fn ($c) => ($c['employeeData']['name'] ?? null) ? ' ('.$c['employeeData']['name'].')' : '';
 
-                return;
+            // Перша СПРОБА (будь-який результат) — для швидкості реакції.
+            if ($first && ! $lead->hasStep(self::STEP)) {
+                ProcessSteps::reach($lead, self::STEP, 'auto', null,
+                    'Binotel: вихідний дзвінок'.$who($first).(($first['disposition'] ?? '') === 'ANSWER' ? ', клієнт відповів' : ', клієнт не відповів'),
+                    false, Carbon::createFromTimestamp((int) $first['startTime']));
             }
 
-            $first = $calls
-                ->filter(fn ($c) => is_array($c) && (string) ($c['callType'] ?? '') === self::OUTGOING && (int) ($c['startTime'] ?? 0) >= $from)
-                ->sortBy(fn ($c) => (int) $c['startTime'])
-                ->first();
-
-            if ($first) {
-                $who = $first['employeeData']['name'] ?? null;
-                ProcessSteps::reach(
-                    $lead,
-                    self::STEP,
-                    'auto',
-                    null,
-                    'Binotel: вихідний дзвінок'.($who ? ' ('.$who.')' : ''),
-                    false,
-                    Carbon::createFromTimestamp((int) $first['startTime']),
-                );
+            // КОНТАКТ — перший дзвінок, на який клієнт відповів; рухає етап вперед (тільки вперед).
+            if ($answered && ! $lead->hasStep(self::CONTACT_STEP)) {
+                ProcessSteps::reach($lead, self::CONTACT_STEP, 'auto', null,
+                    'Binotel: клієнт відповів'.$who($answered).', розмова '.(int) ($answered['billsec'] ?? 0).' с',
+                    true, Carbon::createFromTimestamp((int) $answered['startTime']));
             }
 
             DB::table('leads')->where('id', $lead->id)->update(['first_call_checked_at' => now()]);
@@ -138,6 +139,14 @@ class FirstCallDetector
         Log::info('Lead source auto-set', ['lead' => $lead->id, 'from' => $lead->source, 'to' => $source, 'why' => $why]);
         $lead->source = $source;
         $lead->syncOriginalAttribute('source');
+    }
+
+    /** Хвилини від створення заявки до першого дзвінка; дзвінок до створення = 0 (рішення користувача). */
+    public static function reactionMinutes(Lead $lead, \DateTimeInterface $firstCallAt): int
+    {
+        $secs = self::createdAt($lead)->diffInSeconds(Carbon::instance($firstCallAt), false);
+
+        return max(0, (int) floor($secs / 60));
     }
 
     /** Справжній момент створення заявки (legacy-заявки лежать у «настінному» часі старого сервера, нові — в UTC). */
