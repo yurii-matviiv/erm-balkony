@@ -371,8 +371,8 @@ class EditLead extends EditRecord
                         ->visible(fn (Get $get): bool => $get('status') === 'lost'),
 
                     Textarea::make('comment')
-                        ->label('Коментар / + тип клієнта')
-                        ->placeholder('вкажіть тип клієнта, які цінності його цікавлять')
+                        ->label('Потреба клієнта')
+                        ->placeholder('потреба клієнта: що саме йому потрібно, який тип клієнта, які цінності його цікавлять')
                         ->rows(3)
                         ->lazy(),
 
@@ -428,6 +428,44 @@ class EditLead extends EditRecord
             ->action(function (array $data): void {
                 $this->getRecord()->reminders()->create($data + ['user_id' => auth()->id()]);
             });
+    }
+
+    /** Інтерактивний блок «Виявлення потреби» (lead-status-bar): дублює три поля картки, поки вони порожні після контакту. */
+    public array $need = ['service_types' => [], 'profile' => '', 'comment' => ''];
+
+    public function saveNeed(): void
+    {
+        if ($this->isReadOnly()) {
+            return;
+        }
+
+        $record = $this->getRecord();
+        $data = [];
+
+        $profile = (string) ($this->need['profile'] ?? '');
+        if ($profile !== '' && array_key_exists($profile, Lead::profileOptions()) && blank($record->profile)) {
+            $data['profile'] = $profile;
+        }
+
+        $comment = trim((string) ($this->need['comment'] ?? ''));
+        if ($comment !== '' && blank($record->comment)) {
+            $data['comment'] = $comment;
+        }
+
+        if ($data !== []) {
+            $record->update($data);
+        }
+
+        $ids = array_values(array_filter(array_map('intval', (array) ($this->need['service_types'] ?? []))));
+        if ($ids !== [] && $record->serviceTypes()->doesntExist()) {
+            $record->serviceTypes()->sync(\App\Models\LeadServiceType::whereIn('id', $ids)->pluck('id')->all());
+        }
+
+        $this->need = ['service_types' => [], 'profile' => '', 'comment' => ''];
+        $this->record->refresh();
+        $this->fillForm();
+
+        \Filament\Notifications\Notification::make()->title('Збережено')->success()->send();
     }
 
     /** Inline edit from the reminders table (text / date / done flag), saved on blur/change. */

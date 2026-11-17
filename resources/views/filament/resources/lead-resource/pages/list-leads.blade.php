@@ -12,6 +12,8 @@
     {{-- Документація сторінки тепер живе на сторінці конкретного ліда
          (EditLead), не тут — список має лишатись просто таблицею. --}}
 
+    @include('filament.components.lead-indicators-bar')
+
     @include('filament.components.date-bar')
 
     @include('filament.components.sticky-table-header')

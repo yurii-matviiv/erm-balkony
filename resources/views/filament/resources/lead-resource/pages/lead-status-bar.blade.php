@@ -74,14 +74,18 @@
 
     {{-- Статус-бар — єдиний компонент x-status-bar --}}
     {{-- Нова заявка без менеджера: замість статус-бару кнопка «Прийняти заявку»; решта рядків розмита й неактивна, доки заявку не прийнято. --}}
-    @php($unaccepted = $record->manager_id === null && ! $readOnly)
+    @php
+        $unaccepted = $record->manager_id === null && ! $readOnly;
+    @endphp
     @if ($unaccepted)
         <div style="display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;padding:1rem;border:2px dashed #2874A6;border-radius:6px;background:#eaf2f8;">
             <span style="font-size:.95rem;color:#1b4f72;">Заявка ще не прийнята менеджером.</span>
             {{ $acceptLeadAction }}
         </div>
     @else
-        @php($barSteps = collect($stageOptions)->except($currentStage === 'unreachable' ? ['contacted'] : ['unreachable']))
+        @php
+            $barSteps = collect($stageOptions)->except($currentStage === 'unreachable' ? ['contacted'] : ['unreachable']);
+        @endphp
         <x-status-bar :steps="$barSteps->map(fn ($l) => ['label' => $l])->all()" :current="$currentStage" click="setStage" />
     @endif
 
@@ -128,6 +132,53 @@
     </div>
     @endunless
 
+
+    {{-- Виявлення потреби: після контакту дублюємо три поля картки (тип звернення, тип профілю, потреба), поки вони порожні. --}}
+    @php
+        $contactDone = $record->hasStep('contacted') || ! in_array($record->stage, \App\Models\Lead::PRE_QUALIFIED_STAGES, true);
+        $needServices = $record->serviceTypes()->doesntExist();
+        $needProfile = blank($record->profile);
+        $needComment = blank(trim((string) $record->comment));
+    @endphp
+    @if ($contactDone && ! $readOnly && ! $unaccepted && ($needServices || $needProfile || $needComment))
+        <div style="padding:1rem 1.25rem;border:1px solid #2874A6;border-radius:6px;background:#eaf2f8;display:flex;flex-direction:column;gap:.9rem;">
+            <div style="font-weight:600;color:#1b4f72;">Виявлення потреби — заповніть, що ще порожнє</div>
+
+            @if ($needServices)
+                <div>
+                    <div style="font-size:.8rem;color:#566573;margin-bottom:.3rem;">Яку послугу хотів клієнт (тип звернення)</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:.35rem .9rem;">
+                        @foreach (\App\Models\LeadServiceType::orderBy('name')->get(['id', 'name']) as $t)
+                            <label style="display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;font-size:.9rem;">
+                                <input type="checkbox" value="{{ $t->id }}" wire:model="need.service_types"> {{ $t->name }}
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            @if ($needProfile)
+                <div>
+                    <div style="font-size:.8rem;color:#566573;margin-bottom:.3rem;">Тип профілю (для послуг без профілю — «Послуга»)</div>
+                    <select wire:model="need.profile" style="border:1px solid rgba(0,0,0,.2);border-radius:3px;padding:.4rem .5rem;min-width:16rem;background:#fff;">
+                        <option value="">—</option>
+                        @foreach (\App\Models\Lead::profileOptions() as $k => $l)
+                            <option value="{{ $k }}">{{ $l }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            @if ($needComment)
+                <div>
+                    <div style="font-size:.8rem;color:#566573;margin-bottom:.3rem;">Потреба клієнта: що саме йому потрібно, який тип клієнта, які цінності його цікавлять</div>
+                    <textarea wire:model="need.comment" rows="3" style="width:100%;border:1px solid rgba(0,0,0,.2);border-radius:3px;padding:.4rem .5rem;background:#fff;"></textarea>
+                </div>
+            @endif
+
+            <div><x-filament::button wire:click="saveNeed" size="sm">Зберегти</x-filament::button></div>
+        </div>
+    @endif
 
     {{-- Нагадування (old CRM: table under the action bar) --}}
     <div>

@@ -55,7 +55,10 @@ class ListLeads extends ListRecords
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel('Закрити'),
 
+            // Нову заявку додаємо ЛИШЕ з бокового меню («Додати заявку» → ?create=1 → mountAction('create')).
+            // Кнопку на сторінці ховаємо CSS-класом, а не ->hidden(): прихована дія не відкривається з меню.
             CreateAction::make()
+                ->extraAttributes(['class' => 'hidden'])
                 ->label('Додати заявку')
                 ->modalHeading('Нова заявка')
                 ->modalWidth('2xl')
