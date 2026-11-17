@@ -313,16 +313,12 @@ class LeadResource extends Resource
                 TextColumn::make('stage')
                     ->toggleable()
                     ->label('Статус')
-                    ->html()
-                    ->weight('semibold')
-                    // Unaccepted lead: a REAL button («Прийняти»), not a status.
-                    ->state(fn (Lead $record): string => static::hiddenUntilAccepted($record)
-                        ? \Illuminate\Support\Facades\Blade::render('<x-filament::button size="sm" icon="heroicon-m-check" wire:click.stop="acceptLead({{ $id }})">Прийняти</x-filament::button>', ['id' => $record->getKey()])
-                        : e(match ($record->status) {
-                            'won' => 'Угода укладена',
-                            'lost' => 'Втрачено',
-                            default => Lead::stageOptions()[$record->stage] ?? '—',
-                        }))
+                    ->view('filament.tables.columns.lead-stage-cell')
+                    ->state(fn (Lead $record): string => match ($record->status) {
+                        'won' => 'Угода укладена',
+                        'lost' => 'Втрачено',
+                        default => Lead::stageOptions()[$record->stage] ?? '—',
+                    })
                     ->extraCellAttributes(fn (Lead $record): array => static::hiddenUntilAccepted($record)
                         ? []
                         : ['class' => 'filled-badge-cell', 'style' => '--badge-color: var(--'.match ($record->status) {
