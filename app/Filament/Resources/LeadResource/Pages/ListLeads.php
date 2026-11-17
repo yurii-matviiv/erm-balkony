@@ -30,6 +30,21 @@ class ListLeads extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            // «i»: full-screen doc on stages/steps for the administrator (system view; a manager version comes later).
+            \Filament\Actions\Action::make('stagesDoc')
+                ->iconButton()
+                ->icon('heroicon-o-information-circle')
+                ->tooltip('Етапи, кроки та автоматика (для адміністратора)')
+                ->visible(fn (): bool => in_array(auth()->user()?->getActiveRoleName(), ['Адмін', 'super_admin'], true))
+                ->modalHeading('Етапи, кроки та автоматика заявок і замовлень')
+                ->modalWidth(\Filament\Support\Enums\Width::Screen)
+                ->modalContent(fn () => view('filament.resources.lead-resource.stages-doc-admin', [
+                    'leadStages' => \App\Models\Lead::stageOptions(),
+                    'orderStages' => \App\Models\Order::stageOptions(),
+                ]))
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Закрити'),
+
             CreateAction::make()
                 ->label('Додати заявку')
                 ->modalHeading('Нова заявка')

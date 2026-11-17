@@ -74,6 +74,8 @@
             @else
                 {{ $createOrderAction }}
             @endif
+
+            <div style="margin-left:auto;">{{ $stagesInstructionAction }}</div>
         </div>
     </div>
     @endunless

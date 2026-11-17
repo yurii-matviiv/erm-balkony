@@ -303,6 +303,21 @@ class EditOrder extends EditRecord
         return $data;
     }
 
+    /**
+     * Journal of steps (docs/STAGES.md): once the measurement date is filled, «Замір» happened as a step.
+     * Done AFTER the save (before it the form's old «stage» value would overwrite the automatic move);
+     * forward only, so an order already further along keeps its stage.
+     */
+    protected function afterSave(): void
+    {
+        $record = $this->getRecord();
+
+        if ($record->measurement_date) {
+            \App\Services\Leads\ProcessSteps::reach($record, 'measuring', 'auto', auth()->id(), 'Вказано дату заміру');
+            $this->fillForm();
+        }
+    }
+
     /** «30.12.2026, 10:30»; without a time «30.12.2026, --:--» (the time is optional). */
     private function removalLabel(): string
     {
@@ -520,6 +535,7 @@ class EditOrder extends EditRecord
                             'clientUrl' => $this->getRecord()->client && \App\Filament\Resources\ClientResource::canEdit($this->getRecord()->client)
                                 ? \App\Filament\Resources\ClientResource::getUrl('edit', ['record' => $this->getRecord()->client_id])
                                 : null,
+                            'canEditClient' => ! $this->isReadOnly(),
                             // The lead this order was created from (old CRM: order.lead_id).
                             'leadId' => $this->getRecord()->lead_id,
                             'leadUrl' => ($lead = $this->getRecord()->lead_id ? \App\Models\Lead::find($this->getRecord()->lead_id) : null) && \App\Filament\Resources\LeadResource::canEdit($lead)

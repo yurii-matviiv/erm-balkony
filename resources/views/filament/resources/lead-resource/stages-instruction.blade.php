@@ -1,0 +1,32 @@
+@php
+    $h = 'font-size:1.15rem;font-weight:600;margin:1.4rem 0 .5rem;';
+    $p = 'font-size:1rem;line-height:1.6;margin:.4rem 0;';
+    $th = 'padding:.5rem;border:1px solid #cfd8de;background:#f4f8fb;text-align:left;';
+    $td = 'padding:.5rem;border:1px solid #cfd8de;vertical-align:top;';
+@endphp
+{{-- KEEP IN SYNC with docs/STAGES.md (project documentation): change both together. --}}
+<div style="max-width:60rem;margin:0 auto;padding:.5rem 1rem 2rem;max-height:calc(100vh - 11rem);overflow-y:auto;">
+    <p style="{{ $p }}">У заявки є <strong>етап</strong> (де вона в воронці, поле «Статус» у формі та смужка угорі) і <strong>результат</strong> (В роботі / Угода укладена / Втрачено). Система поступово бере зміну етапів на себе; поки це не завершено, менеджер завжди може змінити етап сам.</p>
+
+    <div style="{{ $h }}">Головне правило автоматики</div>
+    <p style="{{ $p }}">Автоматично етап змінюється <strong>лише вперед</strong>. Якщо заявка вже на пізнішому етапі (наприклад, «КП» чи «Замовлення»), система не поверне її назад. Повернути етап назад може тільки менеджер вручну.</p>
+
+    <p style="{{ $p }}">Кожен пройдений крок записується в журнал (хто, коли, автоматично чи вручну) — так видно реальний шлях заявки, а не лише останній етап.</p>
+
+    <div style="{{ $h }}">Етапи зверху вниз</div>
+    <table style="border-collapse:collapse;width:100%;font-size:.95rem;">
+        <thead><tr><th style="{{ $th }}">№</th><th style="{{ $th }}">Етап</th><th style="{{ $th }}">Як встановлюється</th></tr></thead>
+        <tbody>
+        <tr><td style="{{ $td }}">1</td><td style="{{ $td }}">Новий</td><td style="{{ $td }}">Вручну / при створенні заявки. Автоматика: пізніше.</td></tr>
+        <tr><td style="{{ $td }}">2</td><td style="{{ $td }}">Контакт</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
+        <tr><td style="{{ $td }}">3</td><td style="{{ $td }}">Замір</td><td style="{{ $td }}"><strong>Автоматично</strong>, коли менеджер створює «Заявку на замір». Не спрацьовує, якщо заявка вже на етапі «Заміряно» або далі.</td></tr>
+        <tr><td style="{{ $td }}">4</td><td style="{{ $td }}">Заміряно</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
+        <tr><td style="{{ $td }}">5</td><td style="{{ $td }}">КП</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
+        <tr><td style="{{ $td }}">6</td><td style="{{ $td }}">Узгодження</td><td style="{{ $td }}">Вручну. Автоматика: пізніше.</td></tr>
+        <tr><td style="{{ $td }}">7</td><td style="{{ $td }}">Замовлення</td><td style="{{ $td }}"><strong>Автоматично</strong>, коли із заявки створюється замовлення.</td></tr>
+        </tbody>
+    </table>
+
+    <div style="{{ $h }}">Результат</div>
+    <p style="{{ $p }}">В роботі / Угода укладена / Втрачено (з причиною). Автоматика результату ще не визначена, зараз вручну.</p>
+</div>

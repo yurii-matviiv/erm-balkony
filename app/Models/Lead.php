@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 ])]
 class Lead extends Model
 {
+    use \App\Models\Concerns\HasProcessSteps;
+
     /**
      * The address of the OBJECT this lead is about — NOT the client's own
      * address (see Client::getFullAddressAttribute()). A client has one

@@ -29,6 +29,11 @@ use Filament\Tables\Table;
  */
 class ClientResource extends Resource
 {
+    // The same hint is shown under the e-mail in the form and in the client card (order/lead).
+    public const EMAIL_HINT_NOTIFY = 'Обов\'язкове поле: на цю адресу клієнт отримуватиме сповіщення про дату й час доставки та монтажу.';
+
+    public const EMAIL_HINT_MARKETING = 'Також дуже важлива для маркетингу.';
+
     protected static ?string $model = Client::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-identification';
@@ -61,8 +66,11 @@ class ClientResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->columns(2)->schema([
-            // Contact type goes first, alone in its row (half width: the other half stays empty); a red hint nags until chosen.
+            // Full width of the page column; the column itself is limited in page-width-styles (client card page).
+            Section::make()->columns(3)->columnSpanFull()
+                ->schema([
+            // Contact type goes first, alone in its row (one third of the width); a red hint nags until chosen.
+            \Filament\Schemas\Components\Grid::make(3)->columnSpanFull()->schema([
             Select::make('caller_type')
                 ->label('Тип контакту')
                 ->options([
@@ -76,6 +84,7 @@ class ClientResource extends Resource
                 ->columnSpan(1)
                 ->hint(fn ($state): ?string => blank($state) ? "Обов'язково вкажіть тип контакту" : null)
                 ->hintColor('danger'),
+            ]),
 
             // No separate "old name" field anymore — the old system's
             // single free-text name lives in `first_name` now (see
@@ -101,10 +110,22 @@ class ClientResource extends Resource
                 ->label('Viber')
                 ->maxLength(30),
 
+            // E-mail sits above the physical address.
+            TextInput::make('email')
+                ->label('Електронна адреса')
+                ->email()
+                ->maxLength(255)
+                ->live(onBlur: true)
+                ->helperText(fn (\Filament\Schemas\Components\Utilities\Get $get): ?string => blank($get('email')) ? '⚠ '.self::EMAIL_HINT_NOTIFY.' '.self::EMAIL_HINT_MARKETING : null)
+                ->columnSpan(1),
+
             TextInput::make('address')
                 ->label('Адреса (старе, одне поле)')
-                ->maxLength(255)
-                ->helperText('Залишено для клієнтів зі старої бази. Для нових — поля нижче.'),
+                ->columnSpan(fn (): int => OrderResource::canSeeManagers() ? 2 : 3)
+                // Old single-field address: view only, never saved from here (the structured fields below are the source).
+                ->disabled()
+                ->dehydrated(false)
+                ->helperText('Старе поле зі старої бази — лише для перегляду. Адресу вносьте в поля нижче.'),
 
             // Old CRM «Автовизначення»: only for roles that oversee managers, read-only.
             TextInput::make('auto_address')
@@ -118,13 +139,6 @@ class ClientResource extends Resource
             TextInput::make('house_number')->label('Будинок')->maxLength(20),
             TextInput::make('apartment_number')->label('Квартира')->maxLength(20),
             TextInput::make('floor')->label('Поверх')->maxLength(20),
-
-            TextInput::make('email')
-                ->label('Електронна адреса')
-                ->email()
-                ->maxLength(255)
-                ->columnSpanFull(),
-
 
             // Assigning a manager is only for roles that oversee managers (Адмін, Керівник
             // відділу продажу, Керівник компанії); a manager never sees this field.

@@ -178,6 +178,21 @@ class EditLead extends EditRecord
         ];
     }
 
+    /** Full-screen explanation of stages and what is automatic (kept in sync with docs/STAGES.md). Shown in the action bar. */
+    public function stagesInstructionAction(): Action
+    {
+        return Action::make('stagesInstruction')
+            ->label('Інструкція')
+            ->icon('heroicon-o-question-mark-circle')
+            ->color('gray')
+            ->outlined()
+            ->modalHeading('Етапи та результат заявки — як це працює')
+            ->modalWidth(\Filament\Support\Enums\Width::Screen)
+            ->modalContent(fn () => view('filament.resources.lead-resource.stages-instruction'))
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Закрити');
+    }
+
     public function getHeader(): ?View
     {
         return view('filament.resources.lead-resource.pages.lead-status-bar', [
@@ -187,6 +202,7 @@ class EditLead extends EditRecord
             'createMeasurementAction' => $this->createMeasurementAction(),
             'createOrderAction' => $this->createOrderAction(),
             'createReminderAction' => $this->createReminderAction(),
+            'stagesInstructionAction' => $this->stagesInstructionAction(),
             'reminders' => $this->getRecord()->reminders()->with('user')->get(),
         ]);
     }
@@ -248,7 +264,7 @@ class EditLead extends EditRecord
                             'showObjectAddress' => true,
                             'objectAddress' => $record?->site_address,
                             'autoAddress' => \App\Filament\Resources\LeadResource::canSeeManagers() ? $record?->auto_address : null,
-                            'editAddressAction' => $this->isReadOnly() ? null : $this->editAddressAction(),
+                            'canEditClient' => ! $this->isReadOnly(),
                         ]),
                 ]),
 
@@ -347,39 +363,6 @@ class EditLead extends EditRecord
         ]);
     }
 
-    /**
-     * "Змінити адресу" — the old CRM had one free-text address input; here the
-     * address is shown as plain text and edited in a modal with the structured
-     * site_* fields. Data is resolved eagerly (plain array, not a Closure) —
-     * see the fillForm() gotcha in CLAUDE.md.
-     */
-    public function editAddressAction(): Action
-    {
-        $record = $this->getRecord();
-
-        return Action::make('editAddress')
-            ->label('Змінити адресу')
-            ->icon('heroicon-o-pencil-square')
-            ->link()
-            ->modalHeading('Адреса об\'єкта заявки')
-            ->modalDescription('Де виконуються роботи за цією заявкою. Якщо потрібно змінити адресу клієнта — скористайтеся кнопкою «Редагувати клієнта».')
-            ->modalSubmitActionLabel('Зберегти')
-            ->modalCancelActionLabel('Скасувати')
-            ->modalWidth('lg')
-            ->fillForm($record->only(['site_city', 'site_street', 'site_house_number', 'site_apartment_number', 'site_floor']))
-            ->schema([
-                TextInput::make('site_city')->label('Місто')->maxLength(255),
-                TextInput::make('site_street')->label('Вулиця')->maxLength(255),
-                TextInput::make('site_house_number')->label('Будинок')->maxLength(20),
-                TextInput::make('site_apartment_number')->label('Квартира')->maxLength(20),
-                TextInput::make('site_floor')->label('Поверх')->maxLength(20),
-            ])
-            ->action(function (array $data): void {
-                $this->getRecord()->update($data);
-                $this->fillForm();
-            });
-    }
-
     /** Old CRM "Додати нагадування для ліда" — a reminder for the current manager tied to this lead. */
     public function createReminderAction(): Action
     {
@@ -474,7 +457,8 @@ class EditLead extends EditRecord
                 $record = $this->getRecord();
 
                 $measurement = $record->measurements()->create($data);
-                $record->update(['stage' => 'measurement_scheduled']);
+                // Journal of steps: «замір призначено» happened; the stage moves forward only (docs/STAGES.md).
+                \App\Services\Leads\ProcessSteps::reach($record, 'measurement_scheduled', 'auto', auth()->id());
 
                 // Automatic reminders for the lead's manager (tab «Заміри» on «Нагадування»).
                 app(\App\Services\Reminders\MeasurementReminders::class)->create($measurement);
@@ -530,7 +514,13 @@ class EditLead extends EditRecord
                     'status' => 'open',
                 ]);
 
-                $record->update(['stage' => 'closing']);
+                \App\Services\Leads\ProcessSteps::reach($record, 'closing', 'auto', auth()->id(), 'Створено замовлення №'.$order->id);
+
+                // Order journal: it starts as «Нове замовлення»; if a measurement was already planned, that step is recorded too.
+                \App\Services\Leads\ProcessSteps::reach($order, 'new', 'auto', auth()->id());
+                if ($measurement) {
+                    \App\Services\Leads\ProcessSteps::reach($order, 'measuring', 'auto', auth()->id(), 'Замір призначено в заявці');
+                }
 
                 $this->fillForm();
 

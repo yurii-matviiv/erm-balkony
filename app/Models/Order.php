@@ -23,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Order extends Model
 {
+    use \App\Models\Concerns\HasProcessSteps;
+
     protected $casts = [
         'is_need_install' => 'boolean',
         'is_need_measuring' => 'boolean',

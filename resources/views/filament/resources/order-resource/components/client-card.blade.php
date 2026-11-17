@@ -12,6 +12,10 @@
     $mapQuery = ! empty($objectAddress) ? $objectAddress : $address;
     $label = 'display:block;font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--gray-500);margin-bottom:2px;';
     $row = 'padding:9px 0;border-bottom:1px solid var(--gray-100);';
+    // One modal edits the whole block: clicking any row (or the pencil) opens it; links inside keep their own behaviour.
+    $edit = ! empty($canEditClient);
+    $rowClick = $edit ? ' wire:click="mountAction(\'editClient\')" title="Натисніть, щоб змінити" ' : '';
+    if ($edit) { $row .= 'cursor:pointer;'; }
     $btn = 'display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--gray-200);font-size:13px;font-weight:500;';
 @endphp
 @if (! $client)
@@ -30,50 +34,59 @@
                     @endif
                     <div class="text-xs text-gray-500">клієнт #{{ $client->id }}</div>
                 </div>
-                @if ($clientUrl)
-                    <a href="{{ $clientUrl }}" title="Редагувати клієнта" class="text-primary-600 hover:bg-gray-50" style="margin-left:auto;flex:none;padding:6px;">
+                @if ($edit)
+                    <button type="button" wire:click="mountAction('editClient')" title="Редагувати дані клієнта" class="text-primary-600 hover:bg-gray-50" style="margin-left:auto;flex:none;padding:6px;">
                         <x-filament::icon icon="heroicon-o-pencil-square" style="width:20px;height:20px;" />
-                    </a>
+                    </button>
                 @endif
             </div>
 
-            <div style="{{ $row }}">
+            <div style="{{ $row }}"{!! $rowClick !!}>
                 <span style="{{ $label }}">Телефон</span>
                 @if ($digits !== '')
-                    <a class="text-sm font-medium text-primary-600 hover:underline" href="tel:+{{ $digits }}">{{ $client->phone }}</a>
+                    <a class="text-sm font-medium text-primary-600 hover:underline" x-on:click.stop href="tel:+{{ $digits }}">{{ $client->phone }}</a>
                 @else <span class="text-sm text-gray-500">—</span> @endif
                 @if ($digits2 !== '')
-                    <span class="text-gray-400"> · </span><a class="text-sm text-primary-600 hover:underline" href="tel:+{{ $digits2 }}">{{ $client->phone2 }}</a>
+                    <span class="text-gray-400"> · </span><a class="text-sm text-primary-600 hover:underline" x-on:click.stop href="tel:+{{ $digits2 }}">{{ $client->phone2 }}</a>
                 @endif
             </div>
             @if ($client->viber)
-                <div style="{{ $row }}"><span style="{{ $label }}">Viber</span><span class="text-sm text-gray-950 dark:text-white">{{ $client->viber }}</span></div>
+                <div style="{{ $row }}"{!! $rowClick !!}><span style="{{ $label }}">Viber</span><span class="text-sm text-gray-950 dark:text-white">{{ $client->viber }}</span></div>
             @endif
-            <div style="{{ $row }}">
+            <div style="{{ $row }}"{!! $rowClick !!}>
                 <span style="{{ $label }}">Адреса клієнта</span>
                 <span class="text-sm text-gray-950 dark:text-white">{{ $address ?: '—' }}</span>
             </div>
             @if (! empty($showObjectAddress))
-                <div style="{{ $row }}">
+                <div style="{{ $row }}"{!! $rowClick !!}>
                     <span style="{{ $label }}">Адреса об'єкта (де виконуються роботи)</span>
                     <div style="display:flex;align-items:center;gap:12px;">
                         <span class="text-sm text-gray-950 dark:text-white">{{ $objectAddress ?: '—' }}</span>
                         @if (! empty($autoAddress))
                             <span class="text-xs text-gray-500">автовизначено: {{ $autoAddress }}</span>
                         @endif
-                        <div style="margin-left:auto;">{{ $editAddressAction ?? '' }}</div>
                     </div>
                 </div>
             @endif
             {{-- Email is being collected: always shown (even empty), right after the physical address. --}}
-            <div style="{{ $row }}">
+            <div style="{{ $row }}"{!! $rowClick !!}>
                 <span style="{{ $label }}">Електронна адреса</span>
                 @if ($client->email)
-                    <a class="text-sm text-primary-600 hover:underline" href="mailto:{{ $client->email }}">{{ $client->email }}</a>
+                    <a class="text-sm text-primary-600 hover:underline" x-on:click.stop href="mailto:{{ $client->email }}">{{ $client->email }}</a>
                 @else
                     <span class="text-sm text-gray-400">не вказано</span>
                 @endif
             </div>
+            {{-- Warning block: only while the e-mail is empty. --}}
+            @if (blank($client->email))
+                <div{!! $rowClick !!} style="{{ $edit ? 'cursor:pointer;' : '' }}display:flex;gap:8px;align-items:flex-start;margin:6px 0 9px;padding:8px 10px;border:1px solid #f0c36d;background:#fff8e6;border-radius:3px;font-size:.8rem;line-height:1.45;color:#7a5b00;">
+                    <x-filament::icon icon="heroicon-m-exclamation-triangle" style="width:1.1rem;height:1.1rem;flex:none;color:#d99a00;" />
+                    <div>
+                        <div>{{ \App\Filament\Resources\ClientResource::EMAIL_HINT_NOTIFY }}</div>
+                        <div>{{ \App\Filament\Resources\ClientResource::EMAIL_HINT_MARKETING }}</div>
+                    </div>
+                </div>
+            @endif
             @if ($client->comment)
                 <div style="padding:9px 0;"><span style="{{ $label }}">Коментар</span><span class="text-sm text-gray-950 dark:text-white">{{ $client->comment }}</span></div>
             @endif
