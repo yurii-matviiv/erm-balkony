@@ -96,6 +96,13 @@ class FirstCallDetector
                     false, Carbon::createFromTimestamp((int) $first['startTime']));
             }
 
+            // Швидкість реакції (хв) зберігаємо в заявці — з неї рахується середнє менеджера за 30 днів. Дзвінок до створення = 0.
+            if ($first && $lead->first_reaction_minutes === null) {
+                DB::table('leads')->where('id', $lead->id)->update([
+                    'first_reaction_minutes' => self::reactionMinutes($lead, Carbon::createFromTimestamp((int) $first['startTime'])),
+                ]);
+            }
+
             // КОНТАКТ — перший дзвінок, на який клієнт відповів; рухає етап вперед (тільки вперед).
             if ($answered && ! $lead->hasStep(self::CONTACT_STEP)) {
                 ProcessSteps::reach($lead, self::CONTACT_STEP, 'auto', null,

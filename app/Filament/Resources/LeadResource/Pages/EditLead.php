@@ -430,8 +430,31 @@ class EditLead extends EditRecord
             });
     }
 
-    /** Інтерактивний блок «Виявлення потреби» (lead-status-bar): дублює три поля картки, поки вони порожні після контакту. */
-    public array $need = ['service_types' => [], 'profile' => '', 'comment' => ''];
+    /** Дані інтерактивного блока «Виявлення потреби» (lead-status-bar): ті самі поля, що в картці, тільки порожні. */
+    public ?array $needData = [];
+
+    public function needForm(Schema $schema): Schema
+    {
+        return $schema
+            ->statePath('needData')
+            ->components([
+                Select::make('service_types')
+                    ->label('Яку послугу хотів клієнт (тип звернення)')
+                    ->options(fn () => \App\Models\LeadServiceType::orderBy('name')->pluck('name', 'id'))
+                    ->multiple()
+                    ->preload()
+                    ->visible(fn (): bool => $this->getRecord()->serviceTypes()->doesntExist()),
+                Select::make('profile')
+                    ->label('Тип профілю (для послуг без профілю — «Послуга»)')
+                    ->options(Lead::profileOptions())
+                    ->visible(fn (): bool => blank($this->getRecord()->profile)),
+                Textarea::make('comment')
+                    ->label('Потреба клієнта')
+                    ->placeholder('що саме потрібно клієнту, який тип клієнта, які цінності його цікавлять')
+                    ->rows(3)
+                    ->visible(fn (): bool => blank(trim((string) $this->getRecord()->comment))),
+            ]);
+    }
 
     public function saveNeed(): void
     {
@@ -439,15 +462,16 @@ class EditLead extends EditRecord
             return;
         }
 
+        $state = $this->needForm->getState();
         $record = $this->getRecord();
         $data = [];
 
-        $profile = (string) ($this->need['profile'] ?? '');
+        $profile = (string) ($state['profile'] ?? '');
         if ($profile !== '' && array_key_exists($profile, Lead::profileOptions()) && blank($record->profile)) {
             $data['profile'] = $profile;
         }
 
-        $comment = trim((string) ($this->need['comment'] ?? ''));
+        $comment = trim((string) ($state['comment'] ?? ''));
         if ($comment !== '' && blank($record->comment)) {
             $data['comment'] = $comment;
         }
@@ -456,12 +480,12 @@ class EditLead extends EditRecord
             $record->update($data);
         }
 
-        $ids = array_values(array_filter(array_map('intval', (array) ($this->need['service_types'] ?? []))));
+        $ids = array_values(array_filter(array_map('intval', (array) ($state['service_types'] ?? []))));
         if ($ids !== [] && $record->serviceTypes()->doesntExist()) {
             $record->serviceTypes()->sync(\App\Models\LeadServiceType::whereIn('id', $ids)->pluck('id')->all());
         }
 
-        $this->need = ['service_types' => [], 'profile' => '', 'comment' => ''];
+        $this->needForm->fill();
         $this->record->refresh();
         $this->fillForm();
 

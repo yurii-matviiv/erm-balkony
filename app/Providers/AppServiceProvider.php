@@ -42,6 +42,13 @@ class AppServiceProvider extends ServiceProvider
                 });
         });
 
+        // Бар індикаторів менеджера — у шапці сторінки «Заявки», в одному рядку із заголовком (перед кнопками дій).
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::PAGE_HEADER_ACTIONS_BEFORE,
+            fn (): string => view('filament.components.lead-indicators-bar')->render(),
+            scopes: \App\Filament\Resources\LeadResource\Pages\ListLeads::class,
+        );
+
         FilamentView::registerRenderHook(
             PanelsRenderHook::STYLES_AFTER,
             fn (): string => view('filament.components.filled-badge-styles')->render()

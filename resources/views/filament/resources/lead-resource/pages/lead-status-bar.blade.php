@@ -142,50 +142,21 @@
     @endphp
     @if ($contactDone && ! $readOnly && ! $unaccepted && ($needServices || $needProfile || $needComment))
         <div style="padding:1rem 1.25rem;border:1px solid #2874A6;border-radius:6px;background:#eaf2f8;display:flex;flex-direction:column;gap:.9rem;">
-            <div style="font-weight:600;color:#1b4f72;">Виявлення потреби — заповніть, що ще порожнє</div>
+            <div style="font-weight:800;color:#c0392b;font-size:1.05rem;text-transform:uppercase;letter-spacing:.02em;">
+                Обов'язковий наступний крок — заповнити потребу клієнта
+            </div>
+            <div style="font-size:.85rem;color:#566573;">Виявлення потреби: заповніть, що ще порожнє. Заповнене тут одразу з'являється в картці нижче.</div>
 
-            @if ($needServices)
-                <div>
-                    <div style="font-size:.8rem;color:#566573;margin-bottom:.3rem;">Яку послугу хотів клієнт (тип звернення)</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:.35rem .9rem;">
-                        @foreach (\App\Models\LeadServiceType::orderBy('name')->get(['id', 'name']) as $t)
-                            <label style="display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;font-size:.9rem;">
-                                <input type="checkbox" value="{{ $t->id }}" wire:model="need.service_types"> {{ $t->name }}
-                            </label>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-
-            @if ($needProfile)
-                <div>
-                    <div style="font-size:.8rem;color:#566573;margin-bottom:.3rem;">Тип профілю (для послуг без профілю — «Послуга»)</div>
-                    <select wire:model="need.profile" style="border:1px solid rgba(0,0,0,.2);border-radius:3px;padding:.4rem .5rem;min-width:16rem;background:#fff;">
-                        <option value="">—</option>
-                        @foreach (\App\Models\Lead::profileOptions() as $k => $l)
-                            <option value="{{ $k }}">{{ $l }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            @endif
-
-            @if ($needComment)
-                <div>
-                    <div style="font-size:.8rem;color:#566573;margin-bottom:.3rem;">Потреба клієнта: що саме йому потрібно, який тип клієнта, які цінності його цікавлять</div>
-                    <textarea wire:model="need.comment" rows="3" style="width:100%;border:1px solid rgba(0,0,0,.2);border-radius:3px;padding:.4rem .5rem;background:#fff;"></textarea>
-                </div>
-            @endif
+            {{ $this->needForm }}
 
             <div><x-filament::button wire:click="saveNeed" size="sm">Зберегти</x-filament::button></div>
         </div>
     @endif
 
     {{-- Нагадування (old CRM: table under the action bar) --}}
+    @if ($reminders->isNotEmpty())
     <div>
         <h3 class="text-sm font-semibold text-gray-950 dark:text-white" style="margin-bottom:.5rem;">Нагадування</h3>
-        @if ($reminders->isEmpty())
-            <div class="text-sm text-gray-500">Немає нагадувань</div>
-        @else
             <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
                 <table class="w-full text-sm" style="border-collapse:collapse;">
                     <thead style="background:rgba(0,0,0,.04);text-align:left;">
@@ -221,6 +192,6 @@
                     </tbody>
                 </table>
             </div>
-        @endif
     </div>
+    @endif
 </div>
