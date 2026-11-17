@@ -18,6 +18,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\IconSize;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -283,9 +285,9 @@ class LeadResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            // Column order mirrors the old CRM list (date, status, client,
-            // type, address, contact method, comment) so managers moving over
-            // find everything where they expect it. The list is view-only:
+            // Column order (set by the owner 2026-11-17): date, client, type, address,
+            // status, contact method, head's comment; then the manager's comment and the
+            // rest. The list is view-only:
             // clicking anywhere on a row opens the lead (recordUrl below);
             // stage changes happen on the lead page.
             ->columns(static::blurUnaccepted([
@@ -295,37 +297,6 @@ class LeadResource extends Resource
                     ->formatStateUsing(fn ($state): string => $state->locale('uk')->isoFormat('dd DD.MM'))
                     ->description(fn (Lead $record): string => $record->created_at->format('H:i'))
                     ->sortable(),
-
-
-                // Who owns the lead — surname only (names are stored surname-first),
-                // right after the date. Hidden in the manager panel: a manager
-                // already sees only their own (and unassigned) leads.
-                TextColumn::make('manager.name')
-                    ->toggleable()
-                    ->label('Менеджер')
-                    ->formatStateUsing(fn (?string $state): string => $state ? (explode(' ', trim($state))[0] ?: $state) : '')
-                    ->placeholder('—')
-                    ->visible(fn (): bool => static::canSeeManagers()),
-
-                // Old CRM had ONE merged status; the new model splits it into
-                // stage + status. Show the final outcome when there is one,
-                // otherwise the funnel stage.
-                TextColumn::make('stage')
-                    ->toggleable()
-                    ->label('Статус')
-                    ->view('filament.tables.columns.lead-stage-cell')
-                    ->state(fn (Lead $record): string => match ($record->status) {
-                        'won' => 'Угода укладена',
-                        'lost' => 'Втрачено',
-                        default => Lead::stageOptions()[$record->stage] ?? '—',
-                    })
-                    ->extraCellAttributes(fn (Lead $record): array => static::hiddenUntilAccepted($record)
-                        ? []
-                        : ['class' => 'filled-badge-cell', 'style' => '--badge-color: var(--'.match ($record->status) {
-                            'won' => 'success',
-                            'lost' => 'danger',
-                            default => 'info',
-                        }.'-500);']),
 
                 TextColumn::make('client.full_name')
                     ->toggleable()
@@ -353,26 +324,47 @@ class LeadResource extends Resource
                     ->wrap()
                     ->searchable(['site_city', 'site_street']),
 
-                // Auto-detected city (old CRM «Автовизначення»): never shown to managers.
-                TextColumn::make('auto_address')
-                    ->label('Автовизначена адреса')
-                    ->wrapHeader()
-                    ->placeholder('—')
-                    ->visible(fn (): bool => static::canSeeManagers())
-                    ->toggleable(isToggledHiddenByDefault: true),
+                // Old CRM had ONE merged status; the new model splits it into
+                // stage + status. Show the final outcome when there is one,
+                // otherwise the funnel stage.
+                TextColumn::make('stage')
+                    ->toggleable()
+                    ->label('Статус')
+                    ->view('filament.tables.columns.lead-stage-cell')
+                    ->state(fn (Lead $record): string => match ($record->status) {
+                        'won' => 'Угода укладена',
+                        'lost' => 'Втрачено',
+                        default => Lead::stageOptions()[$record->stage] ?? '—',
+                    })
+                    ->extraCellAttributes(fn (Lead $record): array => static::hiddenUntilAccepted($record)
+                        ? []
+                        : ['class' => 'filled-badge-cell', 'style' => '--badge-color: var(--'.match ($record->status) {
+                            'won' => 'success',
+                            'lost' => 'danger',
+                            default => 'info',
+                        }.'-500);']),
 
-                TextColumn::make('source')
+                // Вузька колонка: замість тексту — іконка способу звернення (Heroicons), назва — у підказці при наведенні.
+                // Заголовок переноситься на два рядки («Спосіб» / «звернення»), бо колонка вузька.
+                IconColumn::make('source')
                     ->toggleable()
                     ->label('Спосіб звернення')
-                    ->formatStateUsing(fn (?string $state): string => Lead::sourceOptions()[$state] ?? '—'),
-
-                TextColumn::make('comment')
-                    ->toggleable()
-                    ->label('Коментар')
-                    ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
-                    ->limit(60)
-                    ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment))
-                    ->placeholder('—'),
+                    ->wrapHeader()
+                    ->alignCenter()
+                    ->size(IconSize::Medium)
+                    ->color('primary')
+                    ->icon(fn (?string $state): ?string => match ($state) {
+                        'call' => 'heroicon-o-phone',
+                        'site' => 'heroicon-o-envelope',
+                        'office_visit' => 'heroicon-o-building-office',
+                        'referral' => 'heroicon-o-user-plus',
+                        'binotel_chat' => 'heroicon-o-chat-bubble-left-right',
+                        'binotel_call' => 'heroicon-o-phone-arrow-down-left',
+                        'fb_lead_ads' => 'heroicon-o-megaphone',
+                        'fb_chat' => 'heroicon-o-chat-bubble-oval-left',
+                        default => null,
+                    })
+                    ->tooltip(fn (?string $state): ?string => Lead::sourceOptions()[$state] ?? null),
 
                 TextColumn::make('comment_sales_head')
                     ->toggleable()
@@ -382,6 +374,33 @@ class LeadResource extends Resource
                     ->limit(60)
                     ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment_sales_head))
                     ->placeholder('—'),
+
+                TextColumn::make('comment')
+                    ->toggleable()
+                    ->label('Коментар')
+                    ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
+                    ->limit(60)
+                    ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment))
+                    ->placeholder('—'),
+
+
+                // Who owns the lead — surname only (names are stored surname-first),
+                // right after the date. Hidden in the manager panel: a manager
+                // already sees only their own (and unassigned) leads.
+                TextColumn::make('manager.name')
+                    ->toggleable()
+                    ->label('Менеджер')
+                    ->formatStateUsing(fn (?string $state): string => $state ? (explode(' ', trim($state))[0] ?: $state) : '')
+                    ->placeholder('—')
+                    ->visible(fn (): bool => static::canSeeManagers()),
+
+                // Auto-detected city (old CRM «Автовизначення»): never shown to managers.
+                TextColumn::make('auto_address')
+                    ->label('Автовизначена адреса')
+                    ->wrapHeader()
+                    ->placeholder('—')
+                    ->visible(fn (): bool => static::canSeeManagers())
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('comment_call')
                     ->toggleable(isToggledHiddenByDefault: true)

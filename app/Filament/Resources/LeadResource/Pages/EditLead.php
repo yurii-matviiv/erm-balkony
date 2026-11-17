@@ -436,7 +436,7 @@ class EditLead extends EditRecord
     }
 
     /** Дані інтерактивного блока «Виявлення потреби» (lead-status-bar): ті самі поля, що в картці. Зберігаються одразу при зміні. */
-    public ?array $needData = [];
+    public ?array $needData = ['service_types' => [], 'profile' => null, 'comment' => null];
 
     /** Які поля блока показувати: визначається при завантаженні сторінки (що було порожнім), щоб поле не зникало, поки менеджер його заповнює. */
     public array $needShow = ['service_types' => false, 'profile' => false, 'comment' => false];
