@@ -31,16 +31,16 @@
 
     <table style="border-collapse:collapse;width:100%;margin-top:.6rem;">
         <thead><tr>
-            <th style="{{ $th }}">Крок</th><th style="{{ $th }}">Код</th><th style="{{ $th }}">Що означає «відбулося»</th><th style="{{ $th }}">Як фіксується</th>
+            <th style="{{ $th }}">Крок</th><th style="{{ $th }}">Код</th><th style="{{ $th }}">Що означає «відбулося»</th><th style="{{ $th }}">Як фіксується</th><th style="{{ $th }}">Реалізація</th>
         </tr></thead>
         <tbody>
-        <tr><td style="{{ $td }}">Новий</td><td style="{{ $td }}"><code>new</code></td><td style="{{ $td }}">заявка з'явилась</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td></tr>
-        <tr><td style="{{ $td }}">Контакт</td><td style="{{ $td }}"><code>contacted</code></td><td style="{{ $td }}">є контакт із клієнтом (визначення — уточнюємо)</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td></tr>
-        <tr><td style="{{ $td }}"><strong>Замір</strong></td><td style="{{ $td }}"><code>measurement_scheduled</code></td><td style="{{ $td }}">створено «Заявку на замір»</td><td style="{{ $td }}"><span style="{{ $auto }}">автоматично</span></td></tr>
-        <tr><td style="{{ $td }}">Заміряно</td><td style="{{ $td }}"><code>measurement_done</code></td><td style="{{ $td }}">замірник провів замір</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td></tr>
-        <tr><td style="{{ $td }}">КП</td><td style="{{ $td }}"><code>proposal_sent</code></td><td style="{{ $td }}">клієнт отримав розрахунок</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td></tr>
-        <tr><td style="{{ $td }}">Узгодження</td><td style="{{ $td }}"><code>negotiation</code></td><td style="{{ $td }}">йде узгодження</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td></tr>
-        <tr><td style="{{ $td }}"><strong>Замовлення</strong></td><td style="{{ $td }}"><code>closing</code></td><td style="{{ $td }}">із заявки створено замовлення</td><td style="{{ $td }}"><span style="{{ $auto }}">автоматично</span></td></tr>
+        <tr><td style="{{ $td }}">Новий</td><td style="{{ $td }}"><code>new</code></td><td style="{{ $td }}">заявка з'явилась</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#eaecee;color:#566573;font-weight:600;">— ще ні</span></td></tr>
+        <tr><td style="{{ $td }}">Контакт</td><td style="{{ $td }}"><code>contacted</code></td><td style="{{ $td }}">є контакт із клієнтом (визначення — уточнюємо)</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#eaecee;color:#566573;font-weight:600;">— ще ні</span></td></tr>
+        <tr><td style="{{ $td }}"><strong>Замір</strong></td><td style="{{ $td }}"><code>measurement_scheduled</code></td><td style="{{ $td }}">створено «Заявку на замір»</td><td style="{{ $td }}"><span style="{{ $auto }}">автоматично</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#d5f5e3;color:#1e8449;font-weight:600;">✔ реалізовано</span></td></tr>
+        <tr><td style="{{ $td }}">Заміряно</td><td style="{{ $td }}"><code>measurement_done</code></td><td style="{{ $td }}">замірник провів замір</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#eaecee;color:#566573;font-weight:600;">— ще ні</span></td></tr>
+        <tr><td style="{{ $td }}">КП</td><td style="{{ $td }}"><code>proposal_sent</code></td><td style="{{ $td }}">клієнт отримав розрахунок</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#eaecee;color:#566573;font-weight:600;">— ще ні</span></td></tr>
+        <tr><td style="{{ $td }}">Узгодження</td><td style="{{ $td }}"><code>negotiation</code></td><td style="{{ $td }}">йде узгодження</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#eaecee;color:#566573;font-weight:600;">— ще ні</span></td></tr>
+        <tr><td style="{{ $td }}"><strong>Замовлення</strong></td><td style="{{ $td }}"><code>closing</code></td><td style="{{ $td }}">із заявки створено замовлення</td><td style="{{ $td }}"><span style="{{ $auto }}">автоматично</span></td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#d5f5e3;color:#1e8449;font-weight:600;">✔ реалізовано</span></td></tr>
         </tbody>
     </table>
 
@@ -52,11 +52,11 @@
     </div>
     <p style="{{ $p }}">Статус замовлення — окреме поле: <em>В роботі</em> / <em>Виконано</em> / <em>Відмінено</em>.</p>
     <table style="border-collapse:collapse;width:100%;margin-top:.6rem;">
-        <thead><tr><th style="{{ $th }}">Крок</th><th style="{{ $th }}">Код</th><th style="{{ $th }}">Як фіксується</th></tr></thead>
+        <thead><tr><th style="{{ $th }}">Крок</th><th style="{{ $th }}">Код</th><th style="{{ $th }}">Як фіксується</th><th style="{{ $th }}">Реалізація</th></tr></thead>
         <tbody>
-        <tr><td style="{{ $td }}">Нове замовлення</td><td style="{{ $td }}"><code>new</code></td><td style="{{ $td }}"><span style="{{ $auto }}">автоматично</span> при створенні замовлення із заявки</td></tr>
-        <tr><td style="{{ $td }}"><strong>Замір</strong></td><td style="{{ $td }}"><code>measuring</code></td><td style="{{ $td }}"><span style="{{ $auto }}">автоматично</span>: якщо замір призначено ще в заявці (при створенні замовлення) або коли в замовленні вказано дату заміру</td></tr>
-        <tr><td style="{{ $td }}">Решта (В обробці … Закрите)</td><td style="{{ $td }}">—</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span> (зараз вручну)</td></tr>
+        <tr><td style="{{ $td }}">Нове замовлення</td><td style="{{ $td }}"><code>new</code></td><td style="{{ $td }}"><span style="{{ $auto }}">автоматично</span> при створенні замовлення із заявки</td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#d5f5e3;color:#1e8449;font-weight:600;">✔ реалізовано</span></td></tr>
+        <tr><td style="{{ $td }}"><strong>Замір</strong></td><td style="{{ $td }}"><code>measuring</code></td><td style="{{ $td }}"><span style="{{ $auto }}">автоматично</span>: якщо замір призначено ще в заявці (при створенні замовлення) або коли в замовленні вказано дату заміру</td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#d5f5e3;color:#1e8449;font-weight:600;">✔ реалізовано</span></td></tr>
+        <tr><td style="{{ $td }}">Решта (В обробці … Закрите)</td><td style="{{ $td }}">—</td><td style="{{ $td }}"><span style="{{ $later }}">пізніше</span> (зараз вручну)</td><td style="{{ $td }}"><span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:.78rem;background:#eaecee;color:#566573;font-weight:600;">— ще ні</span></td></tr>
         </tbody>
     </table>
 
