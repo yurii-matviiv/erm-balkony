@@ -227,6 +227,8 @@ class OrderResource extends Resource
                     ->options(Order::orderTypeOptions()),
             ])
             ->persistColumnsInSession()
+            ->paginationPageOptions([20, 100])
+            ->defaultPaginationPageOption(20)
             ->recordActions([
                 EditAction::make('edit'),
             ])

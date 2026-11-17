@@ -23,8 +23,16 @@ trait HasDateRangeBar
 
     public string $dateTo = '';
 
+    /** Period the bar starts with when nothing is remembered for today. A page may override it. */
+    protected function defaultDatePreset(): string
+    {
+        return 'today';
+    }
+
     public function mountHasDateRangeBar(): void
     {
+        $this->preset = $this->defaultDatePreset();
+
         // A period the user picked is remembered until the end of the
         // current day (per page, in the session); the next day the bar
         // starts again from "Сьогодні".

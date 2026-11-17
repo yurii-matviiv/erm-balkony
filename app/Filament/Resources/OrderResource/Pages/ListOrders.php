@@ -22,6 +22,12 @@ class ListOrders extends ListRecords
     /** Custom view only to put the standard date bar above the table. */
     protected string $view = 'filament.resources.order-resource.pages.list-orders';
 
+    /** Orders list opens on the current month (not "today": few orders are created per day). */
+    protected function defaultDatePreset(): string
+    {
+        return 'current_month';
+    }
+
     /** Page-level date bar filters by order creation date. */
     protected function getTableQuery(): Builder|\Illuminate\Database\Eloquent\Relations\Relation|null
     {
