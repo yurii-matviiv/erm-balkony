@@ -1,5 +1,6 @@
 <x-filament-panels::page>
 
+    <div>
     {{-- Short how-to for managers: its own text per tab, always at the very top. --}}
     <div style="padding:.85rem 1rem;margin-bottom:1rem;border:1px solid #cfd8de;background:#f4f8fb;border-radius:3px;font-size:.9rem;line-height:1.5;">
         @if ($this->activeTab === 'measurements')
@@ -70,9 +71,10 @@
             };
         }
     </script>
+    </div>
 
     {{-- Standard Filament tabs: the look comes from the global tabs-styles (same as the client card). --}}
-    <x-filament::tabs class="mb-4">
+    <x-filament::tabs>
         @foreach ($this->getTabs() as $key => $label)
             @php $open = $this->openCount($key); $red = $key === 'measurements' && $this->attentionCount() > 0; @endphp
             <x-filament::tabs.item
