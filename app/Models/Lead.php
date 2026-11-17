@@ -187,7 +187,7 @@ class Lead extends Model
      * Етапи, на яких заявка ще не кваліфікована (до «Контакт»): у Google Ads конверсія й кваліфікований клієнт для аудиторій
      * з'являються лише ПІСЛЯ них. Єдине джерело для ConversionPlanner, AudienceClassify та експорту лідів.
      */
-    public const PRE_QUALIFIED_STAGES = ['new', 'assigned'];
+    public const PRE_QUALIFIED_STAGES = ['new', 'assigned', 'unreachable'];
 
     public static function stageOptions(): array
     {
@@ -195,6 +195,8 @@ class Lead extends Model
             'new' => 'Новий',
             // Менеджер натиснув «Прийняти заявку» (EditLead::acceptLeadAction). Це ще НЕ кваліфікація для реклами.
             'assigned' => 'Прийнято',
+            // Після 2 невдалих дзвінків менеджер натискає «Клієнт не відповідає» (EditLead). У воронці стоїть замість «Контакт», кваліфікацією НЕ є.
+            'unreachable' => 'Клієнт не відповідає',
             'contacted' => 'Контакт',
             'measurement_scheduled' => 'Замір',
             'measurement_done' => 'Заміряно',

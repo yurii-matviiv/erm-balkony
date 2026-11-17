@@ -204,6 +204,25 @@ class EditLead extends EditRecord
             });
     }
 
+    /** Після 2 невдалих дзвінків (Binotel): етап «Клієнт не відповідає» замість «Контакт». Кнопка у смузі «Швидкість реакції». */
+    public function clientNotAnsweringAction(): Action
+    {
+        return Action::make('clientNotAnswering')
+            ->label('Клієнт не відповідає')
+            ->icon('heroicon-o-phone-x-mark')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading('Клієнт не відповідає?')
+            ->modalDescription('Було щонайменше 2 невдалі спроби додзвонитись. Етап зміниться на «Клієнт не відповідає»; коли клієнт відповість, контакт поставиться автоматично.')
+            ->visible(fn (): bool => ! $this->isReadOnly() && (int) $this->getRecord()->call_attempts >= 2
+                && in_array($this->getRecord()->stage, ['new', 'assigned'], true) && ! $this->getRecord()->hasStep('contacted'))
+            ->action(function (): void {
+                $record = $this->getRecord();
+                \App\Services\Leads\ProcessSteps::reach($record, 'unreachable', 'manual', auth()->id(), 'Клієнт не відповідає після '.(int) $record->call_attempts.' спроб');
+                $this->fillForm();
+            });
+    }
+
     /** Full-screen explanation of stages and what is automatic (kept in sync with docs/STAGES.md). Shown in the action bar. */
     public function stagesInstructionAction(): Action
     {
@@ -230,6 +249,7 @@ class EditLead extends EditRecord
             'createReminderAction' => $this->createReminderAction(),
             'stagesInstructionAction' => $this->stagesInstructionAction(),
             'acceptLeadAction' => $this->acceptLeadAction(),
+            'clientNotAnsweringAction' => $this->clientNotAnsweringAction(),
             'reminders' => $this->getRecord()->reminders()->with('user')->get(),
         ]);
     }

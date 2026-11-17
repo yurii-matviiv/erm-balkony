@@ -85,6 +85,7 @@ class FirstCallDetector
                 ->sortBy(fn ($c) => (int) $c['startTime'])
                 ->values();
             $first = $outgoing->first();
+            DB::table('leads')->where('id', $lead->id)->update(['call_attempts' => min(255, $outgoing->count())]);
             $answered = $outgoing->first(fn ($c) => ($c['disposition'] ?? '') === 'ANSWER');
             $who = fn ($c) => ($c['employeeData']['name'] ?? null) ? ' ('.$c['employeeData']['name'].')' : '';
 

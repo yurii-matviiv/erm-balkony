@@ -53,7 +53,9 @@
                 @if ($contactStep?->occurred_at)
                     <span style="color:#1e8449;">· контакт: клієнт відповів {{ $contactStep->occurred_at->copy()->setTimezone('Europe/Kyiv')->locale('uk')->isoFormat('dd DD.MM HH:mm') }}</span>
                 @elseif (in_array($record->stage, \App\Models\Lead::PRE_QUALIFIED_STAGES, true))
-                    <span style="color:#c0392b;font-weight:600;">· спроба невдала: клієнт не відповів, контакту ще немає</span>
+                    <span style="color:#c0392b;font-weight:600;">· спроба невдала: клієнт не відповів, контакту ще немає@if ((int) $record->call_attempts > 0) (невдалих спроб: {{ (int) $record->call_attempts }}) @endif</span>
+                    {{-- Після 2 невдалих спроб (Binotel) зʼявляється кнопка: етап «Клієнт не відповідає» замість «Контакт». --}}
+                    {{ $clientNotAnsweringAction }}
                 @endif
             @else
                 <span>дзвінка клієнту ще не було, минуло <strong>{{ $fmt($reaction['min']) }}</strong></span>
@@ -79,7 +81,8 @@
             {{ $acceptLeadAction }}
         </div>
     @else
-        <x-status-bar :steps="collect($stageOptions)->map(fn ($l) => ['label' => $l])->all()" :current="$currentStage" click="setStage" />
+        @php($barSteps = collect($stageOptions)->except($currentStage === 'unreachable' ? ['contacted'] : ['unreachable']))
+        <x-status-bar :steps="$barSteps->map(fn ($l) => ['label' => $l])->all()" :current="$currentStage" click="setStage" />
     @endif
 
     {{-- Action-бар: рівно одна підказка, що робити далі. Реалізовано два
