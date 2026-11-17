@@ -12,6 +12,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use App\Models\User;
 use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -215,6 +216,78 @@ class LeadResource extends Resource
         );
     }
 
+    /**
+     * Панель менеджера: заявка без менеджера ще «не прийнята». Менеджер бачить у списку лише дату й кнопку «Прийняти»,
+     * решта рядка розмита й неактивна, а відкрити саму заявку не можна (див. canEdit), доки він її не прийме.
+     */
+    public static function hiddenUntilAccepted(Lead $record): bool
+    {
+        $user = auth()->user();
+
+        return $record->manager_id === null && $user && RolePanels::idForUser($user) === RolePanels::MANAGER;
+    }
+
+    /** Текст-заглушка замість даних заявки, яку ще не прийнято (дані не віддаємо в сторінку, а не лише розмиваємо). */
+    private static function mask(Lead $record, ?string $value): ?string
+    {
+        return static::hiddenUntilAccepted($record) ? '••••••••' : $value;
+    }
+
+    /** Розмиваємо всі комірки, крім дати та кнопки «Прийняти», у ще не прийнятих заявок. */
+    private static function blurUnaccepted(array $columns): array
+    {
+        foreach ($columns as $column) {
+            if (in_array($column->getName(), ['created_at', 'accept'], true)) {
+                continue;
+            }
+
+            $column->extraCellAttributes(fn (Lead $record): array => static::hiddenUntilAccepted($record)
+                ? ['style' => 'filter:blur(5px);opacity:.6;pointer-events:none;user-select:none;']
+                : []);
+        }
+
+        return $columns;
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        if ($record instanceof Lead && static::hiddenUntilAccepted($record)) {
+            return false;
+        }
+
+        return parent::canEdit($record);
+    }
+
+    /** Кнопка «Прийняти» у списку: закріплює заявку за менеджером (атомарно), пише крок «Прийнято» й відкриває заявку. */
+    private static function acceptColumn(): TextColumn
+    {
+        return TextColumn::make('accept')
+            ->label('')
+            ->state(fn (Lead $record): ?string => $record->manager_id === null ? 'Прийняти' : null)
+            ->badge()
+            ->color('primary')
+            ->icon('heroicon-o-check-circle')
+            ->action(function (Lead $record, $livewire): void {
+                $user = auth()->user();
+
+                if (! $user || $record->manager_id !== null) {
+                    return;
+                }
+
+                $taken = Lead::query()->whereKey($record->getKey())->whereNull('manager_id')->update(['manager_id' => $user->getKey()]);
+
+                if (! $taken) {
+                    Notification::make()->title('Заявку вже прийняв інший менеджер')->warning()->send();
+
+                    return;
+                }
+
+                $record->refresh();
+                \App\Services\Leads\ProcessSteps::reach($record, 'assigned', 'manual', $user->getKey(), 'Менеджер прийняв заявку зі списку');
+                $livewire->redirect(static::getUrl('edit', ['record' => $record]));
+            });
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -223,13 +296,15 @@ class LeadResource extends Resource
             // find everything where they expect it. The list is view-only:
             // clicking anywhere on a row opens the lead (recordUrl below);
             // stage changes happen on the lead page.
-            ->columns([
+            ->columns(static::blurUnaccepted([
                 TextColumn::make('created_at')
                     ->toggleable()
                     ->label('Дата')
                     ->formatStateUsing(fn ($state): string => $state->locale('uk')->isoFormat('dd DD.MM'))
                     ->description(fn (Lead $record): string => $record->created_at->format('H:i'))
                     ->sortable(),
+
+                static::acceptColumn(),
 
                 // Who owns the lead — surname only (names are stored surname-first),
                 // right after the date. Hidden in the manager panel: a manager
@@ -261,9 +336,10 @@ class LeadResource extends Resource
                 TextColumn::make('client.full_name')
                     ->toggleable()
                     ->label('Клієнт')
-                    ->description(fn (Lead $record): ?string => $record->client?->phone)
+                    ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
+                    ->description(fn (Lead $record): ?string => static::mask($record, $record->client?->phone))
                     // The row opens the lead; THIS cell opens the client card (link colour shows it).
-                    ->url(fn (Lead $record): ?string => $record->client && ClientResource::canEdit($record->client)
+                    ->url(fn (Lead $record): ?string => ! static::hiddenUntilAccepted($record) && $record->client && ClientResource::canEdit($record->client)
                         ? ClientResource::getUrl('edit', ['record' => $record->client_id])
                         : null)
                     ->color(fn (Lead $record): ?string => $record->client && ClientResource::canEdit($record->client) ? 'primary' : null)
@@ -278,7 +354,7 @@ class LeadResource extends Resource
                 TextColumn::make('site_address')
                     ->toggleable()
                     ->label('Адреса об\'єкта')
-                    ->state(fn (Lead $record): ?string => $record->site_address)
+                    ->state(fn (Lead $record): ?string => static::mask($record, $record->site_address))
                     ->placeholder('—')
                     ->wrap()
                     ->searchable(['site_city', 'site_street']),
@@ -299,23 +375,26 @@ class LeadResource extends Resource
                 TextColumn::make('comment')
                     ->toggleable()
                     ->label('Коментар')
+                    ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
                     ->limit(60)
-                    ->tooltip(fn (Lead $record): ?string => $record->comment)
+                    ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment))
                     ->placeholder('—'),
 
                 TextColumn::make('comment_sales_head')
                     ->toggleable()
                     ->label('Коментар керівника')
+                    ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
                     ->color('danger')
                     ->limit(60)
-                    ->tooltip(fn (Lead $record): ?string => $record->comment_sales_head)
+                    ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment_sales_head))
                     ->placeholder('—'),
 
                 TextColumn::make('comment_call')
                     ->toggleable()
                     ->label('Що планую робити далі')
+                    ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
                     ->limit(60)
-                    ->tooltip(fn (Lead $record): ?string => $record->comment_call)
+                    ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment_call))
                     ->placeholder('—'),
 
                 TextColumn::make('application_type')
@@ -324,7 +403,7 @@ class LeadResource extends Resource
                     ->color(fn (string $state): string => $state === 'repeat' ? 'warning' : 'success')
                     ->formatStateUsing(fn (?string $state): string => Lead::applicationTypeOptions()[$state] ?? '—')
                     ->toggleable(isToggledHiddenByDefault: true),
-            ])
+            ]))
             ->filters([
                 // Manager multi-select (a normal dropdown like every other filter):
                 // pick one or several ACTIVE managers, or "Не призначено". Only for
@@ -401,7 +480,7 @@ class LeadResource extends Resource
                     ->label('Тип звернення')
                     ->relationship('serviceTypes', 'name'),
             ])
-            ->recordUrl(fn (Lead $record): string => static::getUrl('edit', ['record' => $record]))
+            ->recordUrl(fn (Lead $record): ?string => static::hiddenUntilAccepted($record) ? null : static::getUrl('edit', ['record' => $record]))
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

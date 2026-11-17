@@ -88,6 +88,13 @@ class EditLead extends EditRecord
             auth()->user()?->can('Update:Lead') || auth()->user()?->can('View:Lead'),
             403,
         );
+
+        // Менеджер не може відкрити заявку, поки не прийняв її в списку (кнопка «Прийняти»).
+        abort_if(
+            \App\Filament\Resources\LeadResource::hiddenUntilAccepted($this->getRecord()),
+            403,
+            'Спочатку прийміть заявку у списку заявок.',
+        );
     }
 
     public function isReadOnly(): bool
