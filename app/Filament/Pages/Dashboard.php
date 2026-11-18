@@ -20,11 +20,42 @@ use App\Services\Navigation\NavigationResolver;
  */
 class Dashboard extends \Filament\Pages\Dashboard
 {
+    /**
+     * Ролі, для яких головна сторінка — дашборд із 5 картками найчастіших сторінок
+     * (за активною роллю, як і вибір панелі). Решту, як і раніше, переспрямовує на
+     * перший пункт їхнього меню.
+     */
+    public const CARD_ROLES = ['super_admin', 'Адмін', 'Керівник компанії'];
+
+    protected string $view = 'filament.pages.dashboard';
+
+    public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
+    {
+        return 'Дашборд';
+    }
+
+    public function getWidgets(): array
+    {
+        return [];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function getCards(): array
+    {
+        $user = auth()->user();
+
+        return $user ? \App\Services\Dashboard\PopularPages::forUser($user) : [];
+    }
+
     public function mount(): void
     {
         $user = auth()->user();
 
         if (! $user) {
+            return;
+        }
+
+        if (in_array($user->getActiveRoleName(), self::CARD_ROLES, true)) {
             return;
         }
 

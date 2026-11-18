@@ -194,3 +194,31 @@ Route::middleware('auth')->group(function () {
     Route::post('/push/subscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'store'])->name('push.subscribe');
     Route::delete('/push/subscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'destroy'])->name('push.unsubscribe');
 });
+
+// ── «Увійти як користувач»: повернення у свій акаунт ───────────────────────
+// Вхід під користувачем стартує з Filament-дії (App\Filament\Actions\ImpersonateAction);
+// повернення — POST із банера внизу екрана (CSRF-захищений).
+Route::get('/impersonate/{user}/start', function (\Illuminate\Http\Request $request, \App\Models\User $user) {
+    // Підписане посилання з Filament-дії; діє хвилину і лише для того, хто його створив.
+    abort_unless((int) $request->query('actor') === (int) auth()->id(), 403);
+
+    \App\Services\Impersonation\Impersonator::start(auth()->user(), $user);
+
+    return redirect()->to(\App\Support\RolePanels::homeUrl(\App\Support\RolePanels::idForUser($user)));
+})->middleware(['auth', 'signed'])->name('impersonate.start');
+
+Route::post('/impersonate/leave', function (\Illuminate\Http\Request $request) {
+    \Illuminate\Support\Facades\Log::info('impersonation.leave.request', [
+        'user_id' => auth()->id(),
+        'has_impersonator' => \App\Services\Impersonation\Impersonator::active(),
+        'host' => $request->getHost(),
+    ]);
+
+    $actor = \App\Services\Impersonation\Impersonator::leave();
+
+    return redirect()->to(
+        $actor
+            ? \App\Support\RolePanels::homeUrl(\App\Support\RolePanels::idForUser($actor))
+            : url('/')
+    );
+})->middleware('auth')->name('impersonate.leave');

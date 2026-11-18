@@ -5,6 +5,14 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\UserResource\Pages\CreateUser;
 use App\Filament\Resources\UserResource\Pages\EditUser;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
+use App\Filament\Resources\UserResource\Pages\ViewUser;
+use App\Filament\Actions\ImpersonateAction;
+use Filament\Actions\ViewAction;
+use Filament\Schemas\Components\Actions;
+use App\Filament\Actions\SendPasswordLinkAction;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\View as SchemaView;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -90,6 +98,42 @@ class UserResource extends Resource
         ]);
     }
 
+    /**
+     * Редагувати користувачів може лише адміністратор (реальна роль
+     * super_admin) — це діє і для олівця в картці, і для кнопки в таблиці,
+     * і для самої сторінки редагування.
+     */
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return (bool) auth()->user()?->hasRole('super_admin');
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return $schema->components([
+            // Вкладки зверху, як у картці клієнта (вигляд — tabs-styles.blade.php).
+            // «Вкладка 2» — заготовка під наступні пункти картки.
+            Tabs::make('user-card')->columnSpanFull()->tabs([
+                Tab::make('Контактні дані')
+                    ->icon('heroicon-o-identification')
+                    ->schema([
+                        SchemaView::make('filament.resources.user-resource.components.user-card'),
+                    ]),
+                Tab::make('Вкладка 2')
+                    ->icon('heroicon-o-squares-2x2')
+                    ->schema([
+                        SchemaView::make('filament.resources.user-resource.components.tab-placeholder')->viewData(['title' => 'Вкладка 2']),
+                    ]),
+                Tab::make('Акаунт')
+                    ->icon('heroicon-o-key')
+                    ->schema([
+                        SchemaView::make('filament.resources.user-resource.components.user-account'),
+                        Actions::make([SendPasswordLinkAction::make()]),
+                    ]),
+            ]),
+        ]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -128,11 +172,23 @@ class UserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                // За замовчуванням — лише активні; «Усі» показує й неактивних.
+                SelectFilter::make('is_active')
+                    ->label('Статус')
+                    ->options([
+                        '1' => 'Активні',
+                        '0' => 'Неактивні',
+                    ])
+                    ->default('1')
+                    ->native(false),
+
                 SelectFilter::make('roles')
                     ->label('Роль')
                     ->relationship('roles', 'name'),
             ])
             ->recordActions([
+                ViewAction::make(),
+                ImpersonateAction::make(),
                 EditAction::make(),
             ])
             ->toolbarActions([
@@ -148,6 +204,7 @@ class UserResource extends Resource
         return [
             'index' => ListUsers::route('/'),
             'create' => CreateUser::route('/create'),
+            'view' => ViewUser::route('/{record}'),
             'edit' => EditUser::route('/{record}/edit'),
         ];
     }

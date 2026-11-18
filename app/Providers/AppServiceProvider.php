@@ -71,6 +71,23 @@ class AppServiceProvider extends ServiceProvider
             PanelsIconAlias::SIDEBAR_EXPAND_BUTTON_RTL => $logoMark,
         ]);
 
+        // Банер «Ви в акаунті X» — поки super_admin увійшов як інший користувач.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            function (): string {
+                if (! auth()->check() || ! \App\Services\Impersonation\Impersonator::active()) {
+                    return '';
+                }
+
+                return '<form method="POST" action="' . e(route('impersonate.leave', [], false)) . '" style="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:70;margin:0;">'
+                    . csrf_field()
+                    . '<div style="display:flex;align-items:center;gap:12px;background:#b45309;color:#fff;padding:8px 14px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.35);font-size:13px;">'
+                    . '<span>Ви в акаунті: <b>' . e(auth()->user()->name) . '</b></span>'
+                    . '<button type="submit" style="background:#fff;color:#92400e;border:0;border-radius:999px;padding:4px 12px;font-weight:600;cursor:pointer;">Повернутись у свій акаунт</button>'
+                    . '</div></form>';
+            },
+        );
+
         Gate::define('manage-page-docs', fn ($user) => $user->hasRole('super_admin'));
     }
 }

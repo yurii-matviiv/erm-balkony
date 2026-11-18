@@ -69,6 +69,9 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->login()
+            // Відновлення пароля (лист з технічної пошти i-bot@…): посилання «Забули пароль?»
+            // на вході та кнопка «Надіслати посилання» в картці користувача.
+            ->passwordReset()
             ->brandName('ERM')
             ->brandLogo(fn () => new \Illuminate\Support\HtmlString(
                 '<span style="display:inline-flex;align-items:center;padding-left:15px;">'
@@ -482,6 +485,8 @@ HTML;
             ])
             ->authMiddleware([
                 Authenticate::class,
+                // Облік відкриттів сторінок для «Дашборду» (5 найчастіших).
+                \App\Http\Middleware\TrackPageVisit::class,
             ]);
     }
 

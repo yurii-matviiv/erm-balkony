@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // outside the panel (e.g. /lead-export) throws
         // RouteNotFoundException for guests instead of redirecting.
         $middleware->redirectGuestsTo('/admin/login');
+
+        // «Повернутись у свій акаунт» лише повертає у власний акаунт, шкоди від підробленого
+        // запиту немає; без CSRF-токена кнопка не ламається на застарілій сторінці (419).
+        $middleware->preventRequestForgery(except: ['impersonate/leave']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
