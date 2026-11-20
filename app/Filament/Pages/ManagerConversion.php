@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Services\Binotel\BinotelCallLoadService;
 use App\Services\ManagerConversion\ManagerComparisonService;
 use App\Services\ManagerConversion\ManagerStatsService;
+use App\Services\ManagerConversion\ManagerTrendService;
 use App\Services\ManagerConversion\PhoneLoadService;
 use App\Services\ManagerConversion\RecommendationService;
 use App\Services\Finance\FinanceDateRange;
@@ -318,7 +319,12 @@ class ManagerConversion extends Page
             unset($b);
         }
 
+        // Dynamics only make sense for exactly one manager.
+        $trend = ! $this->compare && count($sel) === 1 ? app(ManagerTrendService::class)->forManager($sel[0], $from, $to) : null;
+
         return [
+            'trend' => $trend,
+            'trendName' => $trend ? $managerOptions[$sel[0]] : '',
             'compare' => $this->compare,
             'compareData' => $compareData,
             'preset2' => $this->preset2,

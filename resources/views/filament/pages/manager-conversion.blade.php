@@ -147,6 +147,10 @@
         </div>
     @endif
 
+    @if ($trend)
+        @include('filament.pages.manager-conversion-trend', ['trend' => $trend, 'trendName' => $trendName])
+    @endif
+
     @if (count($recommendations) > 0)
         <style>
                         .mc-rec-cols { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.15fr); gap: .5rem 1rem; align-items: start; }
