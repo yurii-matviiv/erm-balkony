@@ -30,12 +30,14 @@
                 </label>
             @endforeach
         @else
-            <button type="button" wire:click="$set('managerIds', [])" class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
-                <strong>Усі менеджери</strong> (зняти вибір)
-            </button>
+            @php $allChosen = count($selectedManagers) === 0 || count($selectedManagers) === count($managerOptions); @endphp
+            <label class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
+                <input type="checkbox" @checked($allChosen) wire:click="selectAllManagers" class="rounded border-gray-300" />
+                <strong>Усі менеджери</strong>
+            </label>
             @foreach ($managerOptions as $id => $name)
                 <label class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <input type="checkbox" value="{{ $id }}" wire:model.live="managerIds" class="rounded border-gray-300" />
+                    <input type="checkbox" @checked($allChosen || in_array($name, $selectedManagers, true)) wire:click="toggleManager({{ $id }})" class="rounded border-gray-300" />
                     {{ $name }}
                 </label>
             @endforeach

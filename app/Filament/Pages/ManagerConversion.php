@@ -170,6 +170,23 @@ class ManagerConversion extends Page
         $this->preset2 = 'custom';
     }
 
+    /** Empty $managerIds means "all managers" (all boxes shown as checked). */
+    public function selectAllManagers(): void
+    {
+        $this->managerIds = [];
+    }
+
+    public function toggleManager(int $id): void
+    {
+        $all = array_map('intval', array_column(app(ManagerStatsService::class)->forPeriod(...$this->period())['managers'], 'id'));
+        $chosen = $this->managerIds === [] ? $all : array_map('intval', $this->managerIds);
+
+        $chosen = in_array($id, $chosen, true) ? array_values(array_diff($chosen, [$id])) : [...$chosen, $id];
+
+        // Nothing chosen or everyone chosen = no filter.
+        $this->managerIds = ($chosen === [] || count(array_intersect($all, $chosen)) === count($all)) ? [] : array_values($chosen);
+    }
+
     /** @return array{0:string,1:string} */
     private function period(): array
     {
