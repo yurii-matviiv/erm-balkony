@@ -352,6 +352,12 @@ class EditLead extends EditRecord
                             ->placeholder('це поле обов\'язкове')
                             ->live(),
 
+                        Select::make('is_restoration_program')
+                            ->label('Програма «Відновлення»')
+                            ->options([1 => 'так, по програмі', 0 => 'ні, звичайне замовлення'])
+                            ->placeholder('не вказано (запитайте клієнта)')
+                            ->live(),
+
                         Select::make('stage')
                             ->label('Статус')
                             ->options(Lead::stageOptions())

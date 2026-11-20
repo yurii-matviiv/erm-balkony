@@ -131,6 +131,7 @@ class LeadsSyncMapper extends AbstractSyncMapper
             ['old' => 'comment', 'new' => 'comment', 'note' => ''],
             ['old' => 'comment_callback', 'new' => 'comment_callback', 'note' => '"результат/дія: чому замовив або ні"'],
             ['old' => 'profile, advance_calculation1-3', 'new' => 'profile, advance_calculation1-3', 'note' => 'тип профілю і попередні розрахунки — є в картці ліда старої CRM'],
+            ['old' => 'is_restoration_program', 'new' => 'is_restoration_program', 'note' => 'заявка йде по програмі «Відновлення»: пусто = не вказано, 1 = так, 0 = ні'],
             ['old' => 'comment_call', 'new' => 'comment_call', 'note' => '"Що планую робити далі"'],
             ['old' => 'comment_sales_head', 'new' => 'comment_sales_head', 'note' => '"Звернути увагу!"'],
             ['old' => 'address', 'new' => 'site_street', 'note' => 'стара система зберігала повну адресу одним рядком — переноситься в site_street як є; менеджер може розбити на окремі поля вручну'],
@@ -204,6 +205,8 @@ class LeadsSyncMapper extends AbstractSyncMapper
             // and "Звернути увагу!" are their own columns managers know.
             'comment_callback' => ! empty($oldRow['comment_callback']) ? $oldRow['comment_callback'] : null,
             'profile' => ! empty($oldRow['profile']) && $oldRow['profile'] !== 'null' ? $oldRow['profile'] : null,
+            // «Програма Відновлення»: NULL (не вказано) / 0 / 1; у старій БД колонки може ще не бути.
+            'is_restoration_program' => isset($oldRow['is_restoration_program']) && $oldRow['is_restoration_program'] !== '' ? (int) $oldRow['is_restoration_program'] : null,
             'advance_calculation1' => ! empty($oldRow['advance_calculation1']) ? $oldRow['advance_calculation1'] : null,
             'advance_calculation2' => ! empty($oldRow['advance_calculation2']) ? $oldRow['advance_calculation2'] : null,
             'advance_calculation3' => ! empty($oldRow['advance_calculation3']) ? $oldRow['advance_calculation3'] : null,

@@ -10,12 +10,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
-    'legacy_id', 'client_id', 'manager_id', 'source', 'application_type', 'stage', 'status', 'lost_reason', 'legacy_status', 'comment', 'comment_call', 'comment_callback', 'comment_sales_head', 'profile', 'advance_calculation1', 'advance_calculation2', 'advance_calculation3',
+    'legacy_id', 'client_id', 'manager_id', 'source', 'application_type', 'stage', 'status', 'lost_reason', 'legacy_status', 'comment', 'comment_call', 'comment_callback', 'comment_sales_head', 'profile', 'is_restoration_program', 'advance_calculation1', 'advance_calculation2', 'advance_calculation3',
     'site_city', 'site_street', 'auto_address', 'site_house_number', 'site_apartment_number', 'site_floor',
 ])]
 class Lead extends Model
 {
     use \App\Models\Concerns\HasProcessSteps;
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return [
+            // NULL = не вказано, 1/0 = так/ні
+            'is_restoration_program' => 'integer',
+        ];
+    }
 
     /**
      * The address of the OBJECT this lead is about — NOT the client's own
