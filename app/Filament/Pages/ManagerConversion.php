@@ -5,7 +5,9 @@ namespace App\Filament\Pages;
 use App\Models\Expense;
 use App\Services\Binotel\BinotelCallLoadService;
 use App\Services\Finance\FinanceDateRange;
+use App\Filament\Concerns\HasInstructionModal;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
@@ -56,27 +58,32 @@ class ManagerConversion extends Page
     public const LOAD_OVER = 1.1;
 
     /** Recommendations use a fixed, mature window (independent of the date filter): orders appear weeks after a lead. */
-    private const REC_WINDOW_DAYS = 90;
-    private const REC_SKIP_RECENT_DAYS = 14;
+    public const REC_WINDOW_DAYS = 90;
+    public const REC_SKIP_RECENT_DAYS = 14;
     /** Fewer leads than this per manager+source = too noisy to judge. */
-    private const REC_MIN_LEADS = 30;
+    public const REC_MIN_LEADS = 30;
     /** Conversion is pulled toward the company average by this many "virtual" leads (guards against 4-of-37 luck). */
-    private const REC_PRIOR_LEADS = 30;
+    public const REC_PRIOR_LEADS = 30;
     /** Weight = (conversion / average)^POWER: higher = steeper skew toward the strongest. */
-    private const REC_POWER = 2;
+    public const REC_POWER = 2;
     /** A manager with too few leads of a source gets half weight until proven. */
-    private const REC_UNPROVEN_WEIGHT = 0.5;
+    public const REC_UNPROVEN_WEIGHT = 0.5;
     /** Shares are rounded to this step (percent); a share below MIN becomes 0 = do not assign. */
-    private const REC_STEP = 5;
-    private const REC_MIN_SHARE = 10;
+    public const REC_STEP = 5;
+    public const REC_MIN_SHARE = 10;
     /** Phone load (answered incoming + outgoing calls per working day, from Binotel). Business view: ~12/day is already a lot. */
-    private const PHONE_CALLS_HIGH = 12;
-    private const PHONE_CALLS_LOW = 6;
+    public const PHONE_CALLS_HIGH = 12;
+    public const PHONE_CALLS_LOW = 6;
+    /** «Зараз» in the recommendation = the actual share of leads over this many latest days (the days left out of the conversion window). */
+    public const REC_CURRENT_DAYS = 14;
+    /** Difference in share (percentage points) below which the advice reads «без змін». */
+    public const REC_NOCHANGE_PP = 3;
 
     /** What is left for advertising before a manager goes into the red: 18% - 7% = 11% of turnover. */
     public const AD_BUDGET_SHARE = self::ORDER_MARGIN - self::MANAGER_SALARY;
 
     use \App\Filament\Concerns\RequiresViewPermission;
+    use HasInstructionModal;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
 
@@ -318,6 +325,16 @@ class ManagerConversion extends Page
             ->get()
             ->groupBy('src');
 
+        // «Зараз»: who actually received the leads over the latest days (not in the conversion window).
+        $curRows = DB::table('leads')
+            ->whereIn('manager_id', $ids)
+            ->whereIn('source', ['call', 'site'])
+            ->where('created_at', '>=', now()->subDays(self::REC_CURRENT_DAYS))
+            ->selectRaw('manager_id, source AS src, COUNT(*) AS n')
+            ->groupBy('manager_id', 'source')
+            ->get()
+            ->groupBy('src');
+
         $workDays = max(1, $this->workingDays($from->toDateString(), $to->toDateString()));
         $short = fn (int $id): string => implode(' ', array_slice(explode(' ', trim($names[$id] ?? "#{$id}")), 0, 2));
 
@@ -368,6 +385,9 @@ class ManagerConversion extends Page
                 ];
             }
 
+            $curBy = ($curRows[$src] ?? collect())->keyBy('manager_id');
+            $curTotal = (int) $curBy->sum('n');
+
             $uncapped = $this->roundShares($weights);
             $shares = $src === 'call' && $callCaps !== null ? $this->roundShares($weights, $callCaps) : $uncapped;
 
@@ -375,6 +395,10 @@ class ManagerConversion extends Page
                 $r['id'] = (int) $id;
                 $r['share'] = $shares[$id];
                 $r['capped_from'] = $shares[$id] < $uncapped[$id] ? $uncapped[$id] : null;
+                $r['cur_n'] = (int) ($curBy[$id]->n ?? 0);
+                $r['cur_total'] = $curTotal;
+                $r['cur_share'] = $curTotal > 0 ? (int) round($r['cur_n'] / $curTotal * 100) : null;
+                $r['delta'] = $r['cur_share'] === null ? null : $shares[$id] - $r['cur_share'];
                 $r['phone'] = null;
                 if ($src === 'call' && isset($phoneByMgr[$id])) {
                     $pd = (float) $phoneByMgr[$id]['calls_per_day'];
@@ -390,7 +414,7 @@ class ManagerConversion extends Page
             $list = array_values($list);
             usort($list, fn ($x, $y) => [$y['share'], $y['rate'] ?? -1] <=> [$x['share'], $x['rate'] ?? -1]);
 
-            $blocks[] = ['title' => $label, 'avg' => $avg * 100, 'rows' => $list, 'unassigned' => 100 - array_sum($shares)];
+            $blocks[] = ['key' => $src, 'title' => $label, 'cur_total' => $curTotal, 'avg' => $avg * 100, 'rows' => $list, 'unassigned' => 100 - array_sum($shares)];
         }
 
         $exp = [];
@@ -521,6 +545,28 @@ class ManagerConversion extends Page
         usort($out, fn ($a, $b) => $b['sec'] <=> $a['sec']);
 
         return $out;
+    }
+
+    /** «Інструкція» in the header of the «Кого на що ставити» block (full-screen modal). */
+    public function recommendationInstructionAction(): Action
+    {
+        return $this->instructionAction(
+            'recommendationInstruction',
+            'Кого на що ставити — як це працює',
+            'filament.pages.manager-conversion-recommendation-instruction',
+            [
+                'windowDays' => self::REC_WINDOW_DAYS,
+                'skipDays' => self::REC_SKIP_RECENT_DAYS,
+                'currentDays' => self::REC_CURRENT_DAYS,
+                'minLeads' => self::REC_MIN_LEADS,
+                'step' => self::REC_STEP,
+                'minShare' => self::REC_MIN_SHARE,
+                'callsHigh' => self::PHONE_CALLS_HIGH,
+                'callsLow' => self::PHONE_CALLS_LOW,
+                'norm' => self::LEADS_PER_DAY_NORM,
+                'noChange' => self::REC_NOCHANGE_PP,
+            ],
+        );
     }
 
     protected function getViewData(): array

@@ -64,52 +64,153 @@
     </style>
 
     @if (count($recommendations) > 0)
-        <x-filament::section heading="Кого на що ставити" description="Рекомендований розподіл заявок за джерелом, на основі конверсії заявка → замовлення (90 днів без останніх 14)">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem">
+        <style>
+            .mc-rec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: 2rem; }
+            .mc-rec-cols { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.15fr); gap: .5rem 1rem; align-items: start; }
+            .mc-rec-source { padding: .6rem .9rem; border-left: 4px solid var(--primary-500); background: color-mix(in srgb, var(--primary-500) 14%, transparent); border-radius: .25rem; font-size: 1.05rem; font-weight: 700; }
+            .mc-rec-source span { font-size: .85rem; font-weight: 600; margin-left: .5rem; }
+            .mc-rec-head { padding: .6rem .9rem; font-weight: 700; font-size: .8rem; border-bottom: 2px solid rgba(127,127,127,.45); }
+            .mc-rec-head small { display: block; font-size: .7rem; font-weight: 400; margin-top: .15rem; }
+            .mc-rec-row { padding: .8rem .9rem; border-bottom: 1px solid rgba(127,127,127,.25); }
+            .mc-rec-big { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+            .mc-rec-sub { font-size: .75rem; margin-top: .2rem; }
+            .mc-rec-tip { cursor: help; display: block; }
+            .mc-rec-note { font-size: .85rem; line-height: 1.5; margin-bottom: 1.25rem; }
+            @media (max-width: 620px) { .mc-rec-grid { grid-template-columns: 1fr; } }
+        </style>
+
+        <x-filament::section heading="Кого на що ставити — рекомендація" description="Скільки заявок із кожного джерела краще віддавати кожному менеджеру">
+            <x-slot name="afterHeader">
+                {{ $this->recommendationInstructionAction }}
+            </x-slot>
+
+            <div class="mc-rec-note">
+                <strong>Це підказка, а не наказ:</strong> система нічого не перерозподіляє.
+                <strong>Навантаження</strong> тут — це частка заявок джерела, яку отримує менеджер.
+                Рекомендація спирається на конверсію заявки в замовлення за {{ \App\Filament\Pages\ManagerConversion::REC_WINDOW_DAYS }} днів і на телефонне навантаження.
+                Наведіть на рекомендоване число — побачите, чому воно таке.
+            </div>
+
+            <div class="mc-rec-grid">
                 @foreach ($recommendations as $rec)
                     <div>
-                        <div class="mc-label" style="margin-bottom:.6rem">
-                            {{ $rec['title'] }} · середня конверсія {{ number_format($rec['avg'], 1, ',', ' ') }}%
+                        <div class="mc-rec-source">
+                            {{ $rec['title'] }}
+                            <span>середня конверсія {{ number_format($rec['avg'], 1, ',', ' ') }}% · заявок за {{ \App\Filament\Pages\ManagerConversion::REC_CURRENT_DAYS }} днів: {{ $rec['cur_total'] }}</span>
                         </div>
+
+                        <div class="mc-rec-cols mc-rec-head">
+                            <div>Менеджер</div>
+                            <div>Поточне навантаження<small>частка заявок за {{ \App\Filament\Pages\ManagerConversion::REC_CURRENT_DAYS }} днів</small></div>
+                            <div>Рекомендоване навантаження<small>яку частку заявок віддавати</small></div>
+                            <div>Конверсія (факт)<small>заявка → замовлення, {{ \App\Filament\Pages\ManagerConversion::REC_WINDOW_DAYS }} днів</small></div>
+                        </div>
+
                         @foreach ($rec['rows'] as $r)
-                            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:.5rem 0;font-size:.875rem;border-top:1px solid rgba(127,127,127,.2);{{ $r['share'] === 0 ? 'opacity:.6' : '' }}">
-                                <span>
-                                    <strong style="font-size:1.05rem" class="{{ $r['share'] === 0 ? 'mc-bad' : '' }}">{{ $r['share'] }}%</strong>
-                                    &nbsp;{{ $r['name'] }}
+                            @php
+                                $zero = $r['share'] === 0;
+                                $delta = $r['delta'];
+                                $noChange = $delta !== null && abs($delta) < \App\Filament\Pages\ManagerConversion::REC_NOCHANGE_PP;
+                                $avgRate = $rec['avg'];
+                                $lv = $r['phone'] ? ['high' => ['mc-bad', 'високе'], 'mid' => ['mc-mid', 'помірне'], 'low' => ['mc-good', 'є запас']][$r['phone']['level']] : null;
+                                $pd = $r['phone'] ? number_format($r['phone']['per_day'], 1, ',', ' ') : null;
+                                $cd = \App\Filament\Pages\ManagerConversion::REC_CURRENT_DAYS;
+                                $wd = \App\Filament\Pages\ManagerConversion::REC_WINDOW_DAYS;
+
+                                // Hover text: what the number means and why it is what it is.
+                                $tip = '<strong>Це рекомендація, а не наказ.</strong><br>';
+                                if ($r['cur_share'] === null) {
+                                    $tip .= e($r['name']).': за останні '.$cd.' днів заявок із цього джерела не було. Рекомендовано '.$r['share'].'%.';
+                                } elseif ($noChange) {
+                                    $tip .= e($r['name']).': зараз '.$r['cur_share'].'% заявок ('.$r['cur_n'].' із '.$r['cur_total'].' за '.$cd.' днів), рекомендовано '.$r['share'].'%. Розподіл уже близький до рекомендованого — міняти не треба.';
+                                } else {
+                                    $tip .= e($r['name']).': зараз '.$r['cur_share'].'% заявок ('.$r['cur_n'].' із '.$r['cur_total'].' за '.$cd.' днів), рекомендовано '.$r['share'].'% — <strong>'.($delta > 0 ? 'збільшити' : 'зменшити').' на '.abs($delta).' п.п.</strong>';
+                                }
+                                $tip .= '<br><br>';
+                                if ($r['rate'] === null) {
+                                    $tip .= 'Чому: за '.$wd.' днів заявок із цього джерела не було, статистики немає.';
+                                } elseif (! $r['reliable']) {
+                                    $tip .= 'Чому: лише '.$r['n'].' заявок за '.$wd.' днів (потрібно від '.\App\Filament\Pages\ManagerConversion::REC_MIN_LEADS.'), статистика ненадійна — частку занижено, поки не набереться досвіду.';
+                                } else {
+                                    $tip .= 'Чому: конверсія '.number_format($r['rate'], 1, ',', ' ').'% ('.$r['conv'].' з '.$r['n'].' заявок), це '.($r['rate'] >= $avgRate ? 'вище' : 'нижче').' середньої '.number_format($avgRate, 1, ',', ' ').'%.';
+                                }
+                                if ($r['capped_from']) {
+                                    $tip .= '<br>Частку зменшено з '.$r['capped_from'].'%: '.e($r['name']).' вже приймає '.$pd.' дзвінків/день (межа '.\App\Filament\Pages\ManagerConversion::PHONE_CALLS_HIGH.'), решту отримують інші.';
+                                }
+                                if ($zero && $r['rate'] !== null && $r['reliable']) {
+                                    $tip .= '<br>Конверсія значно нижча за інших — із цього джерела заявки не віддавати.';
+                                }
+                            @endphp
+                            <div class="mc-rec-cols mc-rec-row">
+                                {{-- 1. Manager (+ phone calls for the call source) --}}
+                                <div>
+                                    <div style="font-weight:700">{{ $r['name'] }}</div>
                                     @if ($r['phone'])
-                                        @php
-                                            $lv = ['high' => ['mc-bad', 'високе'], 'mid' => ['mc-mid', 'помірне'], 'low' => ['mc-good', 'є запас']][$r['phone']['level']];
-                                        @endphp
-                                        <span style="display:block;font-size:.75rem;margin-top:.15rem">
-                                            ☎ {{ number_format($r['phone']['per_day'], 1, ',', ' ') }} дзвінків/день ·
-                                            <strong class="{{ $lv[0] }}">{{ $lv[1] }}</strong>
-                                            @if ($r['capped_from'])
-                                                · <span class="mc-mid">обмежено телефоном (без обмеження було {{ $r['capped_from'] }}%)</span>
+                                        <div class="mc-rec-sub">☎ {{ $pd }} дзвінків/день · <strong class="{{ $lv[0] }}">{{ $lv[1] }}</strong></div>
+                                    @endif
+                                </div>
+
+                                {{-- 2. Current load: actual share of the source's leads --}}
+                                <div>
+                                    @if ($r['cur_share'] === null)
+                                        <div class="mc-rec-big">—</div>
+                                        <div class="mc-rec-sub">заявок не було</div>
+                                    @else
+                                        <div class="mc-rec-big">{{ $r['cur_share'] }}%</div>
+                                        <div class="mc-rec-sub">{{ $r['cur_n'] }} із {{ $r['cur_total'] }} заявок</div>
+                                    @endif
+                                </div>
+
+                                {{-- 3. Recommended load --}}
+                                <div>
+                                    <span class="mc-rec-tip" tabindex="0" x-data x-tooltip="{ content: @js($tip), allowHTML: true, maxWidth: 360, theme: $store.theme }">
+                                        <span class="mc-rec-big {{ $zero ? 'mc-bad' : '' }}">{{ $r['share'] }}%</span>
+                                        <span class="mc-rec-sub" style="display:block">
+                                            @if ($zero)
+                                                <strong class="mc-bad">не віддавати</strong>
+                                            @elseif ($delta === null || $noChange)
+                                                <strong>без змін</strong>
+                                            @elseif ($delta > 0)
+                                                <strong class="mc-good">▲ збільшити на {{ $delta }} п.п.</strong>
+                                            @else
+                                                <strong class="mc-mid">▼ зменшити на {{ abs($delta) }} п.п.</strong>
                                             @endif
                                         </span>
-                                    @endif
-                                </span>
-                                <span style="white-space:nowrap;font-size:.8rem;opacity:.75">
+                                        @if ($r['capped_from'])
+                                            <span class="mc-rec-sub mc-mid" style="display:block">обмежено телефоном (без цього було б {{ $r['capped_from'] }}%)</span>
+                                        @endif
+                                    </span>
+                                </div>
+
+                                {{-- 4. Fact: conversion over the window --}}
+                                <div>
                                     @if ($r['rate'] === null)
-                                        немає заявок
+                                        <div class="mc-rec-sub">немає заявок за {{ $wd }} днів</div>
                                     @else
-                                        {{ number_format($r['rate'], 1, ',', ' ') }}% · {{ $r['conv'] }} з {{ $r['n'] }}{{ $r['reliable'] ? '' : ' · мало даних' }}
+                                        <div class="mc-rec-big">{{ number_format($r['rate'], 1, ',', ' ') }}%</div>
+                                        <div class="mc-rec-sub">{{ $r['conv'] }} з {{ $r['n'] }} заявок стали замовленням</div>
+                                        @if ($r['reliable'])
+                                            <div class="mc-rec-sub"><strong class="{{ $r['rate'] >= $avgRate ? 'mc-good' : 'mc-bad' }}">{{ $r['rate'] >= $avgRate ? '▲ вище середньої' : '▼ нижче середньої' }}</strong></div>
+                                        @else
+                                            <div class="mc-rec-sub mc-mid"><strong>⚠ мало даних</strong> (менше {{ \App\Filament\Pages\ManagerConversion::REC_MIN_LEADS }} заявок)</div>
+                                        @endif
                                     @endif
-                                </span>
+                                </div>
                             </div>
                         @endforeach
+
                         @if (($rec['unassigned'] ?? 0) > 0)
-                            <div class="mc-foot mc-mid">Не розподілено {{ $rec['unassigned'] }}% — усі вже на межі телефонного навантаження</div>
+                            <div class="mc-rec-sub mc-mid" style="margin-top:.6rem">Не розподілено {{ $rec['unassigned'] }}% — усі вже на межі телефонного навантаження</div>
                         @endif
                     </div>
                 @endforeach
             </div>
 
-            <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid rgba(127,127,127,.2);font-size:.8rem">
-                <span style="opacity:.6">Очікується заявок на день при такому розподілі (норма {{ $norm }}):</span>
+            <div style="margin-top:1.5rem;padding-top:1rem;border-top:2px solid rgba(127,127,127,.45);font-size:.9rem">
+                <div style="font-weight:700;margin-bottom:.35rem">Заявок на день при рекомендованому розподілі (норма на людину — {{ $norm }})</div>
                 @foreach ($expected as $e)
-                    <span style="margin-left:.9rem;white-space:nowrap">{{ $e['name'] }}
-                        <strong class="{{ $e['over'] ? 'mc-bad' : '' }}">{{ number_format($e['per_day'], 1, ',', ' ') }}</strong></span>
+                    <span style="margin-right:1.4rem;white-space:nowrap">{{ $e['name'] }}
+                        <strong class="{{ $e['over'] ? 'mc-bad' : '' }}">{{ number_format($e['per_day'], 1, ',', ' ') }}</strong>{{ $e['over'] ? ' — вище норми' : '' }}</span>
                 @endforeach
             </div>
         </x-filament::section>
