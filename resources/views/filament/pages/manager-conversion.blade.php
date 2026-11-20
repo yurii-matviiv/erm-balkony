@@ -1,32 +1,76 @@
 <x-filament-panels::page>
 
-    <x-filament::section>
-        <div class="flex flex-wrap items-end gap-4">
-            <div class="flex flex-col gap-1">
-                <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Період</label>
-                <select wire:change="applyPreset($event.target.value)"
-                        class="block rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">
-                    @foreach ($presetOptions as $value => $label)
-                        <option value="{{ $value }}" @selected($preset === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
+    {{-- Quiet freshness note, pulled up into the top-right corner of the page header (same line as the title).
+         Zero-height wrapper + negative bottom margin (= the page's 2rem flex gap), so it takes no space and does not push the filter down.
+         Numbers are cached, see ManagerStatsService::CACHE_MINUTES. --}}
+    <div class="mc-fresh-wrap">
+        <div class="mc-fresh">
+            Дані оновлено о {{ \Carbon\Carbon::createFromTimestamp($computedAt)->timezone('Europe/Kyiv')->format('H:i') }} · оновлюються не частіше ніж раз на {{ \App\Services\ManagerConversion\ManagerStatsService::CACHE_MINUTES }} хв
+        </div>
+    </div>
+
+    {{-- Date filter drives most of the page, so it stays pinned at the top while scrolling. --}}
+    <div style="position:sticky;top:.5rem;z-index:30;box-shadow:0 6px 16px rgba(0,0,0,.12);border-radius:.75rem">
+    <x-filament::section compact>
+        <div class="flex flex-col gap-3">
+            <div class="flex flex-wrap items-end gap-4">
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $compare ? 'Період 1' : 'Період' }}</label>
+                    <select wire:change="applyPreset($event.target.value)"
+                            class="block rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">
+                        @foreach ($presetOptions as $value => $label)
+                            <option value="{{ $value }}" @selected($preset === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-500 dark:text-gray-400">З</label>
+                    <input type="date" wire:model.live="dateFrom" wire:change="dateChanged" value="{{ $dateFrom }}"
+                           class="block rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200" />
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-gray-500 dark:text-gray-400">По</label>
+                    <input type="date" wire:model.live="dateTo" wire:change="dateChanged" value="{{ $dateTo }}"
+                           class="block rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200" />
+                </div>
+                <label class="flex items-center gap-2 pb-2 text-sm" style="cursor:pointer">
+                    <input type="checkbox" wire:model.live="compare" class="fi-checkbox-input" />
+                    Порівняти періоди
+                </label>
+                @unless ($compare)
+                    @include('filament.pages.manager-conversion-picker', ['compare' => false, 'managerOptions' => $managerOptions, 'selectedManagers' => $selectedManagers, 'compareData' => null])
+                @endunless
             </div>
-            <div class="flex flex-col gap-1">
-                <label class="text-xs font-medium text-gray-500 dark:text-gray-400">З</label>
-                <input type="date" wire:model.live="dateFrom" wire:change="dateChanged" value="{{ $dateFrom }}"
-                       class="block rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200" />
-            </div>
-            <div class="flex flex-col gap-1">
-                <label class="text-xs font-medium text-gray-500 dark:text-gray-400">По</label>
-                <input type="date" wire:model.live="dateTo" wire:change="dateChanged" value="{{ $dateTo }}"
-                       class="block rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200" />
-            </div>
-            <div class="flex items-center pb-1 text-sm text-gray-400 dark:text-gray-500">
-                {{ \Carbon\Carbon::parse($dateFrom)->format('d.m.Y') }} — {{ \Carbon\Carbon::parse($dateTo)->format('d.m.Y') }}
-            </div>
+
+            @if ($compare)
+                <div class="flex flex-wrap items-end gap-4">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-medium text-gray-500 dark:text-gray-400">Період 2</label>
+                        <select wire:change="applyPreset2($event.target.value)"
+                                class="block rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">
+                            @foreach ($presetOptions as $value => $label)
+                                <option value="{{ $value }}" @selected($preset2 === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-medium text-gray-500 dark:text-gray-400">З</label>
+                        <input type="date" wire:model.live="dateFrom2" wire:change="dateChanged2" value="{{ $dateFrom2 }}"
+                               class="block rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-medium text-gray-500 dark:text-gray-400">По</label>
+                        <input type="date" wire:model.live="dateTo2" wire:change="dateChanged2" value="{{ $dateTo2 }}"
+                               class="block rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200" />
+                    </div>
+                    @include('filament.pages.manager-conversion-picker', ['compare' => true, 'managerOptions' => $managerOptions, 'selectedManagers' => $selectedManagers, 'compareData' => $compareData])
+                </div>
+            @endif
         </div>
     </x-filament::section>
+    </div>
 
+    @unless ($compare)
     <x-filament::section compact>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem 2rem;font-size:.85rem">
             <div>Реклама за період: <strong>{{ number_format($adSpend, 0, '.', ' ') }} ₴</strong></div>
@@ -37,6 +81,7 @@
             </div>
         </div>
     </x-filament::section>
+    @endunless
 
     {{-- Own CSS (not Tailwind utilities): new utility classes would need `npm run build`, and the
          built assets are what gets deployed. 4 cards per row on wide screens, 2 on medium, 1 on mobile. --}}
@@ -59,14 +104,52 @@
         .mc-bar-over > div { background: var(--danger-500); }
         .mc-bar { height: 6px; border-radius: 9999px; background: rgba(127,127,127,.25); margin-top: 1.1rem; overflow: hidden; }
         .mc-bar > div { height: 100%; border-radius: 9999px; background: var(--primary-500); }
+        /* Tighter gap between the page title and the filter (Filament's default is 2rem). */
+        .fi-page-header-main-ctn:has(.mc-fresh-wrap) { row-gap: .5rem !important; gap: .5rem !important; }
+        .mc-fresh-wrap { position: relative; height: 0; margin-bottom: -2rem; }
+        .mc-fresh { position: absolute; right: 0; top: -2.1rem; font-size: .7rem; color: rgb(156,163,175); white-space: nowrap; }
+        @media (max-width: 767px) { .mc-fresh-wrap { height: auto; margin-bottom: 0; } .mc-fresh { position: static; white-space: normal; } }
+        .mc-cmp-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+        @media (min-width: 900px) { .mc-cmp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .mc-block { margin-top: 3rem; }
+        .mc-block-plain { margin-bottom: 1.25rem; }
+        .mc-block-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; padding: .35rem 0 .35rem 1rem; border-left: 6px solid var(--primary-500); }
+        .mc-block-title { font-size: 1.6rem; font-weight: 800; line-height: 1.2; }
+        .mc-block-desc { margin-top: .3rem; font-size: .9rem; max-width: 60rem; }
         .mc-foot { margin-top: .75rem; font-size: .7rem; opacity: .55; }
         .mc-good { color: var(--success-600); } .mc-mid { color: var(--warning-600); } .mc-bad { color: var(--danger-600); }
     </style>
 
+    @if ($compare)
+        @include('filament.pages.manager-conversion-compare', ['compareData' => $compareData, 'norm' => $norm, 'budgetPercent' => $budgetPercent, 'binotelKey' => $binotelKey, 'binotelKey2' => $binotelKey2])
+    @else
+    <div class="mc-block mc-block-plain">
+        <div class="mc-block-head" style="margin-bottom:0">
+            <div>
+                <div class="mc-block-title">Конверсія менеджерів</div>
+                <div class="mc-block-desc">
+                    Розрахунок за вибраний угорі період:
+                    скільки заявок отримав кожен менеджер, скільки з них стали замовленням (конверсія), оборот, витрати на рекламу й завантаження заявками.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (count($managers) === 0)
+        <x-filament::section>
+            <div class="py-6 text-center text-sm text-gray-400">За цей період немає даних по менеджерах.</div>
+        </x-filament::section>
+    @else
+        <div class="mc-grid">
+            @foreach ($managers as $m)
+                @include('filament.pages.manager-conversion-card', ['m' => $m, 'norm' => $norm, 'budgetPercent' => $budgetPercent])
+            @endforeach
+        </div>
+    @endif
+
     @if (count($recommendations) > 0)
         <style>
-            .mc-rec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: 2rem; }
-            .mc-rec-cols { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.15fr); gap: .5rem 1rem; align-items: start; }
+                        .mc-rec-cols { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.15fr); gap: .5rem 1rem; align-items: start; }
             .mc-rec-source { padding: .6rem .9rem; border-left: 4px solid var(--primary-500); background: color-mix(in srgb, var(--primary-500) 14%, transparent); border-radius: .25rem; font-size: 1.05rem; font-weight: 700; }
             .mc-rec-source span { font-size: .85rem; font-weight: 600; margin-left: .5rem; }
             .mc-rec-head { padding: .6rem .9rem; font-weight: 700; font-size: .8rem; border-bottom: 2px solid rgba(127,127,127,.45); }
@@ -76,46 +159,67 @@
             .mc-rec-sub { font-size: .75rem; margin-top: .2rem; }
             .mc-rec-tip { cursor: help; display: block; }
             .mc-rec-note { font-size: .85rem; line-height: 1.5; margin-bottom: 1.25rem; }
-            @media (max-width: 620px) { .mc-rec-grid { grid-template-columns: 1fr; } }
         </style>
 
-        <x-filament::section heading="Кого на що ставити — рекомендація" description="Скільки заявок із кожного джерела краще віддавати кожному менеджеру">
-            <x-slot name="afterHeader">
-                {{ $this->recommendationInstructionAction }}
-            </x-slot>
+        <div class="mc-block">
+        <div class="mc-block-head">
+            <div>
+                <div class="mc-block-title">Розподіл заявок між менеджерами — рекомендація</div>
+                <div class="mc-block-desc">Кому з менеджерів скільки заявок віддавати. Окремо для дзвінків і для заявок із сайту (реклами). Не залежить від вибраного періоду.</div>
+            </div>
+            <div>{{ $this->recommendationInstructionAction }}</div>
+        </div>
+        <x-filament::section>
 
             <div class="mc-rec-note">
+                @if (count($selectedManagers) > 0)
+                    <strong>Показано лише: {{ implode(', ', $selectedManagers) }}.</strong> Частки розраховані серед усіх менеджерів, тому сума показаних рядків може бути не 100%.
+                @endif
                 <strong>Це підказка, а не наказ:</strong> система нічого не перерозподіляє.
                 <strong>Навантаження</strong> тут — це частка заявок джерела, яку отримує менеджер.
-                Рекомендація спирається на конверсію заявки в замовлення за {{ \App\Filament\Pages\ManagerConversion::REC_WINDOW_DAYS }} днів і на телефонне навантаження.
+                Рекомендація спирається на конверсію заявки в замовлення за {{ \App\Services\ManagerConversion\RecommendationService::REC_WINDOW_DAYS }} днів і на телефонне навантаження.
                 Наведіть на рекомендоване число — побачите, чому воно таке.
             </div>
 
-            <div class="mc-rec-grid">
+            {{-- One source at a time. Tabs switch client-side (Alpine, x-show): both sources are rendered once with the page,
+                 so clicking a tab does NOT trigger a Livewire round-trip / recalculation. --}}
+            <div x-data="{ tab: @js($recommendations[0]['key']) }">
+            <x-filament::tabs style="margin-bottom:1rem">
                 @foreach ($recommendations as $rec)
-                    <div>
+                    <x-filament::tabs.item
+                        :alpine-active="'tab === \''.$rec['key'].'\''"
+                        :badge="$rec['cur_total']"
+                        x-on:click="tab = '{{ $rec['key'] }}'">
+                        {{ $rec['title'] }}
+                    </x-filament::tabs.item>
+                @endforeach
+            </x-filament::tabs>
+
+            <div>
+                @foreach ($recommendations as $rec)
+                    <div x-show="tab === '{{ $rec['key'] }}'" @if (! $loop->first) x-cloak @endif>
                         <div class="mc-rec-source">
                             {{ $rec['title'] }}
-                            <span>середня конверсія {{ number_format($rec['avg'], 1, ',', ' ') }}% · заявок за {{ \App\Filament\Pages\ManagerConversion::REC_CURRENT_DAYS }} днів: {{ $rec['cur_total'] }}</span>
+                            <span>середня конверсія {{ number_format($rec['avg'], 1, ',', ' ') }}% · заявок за {{ \App\Services\ManagerConversion\RecommendationService::REC_CURRENT_DAYS }} днів: {{ $rec['cur_total'] }}</span>
                         </div>
 
                         <div class="mc-rec-cols mc-rec-head">
                             <div>Менеджер</div>
-                            <div>Поточне навантаження<small>частка заявок за {{ \App\Filament\Pages\ManagerConversion::REC_CURRENT_DAYS }} днів</small></div>
+                            <div>Поточне навантаження<small>частка заявок за {{ \App\Services\ManagerConversion\RecommendationService::REC_CURRENT_DAYS }} днів</small></div>
                             <div>Рекомендоване навантаження<small>яку частку заявок віддавати</small></div>
-                            <div>Конверсія (факт)<small>заявка → замовлення, {{ \App\Filament\Pages\ManagerConversion::REC_WINDOW_DAYS }} днів</small></div>
+                            <div>Конверсія (факт)<small>заявка → замовлення, {{ \App\Services\ManagerConversion\RecommendationService::REC_WINDOW_DAYS }} днів</small></div>
                         </div>
 
                         @foreach ($rec['rows'] as $r)
                             @php
                                 $zero = $r['share'] === 0;
                                 $delta = $r['delta'];
-                                $noChange = $delta !== null && abs($delta) < \App\Filament\Pages\ManagerConversion::REC_NOCHANGE_PP;
+                                $noChange = $delta !== null && abs($delta) < \App\Services\ManagerConversion\RecommendationService::REC_NOCHANGE_PP;
                                 $avgRate = $rec['avg'];
                                 $lv = $r['phone'] ? ['high' => ['mc-bad', 'високе'], 'mid' => ['mc-mid', 'помірне'], 'low' => ['mc-good', 'є запас']][$r['phone']['level']] : null;
                                 $pd = $r['phone'] ? number_format($r['phone']['per_day'], 1, ',', ' ') : null;
-                                $cd = \App\Filament\Pages\ManagerConversion::REC_CURRENT_DAYS;
-                                $wd = \App\Filament\Pages\ManagerConversion::REC_WINDOW_DAYS;
+                                $cd = \App\Services\ManagerConversion\RecommendationService::REC_CURRENT_DAYS;
+                                $wd = \App\Services\ManagerConversion\RecommendationService::REC_WINDOW_DAYS;
 
                                 // Hover text: what the number means and why it is what it is.
                                 $tip = '<strong>Це рекомендація, а не наказ.</strong><br>';
@@ -130,12 +234,12 @@
                                 if ($r['rate'] === null) {
                                     $tip .= 'Чому: за '.$wd.' днів заявок із цього джерела не було, статистики немає.';
                                 } elseif (! $r['reliable']) {
-                                    $tip .= 'Чому: лише '.$r['n'].' заявок за '.$wd.' днів (потрібно від '.\App\Filament\Pages\ManagerConversion::REC_MIN_LEADS.'), статистика ненадійна — частку занижено, поки не набереться досвіду.';
+                                    $tip .= 'Чому: лише '.$r['n'].' заявок за '.$wd.' днів (потрібно від '.\App\Services\ManagerConversion\RecommendationService::REC_MIN_LEADS.'), статистика ненадійна — частку занижено, поки не набереться досвіду.';
                                 } else {
                                     $tip .= 'Чому: конверсія '.number_format($r['rate'], 1, ',', ' ').'% ('.$r['conv'].' з '.$r['n'].' заявок), це '.($r['rate'] >= $avgRate ? 'вище' : 'нижче').' середньої '.number_format($avgRate, 1, ',', ' ').'%.';
                                 }
                                 if ($r['capped_from']) {
-                                    $tip .= '<br>Частку зменшено з '.$r['capped_from'].'%: '.e($r['name']).' вже приймає '.$pd.' дзвінків/день (межа '.\App\Filament\Pages\ManagerConversion::PHONE_CALLS_HIGH.'), решту отримують інші.';
+                                    $tip .= '<br>Частку зменшено з '.$r['capped_from'].'%: '.e($r['name']).' вже приймає '.$pd.' дзвінків/день (межа '.\App\Services\ManagerConversion\RecommendationService::PHONE_CALLS_HIGH.'), решту отримують інші.';
                                 }
                                 if ($zero && $r['rate'] !== null && $r['reliable']) {
                                     $tip .= '<br>Конверсія значно нижча за інших — із цього джерела заявки не віддавати.';
@@ -192,7 +296,7 @@
                                         @if ($r['reliable'])
                                             <div class="mc-rec-sub"><strong class="{{ $r['rate'] >= $avgRate ? 'mc-good' : 'mc-bad' }}">{{ $r['rate'] >= $avgRate ? '▲ вище середньої' : '▼ нижче середньої' }}</strong></div>
                                         @else
-                                            <div class="mc-rec-sub mc-mid"><strong>⚠ мало даних</strong> (менше {{ \App\Filament\Pages\ManagerConversion::REC_MIN_LEADS }} заявок)</div>
+                                            <div class="mc-rec-sub mc-mid"><strong>⚠ мало даних</strong> (менше {{ \App\Services\ManagerConversion\RecommendationService::REC_MIN_LEADS }} заявок)</div>
                                         @endif
                                     @endif
                                 </div>
@@ -206,6 +310,8 @@
                 @endforeach
             </div>
 
+            </div>
+
             <div style="margin-top:1.5rem;padding-top:1rem;border-top:2px solid rgba(127,127,127,.45);font-size:.9rem">
                 <div style="font-weight:700;margin-bottom:.35rem">Заявок на день при рекомендованому розподілі (норма на людину — {{ $norm }})</div>
                 @foreach ($expected as $e)
@@ -214,9 +320,17 @@
                 @endforeach
             </div>
         </x-filament::section>
+        </div>
     @endif
 
-    <x-filament::section heading="Телефонне навантаження (Binotel)" description="Розмови менеджерів за вибраний період: вхідні прийняті та вихідні з дозвоном">
+    <div class="mc-block">
+    <div class="mc-block-head">
+        <div>
+            <div class="mc-block-title">Телефонне навантаження (Binotel)</div>
+            <div class="mc-block-desc">Розмови менеджерів за вибраний угорі період: вхідні прийняті та вихідні з дозвоном.</div>
+        </div>
+    </div>
+    <x-filament::section>
         <div wire:key="binotel-{{ $binotelKey }}" wire:init="loadBinotel">
             @if ($binotelState === null)
                 <div style="font-size:.85rem;opacity:.6">Завантаження з Binotel… (телефонне навантаження в рекомендаціях зверху з'явиться після цього)</div>
@@ -258,72 +372,7 @@
             @endif
         </div>
     </x-filament::section>
-
-    @if (count($managers) === 0)
-        <x-filament::section>
-            <div class="py-6 text-center text-sm text-gray-400">За цей період немає даних по менеджерах.</div>
-        </x-filament::section>
-    @else
-        <div class="mc-grid">
-            @foreach ($managers as $m)
-                @php
-                    $rateClass = $m['rate'] >= 30 ? 'mc-good' : ($m['rate'] >= 15 ? 'mc-mid' : 'mc-bad');
-                @endphp
-                <x-filament::section>
-                    <div class="mc-name" title="{{ $m['name'] }}">{{ $m['name'] }}</div>
-
-                    <div class="mc-metrics">
-                        <div>
-                            <div class="mc-label">Заявок</div>
-                            <div class="mc-value">{{ number_format($m['leads'], 0, '.', ' ') }}</div>
-                        </div>
-                        <div>
-                            <div class="mc-label">В замовлення</div>
-                            <div class="mc-value">{{ number_format($m['converted'], 0, '.', ' ') }}</div>
-                        </div>
-                        <div>
-                            <div class="mc-label">Конверсія</div>
-                            <div class="mc-value {{ $rateClass }}">{{ number_format($m['rate'], 1, '.', ' ') }}%</div>
-                        </div>
-                        <div>
-                            <div class="mc-label">Оборот</div>
-                            <div class="mc-value mc-good">{{ number_format($m['turnover'], 0, '.', ' ') }} ₴</div>
-                        </div>
-                    </div>
-
-                    <div class="mc-result">
-                        <div>
-                            <div class="mc-label">Витрати на рекламу для менеджера</div>
-                            <div class="mc-sub">{{ number_format($m['ad_cost'], 0, '.', ' ') }} / {{ number_format($m['ad_budget'], 0, '.', ' ') }} ₴</div>
-                            <div style="font-size:.8rem;margin-top:.15rem">
-                                <strong class="{{ ($m['drr'] ?? 0) > $budgetPercent ? 'mc-bad' : 'mc-good' }}">{{ $m['drr'] === null ? '—' : number_format($m['drr'], 1, ',', ' ').'%' }}</strong>
-                                <span style="opacity:.6">від обороту</span>
-                            </div>
-                        </div>
-                        <div style="text-align:right">
-                            <div class="mc-label">Результат</div>
-                            <div class="mc-value {{ $m['result'] >= 0 ? 'mc-good' : 'mc-bad' }}">{{ $m['result'] >= 0 ? '+' : '−' }}{{ number_format(abs($m['result']), 0, '.', ' ') }} ₴</div>
-                        </div>
-                    </div>
-
-                    @php
-                        $loadLabel = ['low' => 'Низьке · є запас', 'ok' => 'Нормальне', 'full' => 'На межі', 'over' => 'Перевантаження', 'none' => '—'][$m['load_level']];
-                        $loadClass = ['low' => 'mc-low', 'ok' => 'mc-good', 'full' => 'mc-mid', 'over' => 'mc-bad', 'none' => ''][$m['load_level']];
-                    @endphp
-                    <div class="mc-load">
-                        <div class="mc-label">Навантаження (заявок / робочий день)</div>
-                        <div class="mc-load-head">
-                            <span><strong>{{ $m['per_day'] === null ? '—' : number_format($m['per_day'], 1, ',', ' ') }}</strong> з {{ $norm }} · пік дня: {{ $m['peak'] }}</span>
-                            <strong class="{{ $loadClass }}">{{ $loadLabel }}{{ $m['load'] !== null ? ' · '.$m['load'].'%' : '' }}</strong>
-                        </div>
-                        <div class="mc-bar mc-bar-{{ $m['load_level'] }}"><div style="width: {{ min(100, $m['load'] ?? 0) }}%"></div></div>
-                    </div>
-
-                    <div class="mc-bar"><div style="width: {{ min(100, $m['rate']) }}%"></div></div>
-                    <div class="mc-foot">Замовлень за період: {{ number_format($m['orders'], 0, '.', ' ') }}</div>
-                </x-filament::section>
-            @endforeach
-        </div>
+    </div>
     @endif
 
 </x-filament-panels::page>

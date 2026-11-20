@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Log;
  *
  * Binotel limits request frequency (error 106), so a period is fetched in
  * 14-day chunks with a pause, and every chunk is cached: finished chunks
- * for a day, the chunk containing today for 10 minutes.
+ * for a day, the chunk containing today for 5 minutes (the end of the period is
+ * rounded down to 5 minutes, so the cache key stays the same within that window).
  */
 class BinotelCallLoadService
 {
@@ -29,10 +30,11 @@ class BinotelCallLoadService
     /**
      * @return array{ok:bool,error?:string,employees?:array<string,array{name:string,in_answered:int,in_talk_sec:int,out_answered:int,out_attempts:int,out_talk_sec:int}>}
      */
-    public function forPeriod(string $from, string $to): array
+    public function forPeriod(string $from, string $to, bool $fresh = false): array
     {
         $start = Carbon::parse($from, self::TZ)->startOfDay();
-        $end = min(Carbon::parse($to, self::TZ)->endOfDay(), Carbon::now(self::TZ));
+        // Rounded down: with a raw now() the cache key of the current chunk changed on every call and never hit.
+        $end = min(Carbon::parse($to, self::TZ)->endOfDay(), Carbon::now(self::TZ)->floorMinutes(5));
 
         if ($start->diffInDays($end) > self::MAX_DAYS) {
             return ['ok' => false, 'error' => 'Для Binotel оберіть період не довше '.self::MAX_DAYS.' днів.'];
@@ -55,7 +57,7 @@ class BinotelCallLoadService
                 $chunkEnd = min($cursor->copy()->addDays(self::CHUNK_DAYS)->subSecond(), $end);
 
                 foreach (['incoming' => 'stats/incoming-calls-for-period', 'outgoing' => 'stats/outgoing-calls-for-period'] as $dir => $method) {
-                    $calls = $this->chunk($account, $method, $dir, $cursor->timestamp, $chunkEnd->timestamp);
+                    $calls = $this->chunk($account, $method, $dir, $cursor->timestamp, $chunkEnd->timestamp, $fresh);
 
                     foreach ($calls as $c) {
                         $name = $c['employeeData']['name'] ?? null;
@@ -95,13 +97,17 @@ class BinotelCallLoadService
     }
 
     /** @return list<array<string,mixed>> */
-    private function chunk(BinotelAccount $account, string $method, string $dir, int $startTs, int $stopTs): array
+    private function chunk(BinotelAccount $account, string $method, string $dir, int $startTs, int $stopTs, bool $fresh = false): array
     {
         $finished = $stopTs < now()->subHour()->timestamp;
 
+        if ($fresh && ! $finished) {
+            Cache::forget("binotel:calls:{$dir}:{$startTs}:{$stopTs}");
+        }
+
         return Cache::remember(
             "binotel:calls:{$dir}:{$startTs}:{$stopTs}",
-            $finished ? now()->addDay() : now()->addMinutes(10),
+            $finished ? now()->addDay() : now()->addMinutes(5),
             function () use ($account, $method, $startTs, $stopTs): array {
                 for ($try = 0; $try < 3; $try++) {
                     $r = Http::timeout(40)->asJson()->post(self::BASE_URL.'/'.$method.'.json', [

@@ -8,7 +8,7 @@
 3. У blade блока: `<x-slot name="afterHeader">{{ $this->fooInstructionAction }}</x-slot>` всередині `<x-filament::section>`.
 4. Текст — у `resources/views/filament/pages/foo-instruction.blade.php`. Числа (межі, дні, пороги) брати з констант класу, а не писати руками — інструкція не має розходитись з кодом.
 
-Приклади: «Кого на що ставити» (`ManagerConversion`), вкладка «Заміри» (`Reminders`).
+Приклади: «Розподіл заявок між менеджерами» (`ManagerConversion`), вкладка «Заміри» (`Reminders`).
 
 ## Структура тексту інструкції
 1. Що показує блок (2–3 речення; чи це рекомендація, чи факт).
