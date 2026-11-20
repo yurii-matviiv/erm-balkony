@@ -21,7 +21,7 @@ class Lead extends Model
     protected function casts(): array
     {
         return [
-            // NULL = не вказано, 1/0 = так/ні
+            // NULL = не вказано, 0 = ні, 1–7 = статус по програмі (restorationProgramOptions)
             'is_restoration_program' => 'integer',
         ];
     }
@@ -130,6 +130,27 @@ class Lead extends Model
             'binotel_call' => 'Замовили callback',
             'fb_lead_ads' => 'Заявка - Fb лід',
             'fb_chat' => 'Заявка - Fb чат',
+        ];
+    }
+
+    /**
+     * «Програма Відновлення» (leads.is_restoration_program). NULL = ще не питали клієнта.
+     * Ті самі числа зберігає стара CRM — не змінювати без узгодження з нею.
+     * 0 = звичайне замовлення; 1–7 = заявка по програмі та її статус (далі замовлення ведеться звичайним шляхом).
+     *
+     * @return array<int, string>
+     */
+    public static function restorationProgramOptions(): array
+    {
+        return [
+            0 => 'ні, не по програмі',
+            1 => 'нова: по програмі, ще не оброблена',
+            2 => 'думає',
+            3 => 'чекає комісію або гроші',
+            4 => 'в роботі (гроші є)',
+            5 => 'ігнорує',
+            6 => 'відмова: дорого',
+            7 => 'відмова: не підходить програма',
         ];
     }
 

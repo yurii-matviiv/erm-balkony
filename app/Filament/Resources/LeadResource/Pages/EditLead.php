@@ -354,7 +354,7 @@ class EditLead extends EditRecord
 
                         Select::make('is_restoration_program')
                             ->label('Програма «Відновлення»')
-                            ->options([1 => 'так, по програмі', 0 => 'ні, звичайне замовлення'])
+                            ->options(Lead::restorationProgramOptions())
                             ->placeholder('не вказано (запитайте клієнта)')
                             ->live(),
 
