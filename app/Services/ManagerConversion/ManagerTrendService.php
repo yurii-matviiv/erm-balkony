@@ -15,20 +15,29 @@ use Illuminate\Support\Facades\DB;
  */
 final class ManagerTrendService
 {
-    public const DAILY_MAX_DAYS = 31;
-
-    public const WEEKLY_MAX_DAYS = 140;
-
     /** Fewer points than this make a correlation meaningless. */
     public const MIN_POINTS = 5;
 
     /**
-     * @return array{step:string,stepLabel:string,points:list<array<string,mixed>>,correlation:?float,maxLeads:int,maxRate:float,maxTurnover:float}
+     * Rolling window (days) behind every point of the lines: single days jump around (weekends, empty days),
+     * a window shows the actual trend. Longer periods get a longer window.
+     */
+    public static function windowDays(int $periodDays): int
+    {
+        return match (true) {
+            $periodDays <= 60 => 7,
+            $periodDays <= 180 => 14,
+            default => 30,
+        };
+    }
+
+    /**
+     * @return array{window:int,points:list<array<string,mixed>>,correlation:?float,corrPoints:int,min:array<string,float>,max:array<string,float>}
      */
     public function forManager(int $managerId, string $from, string $to): array
     {
         return Cache::remember(
-            "manager-conversion:trend:v1:{$managerId}:{$from}:{$to}",
+            "manager-conversion:trend:v2:{$managerId}:{$from}:{$to}",
             now()->addMinutes(ManagerStatsService::CACHE_MINUTES),
             fn () => $this->build($managerId, $from, $to),
         );
@@ -36,7 +45,14 @@ final class ManagerTrendService
 
     private function build(int $managerId, string $from, string $to): array
     {
-        $start = $from.' 00:00:00';
+        // Days in the future carry nothing yet: drawing them would be a flat line at zero.
+        $to = min($to, now()->toDateString());
+        $periodDays = Carbon::parse($from)->diffInDays(Carbon::parse($to)) + 1;
+        $window = self::windowDays($periodDays);
+
+        // Load extra days before the start so the first point already has a full window.
+        $loadFrom = Carbon::parse($from)->subDays($window - 1)->toDateString();
+        $start = $loadFrom.' 00:00:00';
         $end = $to.' 23:59:59';
 
         $leads = DB::table('leads')
@@ -58,61 +74,66 @@ final class ManagerTrendService
             ->get()
             ->keyBy('d');
 
-        $days = Carbon::parse($from)->diffInDays(Carbon::parse($to)) + 1;
-        [$step, $stepLabel] = match (true) {
-            $days <= self::DAILY_MAX_DAYS => ['day', 'по днях'],
-            $days <= self::WEEKLY_MAX_DAYS => ['week', 'по тижнях'],
-            default => ['month', 'по місяцях'],
-        };
-
-        $buckets = [];
-        for ($d = Carbon::parse($from); $d->toDateString() <= $to; $d->addDay()) {
-            $key = match ($step) {
-                'day' => $d->toDateString(),
-                'week' => $d->copy()->startOfWeek()->toDateString(),
-                default => $d->copy()->startOfMonth()->toDateString(),
-            };
-            $row = $leads->get($d->toDateString());
-            $buckets[$key] ??= ['start' => max($key, $from), 'end' => $d->toDateString(), 'leads' => 0, 'converted' => 0, 'turnover' => 0.0];
-            $buckets[$key]['end'] = $d->toDateString();
-            $buckets[$key]['leads'] += (int) ($row->leads ?? 0);
-            $buckets[$key]['converted'] += (int) ($row->converted ?? 0);
-            $buckets[$key]['turnover'] += (float) ($orders->get($d->toDateString())->turnover ?? 0);
+        $daily = [];
+        for ($d = Carbon::parse($loadFrom); $d->toDateString() <= $to; $d->addDay()) {
+            $k = $d->toDateString();
+            $daily[] = [
+                'date' => $k,
+                'leads' => (int) ($leads->get($k)->leads ?? 0),
+                'converted' => (int) ($leads->get($k)->converted ?? 0),
+                'turnover' => (float) ($orders->get($k)->turnover ?? 0),
+            ];
         }
 
-        $points = array_values(array_map(function (array $b) use ($step): array {
-            $b['rate'] = $b['leads'] > 0 ? round($b['converted'] / $b['leads'] * 100, 1) : null;
-            $b['label'] = match ($step) {
-                'day' => Carbon::parse($b['start'])->format('d.m'),
-                'week' => Carbon::parse($b['start'])->format('d.m').'–'.Carbon::parse($b['end'])->format('d.m'),
-                default => Carbon::parse($b['start'])->translatedFormat('M Y'),
-            };
+        $points = [];
+        for ($i = $window - 1; $i < count($daily); $i++) {
+            $slice = array_slice($daily, $i - $window + 1, $window);
+            $l = array_sum(array_column($slice, 'leads'));
+            $c = array_sum(array_column($slice, 'converted'));
+            $points[] = [
+                'date' => $daily[$i]['date'],
+                'label' => Carbon::parse($daily[$i]['date'])->format('d.m'),
+                'from' => $slice[0]['date'],
+                'leads' => $l,
+                'converted' => $c,
+                // conversion of the whole window (sum / sum), not an average of daily percentages
+                'rate' => $l > 0 ? round($c / $l * 100, 1) : null,
+                'turnover' => array_sum(array_column($slice, 'turnover')),
+            ];
+        }
 
-            return $b;
-        }, $buckets));
+        $series = ['leads', 'rate', 'turnover'];
+        $min = $max = [];
+        foreach ($series as $k) {
+            $vals = array_values(array_filter(array_column($points, $k), fn ($v) => $v !== null));
+            $min[$k] = $vals ? (float) min($vals) : 0.0;
+            $max[$k] = $vals ? (float) max($vals) : 0.0;
+        }
+
+        // Correlation on real single days (only those with leads), without the smoothing: smoothing would inflate it.
+        $inPeriod = array_values(array_filter($daily, fn ($d) => $d['date'] >= $from));
 
         return [
-            'step' => $step,
-            'stepLabel' => $stepLabel,
+            'window' => $window,
             'points' => $points,
-            'correlation' => $this->correlation($points),
-            'maxLeads' => (int) max(1, ...array_column($points, 'leads')),
-            'maxRate' => (float) max(1, ...array_map(fn ($p) => $p['rate'] ?? 0, $points)),
-            'maxTurnover' => (float) max(1, ...array_column($points, 'turnover')),
+            'correlation' => $this->correlation($inPeriod),
+            'corrPoints' => count(array_filter($inPeriod, fn ($d) => $d['leads'] > 0)),
+            'min' => $min,
+            'max' => $max,
         ];
     }
 
-    /** Pearson correlation between leads and conversion % over points that have leads. */
-    private function correlation(array $points): ?float
+    /** Pearson correlation between leads per day and that day's conversion %, over days that have leads. */
+    private function correlation(array $days): ?float
     {
-        $pairs = array_values(array_filter($points, fn ($p) => $p['leads'] > 0 && $p['rate'] !== null));
+        $pairs = array_values(array_filter($days, fn ($d) => $d['leads'] > 0));
         $n = count($pairs);
         if ($n < self::MIN_POINTS) {
             return null;
         }
 
         $x = array_column($pairs, 'leads');
-        $y = array_column($pairs, 'rate');
+        $y = array_map(fn ($d) => $d['converted'] / $d['leads'] * 100, $pairs);
         $mx = array_sum($x) / $n;
         $my = array_sum($y) / $n;
         $sxy = $sxx = $syy = 0.0;
