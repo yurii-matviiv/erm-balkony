@@ -76,6 +76,16 @@ class SeoSnapshotService
         $trackedQ = $this->trackedSet('top_query', $refreshTop, $persist, fn () => $this->topKeys($queries, 'query'));
         foreach ($trackedQ as $item) {
             $rows[] = $this->row('top_query', '', $item, $byQuery[$item] ?? $this->zero());
+
+            // З яких сторінок слово приходить (до 5 найсильніших): основа сторінки аналізу слова.
+            if (isset($byQuery[$item])) {
+                $qp = $this->sc->query($s, $e, ['page'], 5, [
+                    ['dimension' => 'query', 'operator' => 'equals', 'expression' => $item],
+                ]);
+                foreach ($qp as $r) {
+                    $rows[] = $this->row('query_page', $r['keys'][0], $item, $this->metrics($r));
+                }
+            }
         }
 
         return $rows;

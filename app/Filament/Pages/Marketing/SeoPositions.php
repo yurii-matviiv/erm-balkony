@@ -8,6 +8,7 @@ use App\Services\Seo\SeoReportService;
 use App\Services\Seo\SeoSnapshotService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -62,7 +63,7 @@ class SeoPositions extends Page implements HasTable
         return collect($this->snapshotDates())->mapWithKeys(fn ($d) => [$d => Carbon::parse($d)->format('d.m.Y')])->all();
     }
 
-    private const SCOPE_TABS = ['new_page', 'top_page', 'top_query'];
+    private const SCOPE_TABS = ['new_page', 'new_page_query', 'top_page', 'top_query'];
 
     /** @return array<string,string> */
     public function getTabs(): array
@@ -70,6 +71,7 @@ class SeoPositions extends Page implements HasTable
         return [
             'changes' => 'Що змінилось',
             'new_page' => 'Нові сторінки',
+            'new_page_query' => 'Запити нових сторінок',
             'top_page' => 'Топ-30 сторінок',
             'top_query' => 'Топ-30 запитів',
             'index' => 'Індексація',
@@ -89,6 +91,16 @@ class SeoPositions extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('analyzeWord')
+                ->label('Аналіз слова')
+                ->icon('heroicon-o-key')
+                ->color('gray')
+                ->modalHeading('Аналіз ключового слова')
+                ->modalDescription('Будь-яке слово чи фраза — дані беруться з Google Search Console.')
+                ->modalSubmitActionLabel('Відкрити')
+                ->schema([TextInput::make('keyword')->label('Слово або фраза (точно, як у Google)')->required()])
+                ->action(fn (array $data) => $this->redirect(SeoKeyword::getUrl(['q' => trim($data['keyword'])]))),
+
             $this->instructionAction('seoInstruction', 'SEO: позиції Google — як це працює', 'filament.pages.marketing.seo-positions-instruction', [
                 'positionChange' => config('seo.position_change'),
                 'impressionsPct' => config('seo.impressions_change_pct'),
@@ -163,9 +175,11 @@ class SeoPositions extends Page implements HasTable
                     'appeared' => 'success', 'lost_query' => 'danger', default => 'warning',
                 }),
             TextColumn::make('label')
-                ->label(fn (): string => $this->activeTab === 'top_query' ? 'Запит' : 'Сторінка / запит')
-                ->wrap()->searchable()->visible($on('changes', 'new_page', 'top_page', 'top_query'))
-                ->description(fn (array $record): ?string => $record['top_queries'] ?? null),
+                ->label(fn (): string => in_array($this->activeTab, ['top_query', 'new_page_query'], true) ? 'Запит' : 'Сторінка / запит')
+                ->wrap()->searchable()->visible($on('changes', 'new_page', 'new_page_query', 'top_page', 'top_query'))
+                ->description(fn (array $record): ?string => $record['top_queries'] ?? null)
+                // Запит → окрема сторінка аналізу слова.
+                ->url(fn (array $record): ?string => isset($record['keyword']) ? SeoKeyword::getUrl(['q' => $record['keyword']]) : null),
             TextColumn::make('text')->label('Зміна')->wrap()->visible($on('changes')),
 
             // Індексація
@@ -238,6 +252,12 @@ class SeoPositions extends Page implements HasTable
         $now = DB::table('seo_position_snapshots')->where('scope', $scope)->where('snapshot_date', $date)->get();
         $prev = $prevDate ? DB::table('seo_position_snapshots')->where('scope', $scope)->where('snapshot_date', $prevDate)->get()->keyBy($key) : collect();
 
+        // Головна сторінка запиту (найбільше показів) — для «звідки це слово».
+        $mainPage = in_array($scope, ['top_query'], true)
+            ? DB::table('seo_position_snapshots')->where('scope', 'query_page')->where('snapshot_date', $date)
+                ->orderByDesc('impressions')->get()->groupBy('query')->map(fn ($g) => $g->first())
+            : collect();
+
         $queries = $scope === 'new_page'
             ? DB::table('seo_position_snapshots')->where('scope', 'new_page_query')->where('snapshot_date', $date)
                 ->orderByDesc('impressions')->get()->groupBy('page')
@@ -249,15 +269,20 @@ class SeoPositions extends Page implements HasTable
                 ? round((float) $r->position - (float) $p->position, 1) : null;
 
             return [
-                'label' => $scope === 'top_query' ? $r->query : $r->page,
+                'label' => in_array($scope, ['top_query', 'new_page_query'], true) ? $r->query : $r->page,
+                'keyword' => in_array($scope, ['top_query', 'new_page_query'], true) ? $r->query : null,
                 'impressions' => (int) $r->impressions,
                 'clicks' => (int) $r->clicks,
                 'position' => $r->position,
                 'prev_position' => $p?->position,
                 'delta' => $delta,
-                'top_queries' => isset($queries[$r->page])
+                'top_queries' => $scope === 'new_page_query'
+                    ? 'Сторінка: '.(parse_url($r->page, PHP_URL_PATH) ?: $r->page)
+                    : ($scope === 'top_query' && isset($mainPage[$r->query])
+                        ? 'Головна сторінка: '.(parse_url($mainPage[$r->query]->page, PHP_URL_PATH) ?: $mainPage[$r->query]->page)
+                        : (isset($queries[$r->page])
                     ? 'Топ-запити: '.$queries[$r->page]->take(5)->map(fn ($q) => $q->query.' ('.$q->position.')')->implode('; ')
-                    : null,
+                    : null)),
             ];
         })->sortBy([['clicks', 'desc'], ['impressions', 'desc']])->values();
     }
