@@ -62,6 +62,6 @@ class SeoReportService
 
     private function ev(string $type, object $row, string $label, string $text): array
     {
-        return ['type' => $type, 'scope' => $row->scope, 'label' => $label, 'text' => $text];
+        return ['type' => $type, 'scope' => $row->scope, 'label' => $label, 'text' => $text, 'keyword' => $row->scope === 'top_query' ? $row->query : null];
     }
 }

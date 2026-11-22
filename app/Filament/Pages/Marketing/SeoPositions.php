@@ -4,10 +4,12 @@ namespace App\Filament\Pages\Marketing;
 
 use App\Filament\Concerns\HasInstructionModal;
 use App\Filament\Concerns\RequiresViewPermission;
+use App\Services\Seo\SeoExclusionService;
 use App\Services\Seo\SeoReportService;
 use App\Services\Seo\SeoSnapshotService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -52,6 +54,9 @@ class SeoPositions extends Page implements HasTable
     /** Вибраний знімок (дата) — завжди видимий рядок над таблицею. */
     public ?string $snapshot = null;
 
+    /** Ховати виключені ключові слова (за замовчуванням увімкнено). */
+    public bool $hideExcluded = true;
+
     public function mount(): void
     {
         $this->snapshot = $this->snapshotDates()[0] ?? null;
@@ -75,8 +80,14 @@ class SeoPositions extends Page implements HasTable
             'top_page' => 'Топ-30 сторінок',
             'top_query' => 'Топ-30 запитів',
             'prospects' => 'Перспективні слова',
+            'excluded' => 'Виключені слова',
             'index' => 'Індексація',
         ];
+    }
+
+    public function excludedCount(): int
+    {
+        return app(SeoExclusionService::class)->count();
     }
 
     public function setTab(string $tab): void
@@ -92,6 +103,19 @@ class SeoPositions extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('addExcluded')
+                ->label('Додати виключені слова')
+                ->icon('heroicon-o-plus')
+                ->visible(fn (): bool => $this->activeTab === 'excluded')
+                ->modalHeading('Виключити ключові слова')
+                ->modalDescription('Вони лише ховаються у списках (точний збіг фрази); у знімках дані лишаються.')
+                ->modalSubmitActionLabel('Додати')
+                ->schema([Textarea::make('words')->label('Слова — по одному в рядок')->rows(6)->required()])
+                ->action(function (array $data): void {
+                    $n = app(SeoExclusionService::class)->add(preg_split('/\R/u', (string) $data['words']), 'manual');
+                    Notification::make()->title("Додано: {$n}")->success()->send();
+                }),
+
             Action::make('analyzeWord')
                 ->label('Аналіз слова')
                 ->icon('heroicon-o-key')
@@ -153,6 +177,15 @@ class SeoPositions extends Page implements HasTable
             ->records(fn (?string $search, ?string $sortColumn, ?string $sortDirection): Collection => $this->records($this->activeTab, $search, $sortColumn, $sortDirection))
             ->striped()
             ->paginated(false)
+            ->recordActions([
+                Action::make('restore')->label('Повернути')->icon('heroicon-o-arrow-uturn-left')->color('gray')
+                    ->visible(fn (): bool => $this->activeTab === 'excluded')
+                    ->requiresConfirmation()
+                    ->modalHeading('Повернути слово у списки?')
+                    ->action(function (array $record): void {
+                        app(SeoExclusionService::class)->remove((int) $record['id']);
+                    }),
+            ])
             ->columns($this->columns())
             ->emptyStateHeading('Даних ще немає')
             ->emptyStateDescription(fn (): string => match ($this->activeTab) {
@@ -176,8 +209,8 @@ class SeoPositions extends Page implements HasTable
                     'appeared' => 'success', 'lost_query' => 'danger', default => 'warning',
                 }),
             TextColumn::make('label')
-                ->label(fn (): string => in_array($this->activeTab, ['top_query', 'new_page_query', 'prospects'], true) ? 'Запит' : 'Сторінка / запит')
-                ->wrap()->searchable()->visible($on('changes', 'new_page', 'new_page_query', 'top_page', 'top_query', 'prospects'))
+                ->label(fn (): string => $this->activeTab === 'excluded' ? 'Слово' : (in_array($this->activeTab, ['top_query', 'new_page_query', 'prospects'], true) ? 'Запит' : 'Сторінка / запит'))
+                ->wrap()->searchable()->visible($on('changes', 'new_page', 'new_page_query', 'top_page', 'top_query', 'prospects', 'excluded'))
                 ->description(fn (array $record): ?string => $record['top_queries'] ?? null)
                 // Запит → окрема сторінка аналізу слова.
                 ->url(fn (array $record): ?string => isset($record['keyword']) ? SeoKeyword::getUrl(['q' => $record['keyword']]) : null),
@@ -188,6 +221,9 @@ class SeoPositions extends Page implements HasTable
                     'Закріплене' => 'info', 'Майже на вершині' => 'success', 'Межа 1-ї сторінки' => 'warning', default => 'gray',
                 }),
             TextColumn::make('potential')->label('Потенціал, кліків/міс')->numeric(1)->sortable()->visible($on('prospects')),
+
+            TextColumn::make('source_label')->label('Додано')->badge()->visible($on('excluded')),
+            TextColumn::make('added_at')->label('Дата')->visible($on('excluded')),
 
             // Індексація
             TextColumn::make('page')->label('Сторінка')->wrap()->searchable()->visible($on('index')),
@@ -223,6 +259,13 @@ class SeoPositions extends Page implements HasTable
             $labels = ['appeared' => 'З’явилась у видачі', 'position' => 'Зміна позиції', 'impressions' => 'Зміна показів', 'lost_query' => 'Втрачений запит'];
             $rows = collect(app(SeoReportService::class)->changes($this->snapshot)['events'])
                 ->map(fn (array $e): array => $e + ['type_label' => $labels[$e['type']] ?? $e['type']]);
+        } elseif ($tab === 'excluded') {
+            $rows = DB::table('seo_excluded_keywords')->whereNull('deleted_at')->orderByDesc('id')->get()
+                ->map(fn ($r): array => [
+                    'id' => $r->id, 'label' => $r->keyword, 'keyword' => $r->keyword,
+                    'source_label' => $r->source === 'auto' ? 'Автоматично' : 'Вручну',
+                    'added_at' => Carbon::parse($r->created_at)->format('d.m.Y'),
+                ]);
         } elseif ($tab === 'index') {
             $chosen = $this->snapshot;
             $last = DB::table('seo_index_status')->when($chosen, fn ($q) => $q->where('snapshot_date', '<=', $chosen))->max('snapshot_date')
@@ -231,6 +274,11 @@ class SeoPositions extends Page implements HasTable
                 ->map(fn ($r): array => (array) $r);
         } else {
             $rows = $tab === 'prospects' ? $this->prospectRows($this->snapshot) : $this->scopeRows($tab, $this->snapshot);
+        }
+
+        if ($this->hideExcluded && $tab !== 'excluded') {
+            $ex = app(SeoExclusionService::class)->hashes();
+            $rows = $rows->reject(fn (array $r): bool => ! empty($r['keyword']) && isset($ex[sha1(SeoExclusionService::norm($r['keyword']))]));
         }
 
         if (filled($search)) {

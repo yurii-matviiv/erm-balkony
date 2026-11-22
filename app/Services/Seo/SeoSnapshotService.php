@@ -113,6 +113,9 @@ class SeoSnapshotService
         ['start' => $s, 'end' => $e] = $this->period();
         $today = Carbon::today()->toDateString();
 
+        // Нові слова про ремонт/регулювання вікон автоматично потрапляють у виключені.
+        app(SeoExclusionService::class)->autoAdd(array_unique(array_filter(array_column($rows, 'query'))));
+
         foreach ($rows as $r) {
             DB::table('seo_position_snapshots')->updateOrInsert(
                 ['snapshot_date' => $today, 'scope' => $r['scope'], 'page_hash' => $r['page_hash'], 'query_hash' => $r['query_hash']],
