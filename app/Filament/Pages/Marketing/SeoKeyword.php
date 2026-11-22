@@ -112,6 +112,7 @@ class SeoKeyword extends Page implements HasTable
         return $table
             ->records(fn (?string $sortColumn, ?string $sortDirection): Collection => $this->records($sortColumn, $sortDirection))
             ->striped()
+            ->persistSortInSession() // стандартне запам'ятовування сортування Filament (сесія)
             ->paginated(false)
             ->columns([
                 TextColumn::make('label')

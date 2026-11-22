@@ -189,6 +189,7 @@ class SeoPositions extends Page implements HasTable
         return $table
             ->records(fn (?string $search, ?string $sortColumn, ?string $sortDirection): Collection => $this->records($this->activeTab, $search, $sortColumn, $sortDirection))
             ->striped()
+            ->persistSortInSession() // стандартне запам'ятовування сортування Filament (сесія)
             ->paginated(false)
             ->recordActions([
                 Action::make('restore')->label('Повернути')->icon('heroicon-o-arrow-uturn-left')->color('gray')
