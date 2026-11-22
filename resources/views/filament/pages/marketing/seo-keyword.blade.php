@@ -15,9 +15,5 @@
         <p class="text-sm text-gray-500 dark:text-gray-400">Заявки й замовлення зі сторінок, на яких слово ранжується (за адресою сторінки в маркетингових даних заявки). Це не заявки саме по цьому слову: Google не передає слово в заявку, лише сторінку.</p>
     @endif
 
-    {{-- Шапка таблиці залипає при гортанні (стандартний компонент, як на лідах і замовленнях). --}}
-    @include('filament.components.sticky-table-header')
-    <div class="sticky-table-header">
-        {{ $this->table }}
-    </div>
+    {{ $this->table }}
 </x-filament-panels::page>

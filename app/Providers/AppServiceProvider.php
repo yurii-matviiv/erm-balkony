@@ -52,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
             PanelsRenderHook::STYLES_AFTER,
             fn (): string => view('filament.components.filled-badge-styles')->render()
                 .view('filament.components.table-header-styles')->render()
+                .view('filament.components.sticky-table-header')->render()
                 .view('filament.components.tabs-styles')->render().view('filament.components.page-width-styles')->render(),
         );
 

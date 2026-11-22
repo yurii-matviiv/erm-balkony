@@ -3,8 +3,7 @@
     між групами — помітний проміжок кольору сторінки, а рядок періоду — кольорова смуга з акцентом ліворуч.
 --}}
 <x-filament-panels::page>
-    @include('filament.components.sticky-table-header')
-    <div class="salary-module sticky-table-header">
+    <div class="salary-module">
         {{ $this->table }}
     </div>
 
