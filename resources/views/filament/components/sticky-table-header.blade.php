@@ -26,6 +26,18 @@
         background: var(--table-header-line);
     }
 
+
+    /* Таблиця вміщується по ширині → справжній position: sticky (без стрибків: браузер сам тримає шапку на compositor-рівні).
+       Для цього контейнери між таблицею й обгорткою не мають бути scroll-контейнерами: overflow: clip (кути картки лишаються обрізаними). */
+    .sticky-table-header .sticky-clip {
+        overflow: clip !important;
+    }
+
+    .sticky-table-header .sticky-native table.fi-ta-table thead th {
+        position: sticky;
+        top: var(--sticky-top, 0px);
+        transform: none;
+    }
 </style>
 
 <script>
@@ -46,6 +58,26 @@
                 var head = table && table.tHead;
 
                 if (! head) {
+                    return;
+                }
+
+                // Вміщується по ширині — вмикаємо нативний sticky (плавно); широка таблиця лишається на зсуві (translateY).
+                var wrap = box.closest('.sticky-table-header');
+                var fits = table.offsetWidth <= box.clientWidth + 1;
+                var topbar = document.querySelector('.fi-topbar');
+                // Відступ зверху = висота закріпленого топбара (якщо він є й залипає), інакше 0.
+                var tbPos = topbar ? getComputedStyle(topbar).position : '';
+                table.style.setProperty('--sticky-top', ((tbPos === 'sticky' || tbPos === 'fixed') ? Math.round(topbar.getBoundingClientRect().height) : 0) + 'px');
+
+                if (fits !== box.classList.contains('sticky-native')) {
+                    box.classList.toggle('sticky-native', fits);
+                    for (var el = box; el && el !== wrap; el = el.parentElement) {
+                        el.classList.toggle('sticky-clip', fits);
+                    }
+                }
+
+                if (fits) {
+                    table.style.setProperty('--thead-offset', '0px');
                     return;
                 }
 
