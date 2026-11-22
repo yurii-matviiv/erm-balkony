@@ -14,7 +14,6 @@ use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -48,6 +47,20 @@ class SeoPositions extends Page implements HasTable
     protected string $view = 'filament.pages.marketing.seo-positions';
 
     public string $activeTab = 'changes';
+
+    /** Вибраний знімок (дата) — завжди видимий рядок над таблицею. */
+    public ?string $snapshot = null;
+
+    public function mount(): void
+    {
+        $this->snapshot = $this->snapshotDates()[0] ?? null;
+    }
+
+    /** @return array<string,string> дата => підпис */
+    public function snapshotOptions(): array
+    {
+        return collect($this->snapshotDates())->mapWithKeys(fn ($d) => [$d => Carbon::parse($d)->format('d.m.Y')])->all();
+    }
 
     private const SCOPE_TABS = ['new_page', 'top_page', 'top_query'];
 
@@ -124,16 +137,7 @@ class SeoPositions extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->records(fn (?string $search, ?string $sortColumn, ?string $sortDirection, ?array $filters): Collection => $this->records($this->activeTab, $search, $sortColumn, $sortDirection, $filters))
-            ->filters([
-                SelectFilter::make('snapshot')
-                    ->label('Знімок')
-                    ->options(fn (): array => collect($this->snapshotDates())->mapWithKeys(fn ($d) => [$d => Carbon::parse($d)->format('d.m.Y')])->all())
-                    ->default($this->snapshotDates()[0] ?? null)
-                    ->selectablePlaceholder(false)
-                    ->indicateUsing(fn (): array => []),
-            ])
-            ->deferFilters(false)
+            ->records(fn (?string $search, ?string $sortColumn, ?string $sortDirection): Collection => $this->records($this->activeTab, $search, $sortColumn, $sortDirection))
             ->striped()
             ->paginated(false)
             ->columns($this->columns())
@@ -192,20 +196,20 @@ class SeoPositions extends Page implements HasTable
         return DB::table('seo_position_snapshots')->distinct()->orderByDesc('snapshot_date')->pluck('snapshot_date')->all();
     }
 
-    private function records(string $tab, ?string $search, ?string $sortColumn, ?string $sortDirection, ?array $filters): Collection
+    private function records(string $tab, ?string $search, ?string $sortColumn, ?string $sortDirection): Collection
     {
         if ($tab === 'changes') {
             $labels = ['appeared' => 'З’явилась у видачі', 'position' => 'Зміна позиції', 'impressions' => 'Зміна показів', 'lost_query' => 'Втрачений запит'];
-            $rows = collect(app(SeoReportService::class)->changes($filters['snapshot']['value'] ?? null)['events'])
+            $rows = collect(app(SeoReportService::class)->changes($this->snapshot)['events'])
                 ->map(fn (array $e): array => $e + ['type_label' => $labels[$e['type']] ?? $e['type']]);
         } elseif ($tab === 'index') {
-            $chosen = $filters['snapshot']['value'] ?? null;
+            $chosen = $this->snapshot;
             $last = DB::table('seo_index_status')->when($chosen, fn ($q) => $q->where('snapshot_date', '<=', $chosen))->max('snapshot_date')
                 ?? DB::table('seo_index_status')->max('snapshot_date');
             $rows = DB::table('seo_index_status')->where('snapshot_date', $last)->orderBy('page')->get()
                 ->map(fn ($r): array => (array) $r);
         } else {
-            $rows = $this->scopeRows($tab, $filters['snapshot']['value'] ?? null);
+            $rows = $this->scopeRows($tab, $this->snapshot);
         }
 
         if (filled($search)) {
