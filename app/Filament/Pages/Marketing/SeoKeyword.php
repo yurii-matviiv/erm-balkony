@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages\Marketing;
 
+use App\Filament\Concerns\PersistsPageState;
 use App\Filament\Concerns\RequiresViewPermission;
 use App\Filament\Widgets\SeoKeywordStats;
 use App\Services\Seo\SeoKeywordService;
@@ -26,6 +27,7 @@ use Livewire\Attributes\Url;
 class SeoKeyword extends Page implements HasTable
 {
     use InteractsWithTable;
+    use PersistsPageState;
     use RequiresViewPermission;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-key';
@@ -43,6 +45,17 @@ class SeoKeyword extends Page implements HasTable
     public string $keyword = '';
 
     public string $activeTab = 'pages';
+
+    public function mount(): void
+    {
+        $this->restorePageState();
+    }
+
+    /** Остання вкладка слова (саме слово — в адресі ?q=). */
+    protected function persistedState(): array
+    {
+        return ['activeTab' => array_keys($this->getTabs())];
+    }
 
     public function getTitle(): string
     {

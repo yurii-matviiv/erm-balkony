@@ -3,6 +3,7 @@
 namespace App\Filament\Pages\Marketing;
 
 use App\Filament\Concerns\HasInstructionModal;
+use App\Filament\Concerns\PersistsPageState;
 use App\Filament\Concerns\RequiresViewPermission;
 use App\Services\Seo\SeoExclusionService;
 use App\Services\Seo\SeoReportService;
@@ -31,6 +32,7 @@ class SeoPositions extends Page implements HasTable
 {
     use HasInstructionModal;
     use InteractsWithTable;
+    use PersistsPageState;
     use RequiresViewPermission;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-magnifying-glass-circle';
@@ -60,6 +62,17 @@ class SeoPositions extends Page implements HasTable
     public function mount(): void
     {
         $this->snapshot = $this->snapshotDates()[0] ?? null;
+        $this->restorePageState();
+    }
+
+    /** Що пам'ятати між візитами: вкладка, знімок, галочка приховування. */
+    protected function persistedState(): array
+    {
+        return [
+            'activeTab' => array_keys($this->getTabs()),
+            'snapshot' => $this->snapshotDates(),
+            'hideExcluded' => [true, false],
+        ];
     }
 
     /** @return array<string,string> дата => підпис */
