@@ -78,7 +78,8 @@ class SeoKeywordService
     /** Історія слова зі знімків (позиція, покази, кліки) + сторінки, зафіксовані знімками. */
     public function history(string $keyword): array
     {
-        $rows = DB::table('seo_position_snapshots')->where('scope', 'top_query')->where('query', $keyword)->orderBy('snapshot_date')->get();
+        $rows = DB::table('seo_position_snapshots')->whereIn('scope', ['top_query', 'query_all'])->where('query', $keyword)->orderBy('snapshot_date')->get()
+            ->unique('snapshot_date')->values();
         $pages = DB::table('seo_position_snapshots')->where('scope', 'query_page')->where('query', $keyword)->orderBy('snapshot_date')->get()->groupBy('snapshot_date');
 
         $prev = null;
@@ -91,7 +92,7 @@ class SeoKeywordService
                 'label' => \Illuminate\Support\Carbon::parse($r->snapshot_date)->format('d.m.Y'),
                 'impressions' => (int) $r->impressions, 'clicks' => (int) $r->clicks, 'ctr' => (float) $r->ctr,
                 'position' => $r->position, 'delta' => $delta,
-                'sub' => $top ? 'Головна сторінка: '.$this->path($top->page) : null,
+                'sub' => $top ? 'Головна сторінка: '.$this->path($top->page) : ($r->page ? 'Головна сторінка: '.$this->path($r->page) : null),
             ];
             $prev = $r;
         }

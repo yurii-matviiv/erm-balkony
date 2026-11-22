@@ -88,6 +88,22 @@ class SeoSnapshotService
             }
         }
 
+        // 4) Усі запити сайту + головна сторінка кожного (вкладка «Перспективні слова»), плюс закріплені слова.
+        $mainPage = [];
+        foreach ($this->sc->query($s, $e, ['query', 'page'], 5000) as $r) {
+            $q = $r['keys'][0];
+            if (! isset($mainPage[$q]) || $r['impressions'] > $mainPage[$q]['impressions']) {
+                $mainPage[$q] = ['page' => $r['keys'][1], 'impressions' => $r['impressions']];
+            }
+        }
+        $all = $byQuery;
+        foreach ((array) config('seo.pinned_queries') as $pin) {
+            $all[$pin] ??= $this->zero();
+        }
+        foreach ($all as $q => $m) {
+            $rows[] = $this->row('query_all', $mainPage[$q]['page'] ?? '', (string) $q, $m);
+        }
+
         return $rows;
     }
 

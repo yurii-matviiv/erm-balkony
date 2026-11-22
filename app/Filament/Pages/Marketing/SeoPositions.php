@@ -63,7 +63,7 @@ class SeoPositions extends Page implements HasTable
         return collect($this->snapshotDates())->mapWithKeys(fn ($d) => [$d => Carbon::parse($d)->format('d.m.Y')])->all();
     }
 
-    private const SCOPE_TABS = ['new_page', 'new_page_query', 'top_page', 'top_query'];
+    private const SCOPE_TABS = ['new_page', 'new_page_query', 'top_page', 'top_query', 'prospects'];
 
     /** @return array<string,string> */
     public function getTabs(): array
@@ -74,6 +74,7 @@ class SeoPositions extends Page implements HasTable
             'new_page_query' => 'Запити нових сторінок',
             'top_page' => 'Топ-30 сторінок',
             'top_query' => 'Топ-30 запитів',
+            'prospects' => 'Перспективні слова',
             'index' => 'Індексація',
         ];
     }
@@ -175,12 +176,18 @@ class SeoPositions extends Page implements HasTable
                     'appeared' => 'success', 'lost_query' => 'danger', default => 'warning',
                 }),
             TextColumn::make('label')
-                ->label(fn (): string => in_array($this->activeTab, ['top_query', 'new_page_query'], true) ? 'Запит' : 'Сторінка / запит')
-                ->wrap()->searchable()->visible($on('changes', 'new_page', 'new_page_query', 'top_page', 'top_query'))
+                ->label(fn (): string => in_array($this->activeTab, ['top_query', 'new_page_query', 'prospects'], true) ? 'Запит' : 'Сторінка / запит')
+                ->wrap()->searchable()->visible($on('changes', 'new_page', 'new_page_query', 'top_page', 'top_query', 'prospects'))
                 ->description(fn (array $record): ?string => $record['top_queries'] ?? null)
                 // Запит → окрема сторінка аналізу слова.
                 ->url(fn (array $record): ?string => isset($record['keyword']) ? SeoKeyword::getUrl(['q' => $record['keyword']]) : null),
             TextColumn::make('text')->label('Зміна')->wrap()->visible($on('changes')),
+
+            TextColumn::make('group')->label('Група')->badge()->visible($on('prospects'))
+                ->color(fn (?string $state): string => match ($state) {
+                    'Закріплене' => 'info', 'Майже на вершині' => 'success', 'Межа 1-ї сторінки' => 'warning', default => 'gray',
+                }),
+            TextColumn::make('potential')->label('Потенціал, кліків/міс')->numeric(1)->sortable()->visible($on('prospects')),
 
             // Індексація
             TextColumn::make('page')->label('Сторінка')->wrap()->searchable()->visible($on('index')),
@@ -223,7 +230,7 @@ class SeoPositions extends Page implements HasTable
             $rows = DB::table('seo_index_status')->where('snapshot_date', $last)->orderBy('page')->get()
                 ->map(fn ($r): array => (array) $r);
         } else {
-            $rows = $this->scopeRows($tab, $this->snapshot);
+            $rows = $tab === 'prospects' ? $this->prospectRows($this->snapshot) : $this->scopeRows($tab, $this->snapshot);
         }
 
         if (filled($search)) {
@@ -235,6 +242,66 @@ class SeoPositions extends Page implements HasTable
         }
 
         return $rows->values();
+    }
+
+    /** Перспективні слова: усі запити знімка з групою й потенціалом кліків. */
+    private function prospectRows(?string $date): Collection
+    {
+        $dates = $this->snapshotDates();
+        $date = in_array($date, $dates, true) ? $date : ($dates[0] ?? null);
+        if (! $date) {
+            return collect();
+        }
+        $prevDate = $dates[array_search($date, $dates, true) + 1] ?? null;
+        $min = (int) config('seo.min_impressions');
+        $minImp = (int) config('seo.prospect_min_impressions');
+        $target = (int) config('seo.prospect_target_position');
+        $bench = config('seo.ctr_benchmark');
+        $ctrAt = fn (float $p): float => $bench[(int) max(1, min(10, round($p)))] ?? $bench['rest'];
+        $pinned = array_map('mb_strtolower', (array) config('seo.pinned_queries'));
+
+        $prev = $prevDate ? DB::table('seo_position_snapshots')->where('scope', 'query_all')->where('snapshot_date', $prevDate)->get()->keyBy('query_hash') : collect();
+
+        return DB::table('seo_position_snapshots')->where('scope', 'query_all')->where('snapshot_date', $date)->get()
+            ->map(function ($r) use ($prev, $min, $minImp, $target, $ctrAt, $bench, $pinned): ?array {
+                $isPinned = in_array(mb_strtolower($r->query), $pinned, true);
+                $pos = $r->position === null ? null : (float) $r->position;
+                if (! $isPinned && ($pos === null || $r->impressions < $minImp || $pos > 20)) {
+                    return null;
+                }
+                $ctr = (float) $r->ctr;
+                if ($pos === null) {
+                    $group = 'Закріплене';
+                    $potential = 0.0;
+                } elseif ($pos > $target) {
+                    $group = $isPinned ? 'Закріплене' : ($pos <= 10 ? 'Майже на вершині' : 'Межа 1-ї сторінки');
+                    $potential = max(0.0, $r->impressions * ($ctrAt($target) - ($pos > 10 ? $bench['rest'] : $ctrAt($pos))));
+                } else {
+                    // Вже в топ-3: резерв лише якщо реальний CTR нижчий за типовий для позиції.
+                    $gap = $ctrAt($pos) - $ctr;
+                    if (! $isPinned && $gap <= 0.02) {
+                        return null;
+                    }
+                    $group = $isPinned ? 'Закріплене' : 'Низький CTR у топ-3';
+                    $potential = max(0.0, $r->impressions * $gap);
+                }
+                $p = $prev[$r->query_hash] ?? null;
+                $delta = ($p && $pos !== null && $p->position !== null && $r->impressions >= $min && $p->impressions >= $min)
+                    ? round($pos - (float) $p->position, 1) : null;
+
+                return [
+                    'label' => $r->query,
+                    'keyword' => $r->query,
+                    'top_queries' => $r->page ? 'Сторінка: '.(parse_url($r->page, PHP_URL_PATH) ?: $r->page) : null,
+                    'group' => $group,
+                    'impressions' => (int) $r->impressions,
+                    'clicks' => (int) $r->clicks,
+                    'position' => $r->position,
+                    'prev_position' => $p?->position,
+                    'delta' => $delta,
+                    'potential' => round($potential, 1),
+                ];
+            })->filter()->sortByDesc('potential')->values();
     }
 
     /** Рядки вибраного знімка + порівняння з попереднім. */
