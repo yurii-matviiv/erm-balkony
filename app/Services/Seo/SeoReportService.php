@@ -8,9 +8,11 @@ use Illuminate\Support\Facades\DB;
 class SeoReportService
 {
     /** @return array{current: ?string, previous: ?string, events: list<array<string,mixed>>} */
-    public function changes(): array
+    public function changes(?string $date = null): array
     {
-        $dates = DB::table('seo_position_snapshots')->distinct()->orderByDesc('snapshot_date')->limit(2)->pluck('snapshot_date')->all();
+        $all = DB::table('seo_position_snapshots')->distinct()->orderByDesc('snapshot_date')->pluck('snapshot_date')->all();
+        $from = ($date !== null && in_array($date, $all, true)) ? array_search($date, $all, true) : 0;
+        $dates = array_slice($all, $from, 2);
         if (count($dates) < 2) {
             return ['current' => $dates[0] ?? null, 'previous' => null, 'events' => []];
         }
