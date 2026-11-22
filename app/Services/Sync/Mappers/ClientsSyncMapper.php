@@ -59,7 +59,7 @@ class ClientsSyncMapper extends AbstractSyncMapper
             ['old' => 'viber', 'new' => 'viber', 'note' => 'копіюється як є'],
             ['old' => 'address', 'new' => 'address', 'note' => 'копіюється як є'],
             ['old' => 'comment', 'new' => 'comment', 'note' => 'копіюється як є'],
-            ['old' => 'caller_type', 'new' => 'caller_type', 'note' => 'клієнт / постачальник / спам / інше — копіюється як є'],
+            ['old' => 'caller_type', 'new' => 'caller_type', 'note' => 'клієнт / постачальник / спам / інше — копіюється як є (тип «Шукає роботу» є лише в новій ERM і синхронізацією не перезаписується)'],
             ['old' => 'who_added_user_id', 'new' => 'manager_id', 'note' => 'переводиться на новий ID через legacy_id; якщо менеджер ще не синхронізований — залишається пустим'],
             ['old' => 'created_at', 'new' => 'created_at', 'note' => 'дата створення зберігається оригінальна'],
         ];
@@ -76,6 +76,12 @@ class ClientsSyncMapper extends AbstractSyncMapper
         $explicitId = (int) $oldRow[$this->oldPrimaryKey];
 
         if ($existed) {
+            // «Шукає роботу» (job_seeker) існує лише в новій ERM: стара CRM про нього не знає
+            // і при кожній синхронізації затерла б його своїм значенням, тож не чіпаємо.
+            if (DB::table($this->newTable())->where('legacy_id', $newData['legacy_id'])->value('caller_type') === 'job_seeker') {
+                unset($newData['caller_type']);
+            }
+
             DB::table($this->newTable())
                 ->where('legacy_id', $newData['legacy_id'])
                 ->update($newData);

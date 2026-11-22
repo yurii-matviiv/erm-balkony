@@ -6,6 +6,6 @@
             Прийняти
         </x-filament::button>
     @else
-        <span style="font-weight:600;">{{ $getState() }}</span>
+        <span style="font-size:.875rem; line-height:1.25rem; font-weight:400;">{{ $getState() }}</span>
     @endif
 </div>

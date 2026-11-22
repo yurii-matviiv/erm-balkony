@@ -1,5 +1,11 @@
 <x-filament-panels::page>
 
+    {{-- Компактна шапка списку заявок: з мінімальним верхнім відступом (5px) і з малим проміжком між заголовком і фільтром дат. --}}
+    <style>
+        .fi-resource-leads.fi-resource-list-records-page .fi-page-header-main-ctn { padding-top: 5px; padding-bottom: 1rem; row-gap: .5rem; }
+        .fi-resource-leads.fi-resource-list-records-page .fi-page-content { row-gap: 1rem; }
+    </style>
+
     {{-- If we arrived here via the "Додати заявку" sidebar shortcut
          (?create=1), open the create modal as soon as Livewire/Alpine has
          finished hydrating. $wire is an Alpine magic that resolves to the

@@ -37,6 +37,40 @@ class ListLeads extends ListRecords
         }
     }
 
+    /**
+     * Заголовок сторінки. Для адміністратора поруч дрібним текстом — дата й час найновішої заявки в базі
+     * (щоб знати, яка копія бази зараз працює); у тому ж рядку, макет не змінюється. Менеджерам — звичайний заголовок.
+     */
+    public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable
+    {
+        $heading = parent::getHeading();
+
+        if (! in_array(auth()->user()?->getActiveRoleName(), ['Адмін', 'super_admin'], true)) {
+            return $heading;
+        }
+
+        try {
+            $newest = \Illuminate\Support\Facades\DB::table('leads')->max('created_at');
+        } catch (\Throwable) {
+            return $heading;
+        }
+
+        if (! $newest) {
+            return $heading;
+        }
+
+        $date = \Illuminate\Support\Carbon::parse($newest);
+        $weekday = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'][$date->dayOfWeekIso - 1];
+        $title = $heading instanceof \Illuminate\Contracts\Support\Htmlable ? $heading->toHtml() : e($heading);
+
+        return new \Illuminate\Support\HtmlString(
+            $title
+            .' <span style="font-size:.7rem;font-weight:400;opacity:.65;margin-left:.75rem;white-space:nowrap;vertical-align:middle">'
+            .'Заявка в базі від: '.e($weekday.' '.$date->format('d.m').' -- '.$date->format('H:i'))
+            .'</span>'
+        );
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -62,13 +96,26 @@ class ListLeads extends ListRecords
                 ->label('Додати заявку')
                 ->modalHeading('Нова заявка')
                 ->modalWidth('2xl')
+                ->createAnother(false)
                 ->mutateFormDataUsing(function (array $data): array {
                     // Whoever is creating the lead is the manager handling
                     // it by default — not exposed as a visible field, just
                     // recorded for future per-manager funnel analytics.
                     $data['manager_id'] ??= auth()->id();
 
+                    // «Тип контакту» належить клієнту, а не заявці: записуємо його клієнту й прибираємо з даних заявки.
+                    $callerType = \Illuminate\Support\Arr::pull($data, 'client_caller_type');
+
+                    if ($callerType && ! empty($data['client_id'])) {
+                        \App\Models\Client::whereKey($data['client_id'])->update(['caller_type' => $callerType]);
+                    }
+
                     return $data;
+                })
+                // Менеджер створив заявку сам = він її вже прийняв: етап «Прийнято», а не «Новий».
+                // «Новий» лишається лише для заявок, яких ще ніхто не прийняв (сайт, дзвінок). Не кваліфікація для реклами.
+                ->after(function (\Illuminate\Database\Eloquent\Model $record): void {
+                    \App\Services\Leads\ProcessSteps::reach($record, 'assigned', 'created', auth()->id(), 'Менеджер створив заявку сам');
                 }),
         ];
     }

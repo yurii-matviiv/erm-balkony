@@ -5,6 +5,9 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ClientResource\Pages\CreateClient;
 use App\Filament\Resources\ClientResource\Pages\EditClient;
 use App\Filament\Resources\ClientResource\Pages\ListClients;
+use App\Filament\Resources\ClientResource\Pages\ViewClient;
+use Filament\Schemas\Components\View as SchemaView;
+use Filament\Actions\ViewAction;
 use App\Models\Client;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -73,12 +76,7 @@ class ClientResource extends Resource
             \Filament\Schemas\Components\Grid::make(3)->columnSpanFull()->schema([
             Select::make('caller_type')
                 ->label('Тип контакту')
-                ->options([
-                    'client' => 'Клієнт',
-                    'supplier' => 'Постачальник',
-                    'spam' => 'Спам',
-                    'other' => 'Інше',
-                ])
+                ->options(Client::callerTypeOptions())
                 ->required()
                 ->live()
                 ->columnSpan(1)
@@ -165,6 +163,20 @@ class ClientResource extends Resource
         ]);
     }
 
+    /** Картка клієнта (перегляд): шапка + рядки з іконками, як у картці користувача. Редагування — окрема сторінка. */
+    public static function infolist(Schema $schema): Schema
+    {
+        return $schema->components([
+            SchemaView::make('filament.resources.client-resource.components.client-card')->columnSpanFull(),
+        ]);
+    }
+
+    /** Менеджер відкривав картку з права редагування — перегляд лишається доступним тим, хто може редагувати. */
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return static::canEdit($record) || parent::canView($record);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -198,13 +210,7 @@ class ClientResource extends Resource
                 TextColumn::make('caller_type')
                     ->label('Тип')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => match ($state) {
-                        'client' => 'Клієнт',
-                        'supplier' => 'Постачальник',
-                        'spam' => 'Спам',
-                        'other' => 'Інше',
-                        default => '—',
-                    }),
+                    ->formatStateUsing(fn (?string $state): string => Client::callerTypeOptions()[$state] ?? '—'),
 
                 TextColumn::make('manager.name')
                     ->label('Менеджер')
@@ -219,17 +225,13 @@ class ClientResource extends Resource
             ->filters([
                 SelectFilter::make('caller_type')
                     ->label('Тип')
-                    ->options([
-                        'client' => 'Клієнт',
-                        'supplier' => 'Постачальник',
-                        'spam' => 'Спам',
-                        'other' => 'Інше',
-                    ]),
+                    ->options(Client::callerTypeOptions()),
                 SelectFilter::make('manager_id')
                     ->label('Менеджер')
                     ->relationship('manager', 'name'),
             ])
             ->recordActions([
+                ViewAction::make(),
                 EditAction::make(),
             ])
             ->toolbarActions([
@@ -254,6 +256,7 @@ class ClientResource extends Resource
         return [
             'index' => ListClients::route('/'),
             'create' => CreateClient::route('/create'),
+            'view' => ViewClient::route('/{record}'),
             'edit' => EditClient::route('/{record}/edit'),
         ];
     }

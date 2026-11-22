@@ -533,7 +533,7 @@ class EditOrder extends EditRecord
                         ->viewData(fn (): array => [
                             'client' => $this->getRecord()->client,
                             'clientUrl' => $this->getRecord()->client && \App\Filament\Resources\ClientResource::canEdit($this->getRecord()->client)
-                                ? \App\Filament\Resources\ClientResource::getUrl('edit', ['record' => $this->getRecord()->client_id])
+                                ? \App\Filament\Resources\ClientResource::getUrl('view', ['record' => $this->getRecord()->client_id])
                                 : null,
                             'canEditClient' => ! $this->isReadOnly(),
                             // The lead this order was created from (old CRM: order.lead_id).

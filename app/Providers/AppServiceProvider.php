@@ -34,7 +34,6 @@ class AppServiceProvider extends ServiceProvider
         TextColumn::macro('filledBadge', function (Closure|string $color = 'gray'): TextColumn {
             /** @var TextColumn $this */
             return $this
-                ->weight('semibold')
                 ->extraCellAttributes(function (?string $state, $record = null) use ($color): array {
                     $name = $this->evaluate($color, ['state' => $state, 'record' => $record]);
 

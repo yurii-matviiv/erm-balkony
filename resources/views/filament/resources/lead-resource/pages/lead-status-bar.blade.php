@@ -36,7 +36,11 @@
             return intdiv($min, 1440).' дн '.intdiv($min % 1440, 60).' год';
         };
         $reaction = null;
-        if ($firstCall?->occurred_at) {
+        // Заявку менеджер створив сам (крок «Прийнято» із джерелом created): він уже говорив із клієнтом, швидкість реакції не рахуємо.
+        $createdByManager = $record->steps()->where('step', 'assigned')->where('source', 'created')->exists();
+        if ($createdByManager) {
+            $reaction = null;
+        } elseif ($firstCall?->occurred_at) {
             $secs = \App\Services\Leads\FirstCallDetector::createdAt($record)->diffInSeconds($firstCall->occurred_at, false);
             $reaction = ['min' => max(0, (int) floor($secs / 60)), 'done' => true, 'before' => $secs < 0];
         } elseif (! $firstCall && $record->created_at) {

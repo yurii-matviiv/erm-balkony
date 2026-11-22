@@ -60,13 +60,15 @@
             @if (! empty($showObjectAddress))
                 <div style="{{ $row }}"{!! $rowClick !!}>
                     <span style="{{ $label }}">Адреса об'єкта (де виконуються роботи)</span>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <span class="text-sm text-gray-950 dark:text-white">{{ $objectAddress ?: '—' }}</span>
-                        @if (! empty($autoAddress))
-                            <span class="text-xs text-gray-500">автовизначено: {{ $autoAddress }}</span>
-                        @endif
-                    </div>
+                    <span class="text-sm text-gray-950 dark:text-white">{{ $objectAddress ?: '—' }}</span>
                 </div>
+                {{-- Автовизначення за IP з форми сайту: окреме поле зі своєю назвою; $autoAddress приходить лише для керівників. --}}
+                @if (! empty($autoAddress))
+                    <div style="{{ $row }}">
+                        <span style="{{ $label }}">Автовизначена адреса</span>
+                        <span class="text-sm text-gray-950 dark:text-white">{{ $autoAddress }}</span>
+                    </div>
+                @endif
             @endif
             {{-- Email is being collected: always shown (even empty), right after the physical address. --}}
             <div style="{{ $row }}"{!! $rowClick !!}>
@@ -82,7 +84,7 @@
                 <div{!! $rowClick !!} style="{{ $edit ? 'cursor:pointer;' : '' }}display:flex;gap:8px;align-items:flex-start;margin:6px 0 9px;padding:8px 10px;border:1px solid #f0c36d;background:#fff8e6;border-radius:3px;font-size:.8rem;line-height:1.45;color:#7a5b00;">
                     <x-filament::icon icon="heroicon-m-exclamation-triangle" style="width:1.1rem;height:1.1rem;flex:none;color:#d99a00;" />
                     <div>
-                        <div>{{ \App\Filament\Resources\ClientResource::EMAIL_HINT_NOTIFY }}</div>
+                        <div><b>Електронна адреса.</b> {{ \App\Filament\Resources\ClientResource::EMAIL_HINT_NOTIFY }}</div>
                         <div>{{ \App\Filament\Resources\ClientResource::EMAIL_HINT_MARKETING }}</div>
                     </div>
                 </div>

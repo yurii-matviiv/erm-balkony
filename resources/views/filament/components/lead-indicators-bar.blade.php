@@ -22,7 +22,7 @@
 @if ($items)
     <div style="display:flex; flex-direction:row-reverse; flex-wrap:wrap; justify-content:flex-start; gap:12px;">
         @foreach ($items as $item)
-            <div style="border:1px solid rgb(0 0 0 / .1); border-radius:3px; padding:8px 16px; min-width:220px; background:#fff;">
+            <div style="border:1px solid rgb(0 0 0 / .1); border-radius:3px; padding:6px 14px; min-width:220px; background:#fff;">
                 <div style="font-size:.75rem; color:#6b7280; display:flex; align-items:center; gap:4px;">
                     <span>{{ $item['label'] }}</span>
                     @if (! empty($item['hint']))
@@ -31,7 +31,7 @@
                         </span>
                     @endif
                 </div>
-                <div style="font-size:1.375rem; font-weight:700; line-height:1.9rem; color:{{ $item['color'] }};">{{ $item['value'] }}</div>
+                <div style="font-size:1.25rem; font-weight:700; line-height:1.6rem; color:{{ $item['color'] }};">{{ $item['value'] }}</div>
                 <div style="font-size:.75rem; color:#6b7280;">{{ $item['note'] }}</div>
             </div>
         @endforeach

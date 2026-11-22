@@ -31,9 +31,16 @@ class EditClient extends EditRecord
         return 'heroicon-o-identification';
     }
 
+    /** Після збереження повертаємось у картку (перегляд). */
+    protected function getRedirectUrl(): ?string
+    {
+        return ClientResource::getUrl('view', ['record' => $this->getRecord()]);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
+            \Filament\Actions\ViewAction::make()->label('До картки')->icon('heroicon-o-arrow-left'),
             DeleteAction::make(),
         ];
     }

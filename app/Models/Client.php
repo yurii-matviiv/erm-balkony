@@ -68,4 +68,16 @@ class Client extends Model
 
         return $parts !== [] ? implode(', ', $parts) : $this->address;
     }
+
+    /** Тип контакту: значення `clients.caller_type`. Перші чотири — як у старій CRM; `job_seeker` існує лише в новій ERM. */
+    public static function callerTypeOptions(): array
+    {
+        return [
+            'client' => 'Клієнт',
+            'supplier' => 'Постачальник',
+            'spam' => 'Спам',
+            'job_seeker' => 'Шукає роботу',
+            'other' => 'Інше',
+        ];
+    }
 }

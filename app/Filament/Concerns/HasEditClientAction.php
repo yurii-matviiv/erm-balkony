@@ -3,6 +3,7 @@
 namespace App\Filament\Concerns;
 
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Grid;
@@ -44,7 +45,7 @@ trait HasEditClientAction
         $client = $this->getRecord()->client;
 
         $clientData = $client?->only([
-            'last_name', 'first_name', 'middle_name', 'phone', 'phone2', 'viber', 'email',
+            'caller_type', 'last_name', 'first_name', 'middle_name', 'phone', 'phone2', 'viber', 'email',
             'city', 'street', 'house_number', 'apartment_number', 'floor', 'comment',
         ]) ?? [];
 
@@ -54,6 +55,11 @@ trait HasEditClientAction
         $siteData = $withSite ? $record->only(['site_city', 'site_street', 'site_house_number', 'site_apartment_number', 'site_floor']) : [];
 
         $schema = [
+            // Тип контакту (як у старій CRM) — першим рядком. Не обов'язковий: у частини старих клієнтів його ще не вказано.
+            Select::make('caller_type')
+                ->label('Тип контакту')
+                ->options(\App\Models\Client::callerTypeOptions())
+                ->placeholder('Не вказано'),
             Grid::make(2)->schema([
                 TextInput::make('last_name')->label('Прізвище')->maxLength(255),
                 TextInput::make('first_name')->label("Ім'я")->required()->maxLength(255),

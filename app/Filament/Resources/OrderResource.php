@@ -139,7 +139,7 @@ class OrderResource extends Resource
                     ->description(fn (Order $record): ?string => $record->client?->phone)
                     // The row opens the order; THIS cell opens the client card (as in the old CRM: /client/{id}).
                     ->url(fn (Order $record): ?string => $record->client && ClientResource::canEdit($record->client)
-                        ? ClientResource::getUrl('edit', ['record' => $record->client_id])
+                        ? ClientResource::getUrl('view', ['record' => $record->client_id])
                         : null)
                     ->color(fn (Order $record): ?string => $record->client && ClientResource::canEdit($record->client) ? 'primary' : null)
                     ->searchable(['client.last_name', 'client.first_name', 'client.phone']),

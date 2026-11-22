@@ -215,12 +215,28 @@ class LeadsSyncMapper extends AbstractSyncMapper
             // Old system stored the full site address as one string — we
             // write it into site_street as-is. The manager can split it
             // into city/house/apartment/floor manually if needed.
-            // «Автовизначення: <місто>» is split off into auto_address (hidden from managers).
+            // «Автовизначення» (hidden from managers). Новіші заявки: форма сайту пише його в окрему колонку
+            // старої БД leads.auto_address. Старіші: текст «Автовизначення: <місто>» усередині address — відщеплюємо.
             'site_street' => \App\Support\AutoAddress::split($oldRow['address'] ?? null)[0],
-            'auto_address' => \App\Support\AutoAddress::split($oldRow['address'] ?? null)[1],
+            'auto_address' => $this->resolveAutoAddress($oldRow),
             'created_at' => $oldRow['created_at'] ?? now(),
             'updated_at' => now(),
         ];
+    }
+
+    /** Автоадреса: спершу окрема колонка старої БД auto_address (її може ще не бути), потім текст у address. */
+    private function resolveAutoAddress(array $oldRow): ?string
+    {
+        $own = trim((string) ($oldRow['auto_address'] ?? ''));
+
+        if ($own !== '') {
+            // На випадок, якщо форма записала у колонку й префікс «Автовизначення: ».
+            [$plain, $stripped] = \App\Support\AutoAddress::split($own);
+
+            return $plain ?? $stripped;
+        }
+
+        return \App\Support\AutoAddress::split($oldRow['address'] ?? null)[1];
     }
 
     protected function afterUpsert(array $oldRow, int $newId): void

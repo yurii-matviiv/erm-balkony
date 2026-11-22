@@ -66,6 +66,9 @@ class LeadResource extends Resource
         return $schema->components([
             Select::make('client_id')
                 ->label('Телефон / клієнт')
+                ->prefixIcon('heroicon-o-phone')
+                ->placeholder('Введіть телефон або ім\'я')
+                ->columnSpanFull()
                 ->relationship('client', 'phone')
                 ->searchable(['phone', 'last_name', 'first_name'])
                 ->getOptionLabelFromRecordUsing(fn (Client $record): string => "{$record->phone} — {$record->full_name}")
@@ -80,8 +83,17 @@ class LeadResource extends Resource
                     // CRM and would otherwise never count as "нова заявка".
                     $hasPriorLead = $state && Lead::where('client_id', $state)->exists();
                     $set('application_type', $hasPriorLead ? 'repeat' : 'new');
+                    // Тип контакту підтягується з вибраного клієнта (порожній = «Клієнт», як за замовчуванням у старій CRM).
+                    $set('client_caller_type', ($state ? Client::whereKey($state)->value('caller_type') : null) ?: 'client');
                 })
                 ->createOptionForm([
+                    // Як у старій CRM: тип контакту першим; за замовчуванням «Клієнт».
+                    Select::make('caller_type')
+                        ->label('Тип контакту')
+                        ->options(\App\Models\Client::callerTypeOptions())
+                        ->default('client')
+                        ->required(),
+
                     TextInput::make('phone')
                         ->label('Телефон')
                         ->tel()
@@ -117,51 +129,50 @@ class LeadResource extends Resource
                             $fail('У цього клієнта вже є заявка сьогодні. Додайте потрібну послугу до існуючої заявки замість створення нової.');
                         }
                     };
-                })
-                ->helperText('Введіть телефон — якщо клієнт уже є в базі, оберіть його зі списку (буде повторне звернення). Якщо немає — натисніть "+", щоб створити новий контакт.'),
+                }),
 
             Select::make('application_type')
                 ->label('Тип заявки')
+                ->prefixIcon('heroicon-o-arrow-path')
                 ->options(Lead::applicationTypeOptions())
                 ->default('new')
                 ->disabled()
-                ->dehydrated()
-                ->helperText('Визначається автоматично за вибраним клієнтом.'),
+                ->dehydrated(),
+
+            // Тип контакту (як у старій CRM). Це поле КЛІЄНТА, а не заявки: не зберігається в leads,
+            // при створенні заявки записується клієнту (див. ListLeads).
+            Select::make('client_caller_type')
+                ->label('Тип контакту')
+                ->prefixIcon('heroicon-o-user')
+                ->options(Client::callerTypeOptions())
+                ->default('client')
+                ->native(false)
+                ->required(),
 
             Select::make('source')
-                ->label('Звідки отримали заявку')
+                ->label('Звідки заявка')
+                ->prefixIcon('heroicon-o-inbox-arrow-down')
                 ->options(Lead::sourceOptions())
                 ->default('call')
                 ->required(),
 
             Select::make('serviceTypes')
-                ->label('Тип звернення (послуги)')
+                ->label('Послуги')
+                ->prefixIcon('heroicon-o-wrench-screwdriver')
+                ->placeholder('Оберіть одну чи кілька')
+                ->columnSpanFull()
                 ->relationship('serviceTypes', 'name')
                 ->multiple()
                 ->preload()
-                ->required()
-                ->helperText('Можна вибрати декілька — якщо клієнт цікавиться одразу кількома послугами.'),
-
-            Select::make('stage')
-                ->label('Етап воронки')
-                ->options(Lead::stageOptions())
-                ->default('new')
                 ->required(),
 
-            Select::make('status')
-                ->label('Статус')
-                ->options(Lead::statusOptions())
-                ->default('open')
-                ->required()
-                ->live(),
-
-            Textarea::make('lost_reason')
-                ->label('Причина втрати')
-                ->visible(fn (Get $get): bool => $get('status') === 'lost')
-                ->columnSpanFull(),
+            // Етап і статус менеджер не вибирає: нова заявка завжди «Новий» / «В роботі», далі це робить автоматика.
+            \Filament\Forms\Components\Hidden::make('stage')->default('new'),
+            \Filament\Forms\Components\Hidden::make('status')->default('open'),
 
             Textarea::make('comment')
                 ->label('Коментар')
+                ->rows(3)
                 ->columnSpanFull(),
         ]);
     }
@@ -301,11 +312,13 @@ class LeadResource extends Resource
                 TextColumn::make('client.full_name')
                     ->toggleable()
                     ->label('Клієнт')
-                    ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
+                    // Ім'я — не більше 20 символів, далі «...» (щоб колонка не розтягувалась); повне ім'я — у підказці.
+                    ->formatStateUsing(fn ($state, Lead $record): ?string => ($v = static::mask($record, $state)) === null ? null : \Illuminate\Support\Str::limit($v, 20, '...'))
+                    ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->client?->full_name))
                     ->description(fn (Lead $record): ?string => static::mask($record, $record->client?->phone))
                     // The row opens the lead; THIS cell opens the client card (link colour shows it).
                     ->url(fn (Lead $record): ?string => ! static::hiddenUntilAccepted($record) && $record->client && ClientResource::canEdit($record->client)
-                        ? ClientResource::getUrl('edit', ['record' => $record->client_id])
+                        ? ClientResource::getUrl('view', ['record' => $record->client_id])
                         : null)
                     ->color(fn (Lead $record): ?string => $record->client && ClientResource::canEdit($record->client) ? 'primary' : null)
                     ->searchable(['last_name', 'first_name', 'phone']),
@@ -370,7 +383,10 @@ class LeadResource extends Resource
                     ->toggleable()
                     ->label('Коментар')
                     ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
-                    ->limit(60)
+                    // Ширина обмежена, текст переноситься на кілька рядків (максимум 4, повний текст — у підказці).
+                    ->wrap()
+                    ->lineClamp(4)
+                    ->extraAttributes(['style' => 'width:20rem; max-width:20rem; min-width:14rem;'])
                     ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment))
                     ->placeholder('—'),
 
@@ -379,7 +395,10 @@ class LeadResource extends Resource
                     ->label('Коментар керівника')
                     ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
                     ->color('danger')
-                    ->limit(60)
+                    // Ширина обмежена, текст переноситься на кілька рядків (максимум 4, повний текст — у підказці).
+                    ->wrap()
+                    ->lineClamp(4)
+                    ->extraAttributes(['style' => 'width:20rem; max-width:20rem; min-width:14rem;'])
                     ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment_sales_head))
                     ->placeholder('—'),
 
@@ -406,7 +425,10 @@ class LeadResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->label('Що планую робити далі')
                     ->formatStateUsing(fn ($state, Lead $record): ?string => static::mask($record, $state))
-                    ->limit(60)
+                    // Ширина обмежена, текст переноситься на кілька рядків (максимум 4, повний текст — у підказці).
+                    ->wrap()
+                    ->lineClamp(4)
+                    ->extraAttributes(['style' => 'width:20rem; max-width:20rem; min-width:14rem;'])
                     ->tooltip(fn (Lead $record): ?string => static::mask($record, $record->comment_call))
                     ->placeholder('—'),
 

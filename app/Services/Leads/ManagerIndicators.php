@@ -19,6 +19,11 @@ class ManagerIndicators
      */
     public static function reaction(int $managerId): array
     {
+        // Захист: поки міграція не виконана (напр., локальна БД щойно перезаписана копією з хостингу) — не валимо сторінку.
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('leads', 'first_reaction_minutes')) {
+            return ['avg' => null, 'counted' => 0, 'without' => 0];
+        }
+
         $row = Lead::query()
             ->where('manager_id', $managerId)
             ->where('created_at', '>=', now()->subDays(self::DAYS))

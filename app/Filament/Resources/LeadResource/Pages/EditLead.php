@@ -306,7 +306,7 @@ class EditLead extends EditRecord
                         ->viewData(fn (?Lead $record): array => [
                             'client' => $record?->client,
                             'clientUrl' => $record?->client && \App\Filament\Resources\ClientResource::canEdit($record->client)
-                                ? \App\Filament\Resources\ClientResource::getUrl('edit', ['record' => $record->client_id])
+                                ? \App\Filament\Resources\ClientResource::getUrl('view', ['record' => $record->client_id])
                                 : null,
                             'showObjectAddress' => true,
                             'objectAddress' => $record?->site_address,
