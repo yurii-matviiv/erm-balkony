@@ -71,3 +71,17 @@ Schedule::command('ads:sync-stats')
     ->dailyAt('04:10')
     ->withoutOverlapping()
     ->runInBackground();
+
+/*
+ * SEO: щопонеділка знімок позицій Google (Search Console API, лише читання) і стан індексації нових сторінок.
+ * Дані Google приходять із затримкою ~3 дні, тому частіше за раз на тиждень знімати немає сенсу.
+ */
+Schedule::command('seo:positions-snapshot')
+    ->weeklyOn(1, '08:20')
+    ->withoutOverlapping()
+    ->runInBackground();
+
+Schedule::command('seo:positions-snapshot --only=index --limit=100')
+    ->weeklyOn(1, '08:40')
+    ->withoutOverlapping()
+    ->runInBackground();
