@@ -21,5 +21,9 @@
         @endif
     </div>
 
-    {{ $this->table }}
+    {{-- Шапка таблиці залипає при гортанні (стандартний компонент, як на лідах і замовленнях). --}}
+    @include('filament.components.sticky-table-header')
+    <div class="sticky-table-header">
+        {{ $this->table }}
+    </div>
 </x-filament-panels::page>
