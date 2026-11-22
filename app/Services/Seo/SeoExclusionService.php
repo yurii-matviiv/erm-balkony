@@ -38,6 +38,13 @@ class SeoExclusionService
     {
         $kw = self::norm($kw);
         foreach ((array) config('seo.exclude_rules') as $rule) {
+            if (isset($rule['any'])) {
+                if (collect($rule['any'])->contains(fn ($w) => mb_strpos($kw, $w) !== false)) {
+                    return true;
+                }
+
+                continue;
+            }
             $act = collect($rule['action'])->contains(fn ($w) => mb_strpos($kw, $w) !== false);
             $obj = collect($rule['object'])->contains(fn ($w) => mb_strpos($kw, $w) !== false);
             if ($act && $obj) {
