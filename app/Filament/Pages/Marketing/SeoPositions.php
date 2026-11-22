@@ -14,7 +14,6 @@ use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
@@ -124,19 +123,17 @@ class SeoPositions extends Page implements HasTable
     /** Таблиця будується один раз на початку запиту, тому все, що залежить від вкладки, — ліниве (замикання). */
     public function table(Table $table): Table
     {
-        $isScope = fn (): bool => in_array($this->activeTab, self::SCOPE_TABS, true);
-
         return $table
             ->records(fn (?string $search, ?string $sortColumn, ?string $sortDirection, ?array $filters): Collection => $this->records($this->activeTab, $search, $sortColumn, $sortDirection, $filters))
-            ->heading(fn (): string => $this->getTabs()[$this->activeTab])
-            ->description(fn (): ?string => $isScope() ? 'Позиція — середня за '.config('seo.window_days').' днів. Якщо показів менше '.config('seo.min_impressions').', зміну не рахуємо.' : null)
             ->filters([
                 SelectFilter::make('snapshot')
                     ->label('Знімок')
                     ->options(fn (): array => collect($this->snapshotDates())->mapWithKeys(fn ($d) => [$d => Carbon::parse($d)->format('d.m.Y')])->all())
                     ->default($this->snapshotDates()[0] ?? null)
-                    ->selectablePlaceholder(false),
-            ], layout: FiltersLayout::AboveContent)
+                    ->selectablePlaceholder(false)
+                    ->indicateUsing(fn (): array => []),
+            ])
+            ->deferFilters(false)
             ->striped()
             ->paginated(false)
             ->columns($this->columns())
