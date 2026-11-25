@@ -41,6 +41,18 @@ class LegacySupplierBridge
      */
     public function pushToLegacy(Supplier $record): void
     {
+        // Захист: пишемо у стару CRM лише на production. Локально `legacy` дивиться на живу базу хостингу
+        // (користувач лише з SELECT), тож запис там заборонений навіть спробою — див. docs/arch/sync-legacy.md.
+        if (! app()->environment('production')) {
+            Notification::make()
+                ->title('Постачальника додано')
+                ->body('Локально запис у стару CRM вимкнено: запис створено лише в новій системі.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
         try {
             $contacts = $record->contacts()->orderBy('id')->get();
             $first = $contacts->get(0);

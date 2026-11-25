@@ -45,6 +45,13 @@ class SyncFromLegacy extends Command
 
     public function handle(): int
     {
+        // Heartbeat: фіксуємо, що планувальник (cron на хостингу / локальне завдання Windows) реально викликав команду,
+        // ще ДО перевірки тумблера й інтервалу. Сторінка «Синхронізація» за цим показує, чи авто-синк справді працює,
+        // а не лише чи його «увімкнено» тумблером (див. docs/arch/sync-legacy.md, розділ «Єдиний спосіб синхронізації»).
+        if ($this->option('scheduled')) {
+            AppSetting::set('sync_scheduler_tick_at', now()->toIso8601String());
+        }
+
         // When invoked by the scheduler, respect the admin toggle.
         if ($this->option('scheduled') && ! AppSetting::getBool('sync_auto_enabled', false)) {
             return self::SUCCESS;

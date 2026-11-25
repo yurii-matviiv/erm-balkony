@@ -11,6 +11,7 @@
 - `app/Services/Sync/**` — усі мапери, реєстр, `LegacySupplierBridge`, контракти.
 - `app/Console/Commands/SyncFromLegacy.php`, `SyncReset.php`.
 - `app/Filament/Pages/SyncOverview.php`.
+- `scripts/local-sync/**` (локальне завдання Windows для `sync:legacy`) і саме завдання «ERM sync-legacy (local)».
 
 ## Фрагменти, які прибираємо або спрощуємо
 - `routes/console.php` — розклад `sync:legacy`.

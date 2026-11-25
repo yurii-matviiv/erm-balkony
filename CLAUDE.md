@@ -10,7 +10,7 @@ ERM — нова система для компанії balkony-vikna.kyiv.ua (�
 
 1. Новий застосунок будується і тестується локально, працюючи зі своєю **власною** базою даних.
 2. Стара база даних — **тільки джерело для одноразового перенесення даних** (users, clients, suppliers, candidates, ...), доступна через окреме read-only з'єднання `legacy`. Новий код НІКОЛИ не пише в це з'єднання.
-3. На етапі деплою: піднімається чиста production-база нового застосунку, у `.env` змінюються `LEGACY_DB_*` на реальні продакшен-креди старої CRM (це лише env, без змін коду), і через адмінку "Синхронізація" заново проганяються всі мапери — це наповнює реальну production-базу.
+3. Дані потрапляють у нову базу **єдиним способом**: `sync:legacy` читає ЖИВУ стару базу через `legacy` (`LEGACY_DB_*` у `.env`, користувач `balkonio_ro`, лише SELECT) — і на хостингу, і локально, без проміжних дампів чи копій. Деталі, налаштування й перевірка: **`docs/arch/sync-legacy.md`**, розділ «Єдиний спосіб синхронізації».
 4. Планується ~тиждень паралельної роботи обох систем, після чого стара БД повністю виводиться з експлуатації.
 
 ## Команди
@@ -23,7 +23,7 @@ php artisan shield:super-admin                       # призначити ро
 vendor/bin/pint                                      # форматування коду (Laravel Pint)
 composer test                                        # php artisan config:clear + php artisan test
 php artisan sync:legacy                             # ручний запуск повної синхронізації зі старої БД (всі мапери)
-php artisan schedule:work                           # локальне тестування планувальника (тримає процес, кожну хвилину)
+php artisan schedule:work                           # ⚠️ локально НЕ запускати: окрім sync:legacy піде конверсії в Google і push менеджерам з продакшн-даними. Для синку на ПК є завдання Windows (scripts/local-sync)
 ```
 
 Команди виконує користувач у своєму терміналі (Windows PowerShell в Cowork-сесії дозволений лише на клік, без вводу тексту) — Claude дає точну команду, користувач її запускає і присилає вивід.
@@ -47,7 +47,7 @@ php artisan schedule:work                           # локальне тест�
 ### Архітектура — `docs/arch/`
 | Файл | Коли читати |
 |---|---|
-| [arch/sync-legacy.md](docs/arch/sync-legacy.md) | Синхронізація зі старою CRM, мапери, `legacy_id`, міст «Постачальники» → стара CRM, розділення Client/Supplier/Candidate |
+| [arch/sync-legacy.md](docs/arch/sync-legacy.md) | ЄДИНИЙ спосіб синхронізації (жива стара БД → нова, лише читання), планувальник, мапери, `legacy_id`, міст «Постачальники» → стара CRM, розділення Client/Supplier/Candidate |
 | [arch/hosting.md](docs/arch/hosting.md) | Хостинг, деплой, crontab (⚠️ `schedule:run` обов'язковий після переїзду) |
 | [arch/access-roles-panels.md](docs/arch/access-roles-panels.md) | Ролі, права (Shield), бокова панель, дві панелі (admin/manager), вхід під користувачем |
 | [arch/conventions.md](docs/arch/conventions.md) | Патерни ресурсів, правила переносу зі старої CRM, UX-принципи, шрифти, зображення |
@@ -61,6 +61,7 @@ php artisan schedule:work                           # локальне тест�
 | [modules/orders.md](docs/modules/orders.md) | Замовлення (Order) |
 | [modules/finance.md](docs/modules/finance.md) | Платежі, взаєморозрахунки, аналітика рахунків, З/П (див. також [INVOICE-ANALYTICS.md](docs/INVOICE-ANALYTICS.md)) |
 | [modules/integrations.md](docs/modules/integrations.md) | Мобільні оператори, Binotel, офлайн-конверсії Google Ads |
+| [modules/telegram.md](docs/modules/telegram.md) | Telegram-бот ERM: `TelegramSender`, налаштування, сайт/стара CRM, що далі |
 | [modules/recruitment.md](docs/modules/recruitment.md) | Форма набору персоналу, кандидати, аналітика форми |
 | [modules/marketing.md](docs/modules/marketing.md) | Експорт лідів для агентства, **SEO: позиції Google (Search Console)** |
 | [modules/dashboard.md](docs/modules/dashboard.md) | Дашборд |

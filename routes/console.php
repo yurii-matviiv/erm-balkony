@@ -28,6 +28,15 @@ Schedule::command('sync:legacy --scheduled')
     ->runInBackground();
 
 /*
+ * Telegram: незакриті пропущені дзвінки (Binotel). Команда сама тримає вимикач MISSED_CALLS_ENABLED,
+ * робочі години й інтервал; без дзвінків нічого не шле. docs/modules/missed-calls.md
+ */
+Schedule::command('calls:missed-notify')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();
+
+/*
  * Push reminders for managers (incl. «Заміри»). Exits in milliseconds when nothing is due.
  */
 Schedule::command('reminders:dispatch')

@@ -19,8 +19,9 @@ use Filament\Tables\Table;
  * "Синхронізація зі старої БД" — the entry point of the data migration tool.
  *
  * Header controls:
- *   • Toggle авто-синхронізації — вмикає/вимикає щохвилинний планувальник
- *     (php artisan sync:legacy --scheduled). Зберігається в app_settings.
+ *   • Toggle авто-синхронізації — вмикає/вимикає планувальник sync:legacy --scheduled
+ *     (кожні 5 хв). Зберігається в app_settings. Червоний стан = тумблер увімкнено,
+ *     але планувальник не викликає команду (heartbeat sync_scheduler_tick_at старший за 15 хв).
  *   • "Синхронізувати все зараз" — запускає всі мапери in-process,
  *     аналог ручного `php artisan sync:legacy`.
  *
@@ -49,6 +50,25 @@ class SyncOverview extends Page implements HasTable
     // Header actions
     // ──────────────────────────────────────────────
 
+    /**
+     * Чи планувальник реально викликає sync:legacy --scheduled (heartbeat пише сама команда).
+     * Планувальник тікає кожні 5 хв; поріг 15 хв дає запас на один пропуск.
+     */
+    protected function schedulerAlive(): bool
+    {
+        $tick = AppSetting::get('sync_scheduler_tick_at');
+
+        return $tick !== null && \Carbon\Carbon::parse($tick)->diffInMinutes(now()) <= 15;
+    }
+
+    /** Звідки читаємо дані: з'єднання `legacy` (лише читання), без пароля. */
+    public function getSubheading(): ?string
+    {
+        $c = config('database.connections.legacy');
+
+        return "Джерело: {$c['username']}@{$c['host']} / {$c['database']} (лише читання).";
+    }
+
     protected function getHeaderActions(): array
     {
         $lastRun     = AppSetting::get('sync_last_run_at');
@@ -65,12 +85,14 @@ class SyncOverview extends Page implements HasTable
             // enabling looked impossible (found by the user on hosting).
             Action::make('toggle_auto_sync')
                 ->label(fn (): string => AppSetting::getBool('sync_auto_enabled', false)
-                    ? 'Авто-синк: УВІМКНЕНО'
+                    ? ($this->schedulerAlive() ? 'Авто-синк: УВІМКНЕНО' : 'Авто-синк: УВІМКНЕНО, але планувальник НЕ ПРАЦЮЄ')
                     : 'Авто-синк: ВИМКНЕНО')
                 ->icon(fn (): string => AppSetting::getBool('sync_auto_enabled', false)
                     ? 'heroicon-o-pause-circle'
                     : 'heroicon-o-play-circle')
-                ->color(fn (): string => AppSetting::getBool('sync_auto_enabled', false) ? 'success' : 'gray')
+                ->color(fn (): string => AppSetting::getBool('sync_auto_enabled', false)
+                    ? ($this->schedulerAlive() ? 'success' : 'danger')
+                    : 'gray')
                 ->badge($lastRunText)
                 ->badgeColor('gray')
                 ->requiresConfirmation()
@@ -79,7 +101,7 @@ class SyncOverview extends Page implements HasTable
                     : 'Увімкнути авто-синхронізацію?')
                 ->modalDescription(fn (): string => AppSetting::getBool('sync_auto_enabled', false)
                     ? 'Планувальник більше не буде синхронізувати дані зі старої БД. Вручну можна запустити в будь-який момент.'
-                    : 'Щохвилини запускатиметься sync:legacy --scheduled (потрібен активний cron на сервері).')
+                    : 'Планувальник запускатиме sync:legacy --scheduled кожні 5 хв, а сама синхронізація відбуватиметься не частіше за вказаний інтервал. Потрібен працюючий планувальник: cron на хостингу, локально завдання Windows (див. docs/arch/sync-legacy.md).')
                 ->modalSubmitActionLabel(fn (): string => AppSetting::getBool('sync_auto_enabled', false)
                     ? 'Вимкнути'
                     : 'Увімкнути')
@@ -92,7 +114,7 @@ class SyncOverview extends Page implements HasTable
                             ? 'Авто-синхронізацію увімкнено'
                             : 'Авто-синхронізацію вимкнено')
                         ->body($new
-                            ? 'Щохвилини буде запускатись sync:legacy --scheduled.'
+                            ? 'sync:legacy --scheduled запускатиметься кожні 5 хв (з урахуванням інтервалу).'
                             : 'Планувальник більше не буде запускати синхронізацію.')
                         ->color($new ? 'success' : 'warning')
                         ->send();
@@ -100,7 +122,7 @@ class SyncOverview extends Page implements HasTable
 
             // ── Інтервал авто-синхронізації ────────────────
             // Stored in app_settings (sync_interval_minutes); the
-            // scheduler still ticks every minute, but sync:legacy
+            // scheduler ticks every 5 minutes, but sync:legacy
             // --scheduled exits early until this many minutes passed
             // since the last completed run — see SyncFromLegacy. Lets
             // the admin run hourly during quiet development and drop
@@ -112,7 +134,7 @@ class SyncOverview extends Page implements HasTable
                 ->icon('heroicon-o-clock')
                 ->color('gray')
                 ->modalHeading('Інтервал авто-синхронізації')
-                ->modalDescription('Як часто планувальник запускає синхронізацію зі старої БД. 1 — щохвилини (режим живої роботи менеджерів), 60 — раз на годину (тихий режим розробки).')
+                ->modalDescription('Як часто виконується синхронізація зі старої БД. Планувальник перевіряє кожні 5 хв, тому реальний мінімум — 5 хв (значення 1–5 працюють як 5). 60 — раз на годину (тихий режим розробки).')
                 ->modalSubmitActionLabel('Зберегти')
                 ->form([
                     \Filament\Forms\Components\TextInput::make('interval')

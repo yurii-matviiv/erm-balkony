@@ -2,6 +2,30 @@
 
 > Частина документації ERM. Індекс і навігація: [CLAUDE.md](../../CLAUDE.md). Читай цей файл, лише якщо задача стосується теми вище.
 
+## Єдиний спосіб синхронізації (оновлено 2026-11-25)
+
+**Один канал даних, без проміжних копій:**
+
+```
+ЖИВА стара CRM: база balkonio_erm @ balkonio.mysql.tools (хостинг)
+      │  з'єднання `legacy` = користувач balkonio_ro (ТІЛЬКИ SELECT)
+      ▼
+php artisan sync:legacy  (SyncMapperRegistry → мапери, upsert за legacy_id)
+      ▼
+нова БД: на хостингу balkonio_ermbalkony, локально balkonio_ermbalkony_local
+```
+
+- **Джерело** завжди одне: жива стара база, пряме читання. Локальні дампи, автокопії та «знімки» старої бази **не використовуються** і більше не підтримуються. Раніше їх робили завдання Windows «ERM live DB copy» і «ERM old CRM DB copy» (вони вимкнені; остаточно їх прибирає `scripts/local-sync/install-task.ps1`, а їхні скрипти переносить у `D:\laragon\www\_archive\old-db-dumps\auto-sync\_retired`). Локальна база `balkonio_erm` — застаріла копія від 20.11.2026, джерелом не є.
+- **Налаштування** лише через `.env` (код не міняється): `LEGACY_DB_HOST=balkonio.mysql.tools`, `LEGACY_DB_DATABASE=balkonio_erm`, `LEGACY_DB_USERNAME=balkonio_ro`, `LEGACY_DB_PASSWORD` — пароль цього користувача. Пароль не друкувати в чат і документи; на ПК користувача він лежить зашифрований у `D:\laragon\www\_archive\old-db-dumps\auto-sync\ro.pwd` (розшифровується лише під його обліковим записом Windows). На хостингу той самий механізм: `LEGACY_DB_*` у `.env` сервера.
+- **Лише читання.** `balkonio_ro` має тільки `SELECT` на `balkonio_erm` — запис у стару CRM технічно неможливий. Єдиний код, що пише в `legacy`, — `LegacySupplierBridge` (див. нижче), і він працює лише при `APP_ENV=production`; локально вимкнений.
+- **Запуск:**
+  - вручну: кнопка «Синхронізувати все зараз» на сторінці «Синхронізація зі старої БД» або `php artisan sync:legacy`;
+  - автоматично: планувальник викликає `sync:legacy --scheduled` кожні 5 хв (`routes/console.php`); команда виходить, якщо тумблер вимкнено або не минув «Інтервал» (`sync_interval_minutes`). Реальний мінімум інтервалу — 5 хв.
+  - **хостинг:** cron `schedule:run` (див. [hosting.md](hosting.md)).
+  - **локально (Windows):** завдання «ERM sync-legacy (local)» кожні 5 хв запускає `scripts/local-sync/run-sync.ps1`, яке виконує **лише** `sync:legacy --scheduled`. Не `schedule:run`: локальна база містить продакшн-дані, і решта розкладу (`conversions:run`, `reminders:dispatch`, `audience:run`) відправляла б з ПК справжні конверсії в Google і push менеджерам. Встановлення: один раз `powershell -ExecutionPolicy Bypass -File scripts\local-sync\install-task.ps1`. Журнал: `storage/logs/local-sync.log` (пишуться лише реальні запуски й помилки).
+- **Як перевірити, що працює:** на сторінці синхронізації тумблер зелений «УВІМКНЕНО» (heartbeat `sync_scheduler_tick_at` свіжіший за 15 хв). Якщо тумблер увімкнено, а планувальник не викликає команду, кнопка стає **червоною «планувальник НЕ ПРАЦЮЄ»**. Під заголовком сторінки показано, з якої бази читаємо (без пароля). Раніше тумблер лише відображав прапорець у БД і не знав, чи працює планувальник, тому «УВІМКНЕНО» могло стояти при синку 5-денної давності.
+- **Інструменти Claude.** `local-runner` (artisan/tinker) відмовляється працювати, коли `.env` вказує не на локальну БД (як зараз, `LEGACY_DB_HOST` на хостинг): artisan-команди виконує сам користувач у терміналі. Для читання даних Claude використовує `mysql-local` (локальна `balkonio_ermbalkony_local`) і `D:\laragon\claude-work\q-live.ps1 -Kind old|new` (жива база, лише SELECT). Див. «Інструменти підключення - Балкони та вікна/services/erm-legacy-sync.md».
+
 ## Архітектура синхронізації зі старою БД
 
 Це центральна, найскладніша частина проєкту. Файли: `app/Services/Sync/`.

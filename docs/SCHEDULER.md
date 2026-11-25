@@ -24,7 +24,7 @@ cron (раз на хвилину)  →  php artisan schedule:run  →  routes/co
 
 | Команда | Розклад | Примітка |
 |---|---|---|
-| `sync:legacy --scheduled` | кожні 5 хв | виходить одразу, якщо автосинк вимкнено тумблером |
+| `sync:legacy --scheduled` | кожні 5 хв | виходить одразу, якщо автосинк вимкнено тумблером; пише heartbeat `sync_scheduler_tick_at` (сторінка синхронізації червоніє, якщо його нема понад 15 хв). Локально його запускає завдання Windows, див. `docs/arch/sync-legacy.md` |
 | `conversions:run` | кожні 15 хв | виходить одразу, поки mode = off |
 | `audience:run` | щодня 03:22 | Customer Match |
 | `ads:sync-stats` | щодня 04:10 | статистика Google Ads |
@@ -71,6 +71,6 @@ cron (раз на хвилину)  →  php artisan schedule:run  →  routes/co
 ```
 php artisan schedule:list        # що і коли запуститься
 php artisan schedule:test        # інтерактивно запустити одне завдання
-php artisan schedule:work        # локально: тримає процес, імітує cron щохвилини
+php artisan schedule:work        # ⚠️ лише на «чистій» локальній базі без продакшн-даних: запускає ВСІ завдання (конверсії в Google, push). З продакшн-копією не запускати
 ```
 На хостингу: перевірити, що завдання виконуються, можна за логом `storage/logs/laravel.log` та за полями «останній запуск» самих команд (де вони є).
