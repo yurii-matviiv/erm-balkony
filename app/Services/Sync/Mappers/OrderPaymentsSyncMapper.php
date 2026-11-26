@@ -71,6 +71,7 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             ['old' => 'order_id', 'new' => 'order_id', 'note' => 'переводиться через orders.legacy_id; якщо замовлення не знайдено — рядок пропускається'],
             ['old' => 'type', 'new' => 'direction', 'note' => 'income/outgo — перейменовано, щоб не конфліктувати з Laravel reserved words'],
             ['old' => 'user_type', 'new' => 'payer_type', 'note' => 'client/supplier/installer/gauger/expense/office'],
+            ['old' => 'user_id_by_type (supplier)', 'new' => 'supplier_id', 'note' => 'лише для user_type=supplier; через suppliers.legacy_id (для звіту «Оборот постачальників»)'],
             ['old' => 'user_id_by_type (resolved)', 'new' => 'payer_name', 'note' => 'ім\'я клієнта/постачальника/монтажника — визначається при синку, зберігається як рядок'],
             ['old' => 'method', 'new' => 'payment_method', 'note' => 'cash/cashless/card/courier/installer'],
             ['old' => 'amount', 'new' => 'amount', 'note' => 'копіюється як є'],
@@ -136,6 +137,10 @@ class OrderPaymentsSyncMapper extends AbstractSyncMapper
             'direction'            => $oldRow['type'] ?? 'income',
             'payer_type'           => $oldRow['user_type'] ?? '',
             'payer_name'           => $payerName,
+            // Явний зв'язок із постачальником: старий user_id_by_type = suppliers.id = наш legacy_id.
+            'supplier_id'          => (($oldRow['user_type'] ?? '') === 'supplier' && (int) ($oldRow['user_id_by_type'] ?? 0) > 0)
+                ? DB::table('suppliers')->where('legacy_id', (int) $oldRow['user_id_by_type'])->value('id')
+                : null,
             'payment_method'       => $oldRow['method'] ?? null,
             'amount'               => (float) ($oldRow['amount'] ?? 0),
             'status'               => $annulled ? 'canceled' : ($oldRow['status'] ?? 'received'),

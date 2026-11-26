@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * entries will be created through the future "Рахунки/Оплати" module.
  */
 #[Fillable([
-    'legacy_id', 'order_id', 'direction', 'payer_type', 'payer_name',
+    'legacy_id', 'order_id', 'direction', 'payer_type', 'payer_name', 'supplier_id',
     'payment_method', 'amount', 'status', 'classification_status', 'category',
     'comment', 'created_by', 'paid_at', 'received_at',
     'privatbank_num', 'fop_account_legacy_id', 'fop_account_id',
@@ -31,6 +31,12 @@ class OrderPayment extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /** Постачальник, якому/від якого оплата (лише payer_type = supplier). */
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     /** Author of the entry — see CLAUDE.md "Платежі — принципи", принцип 4. */

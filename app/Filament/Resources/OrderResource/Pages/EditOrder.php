@@ -394,6 +394,53 @@ class EditOrder extends EditRecord
         $this->fillForm();
     }
 
+    /** Профіль ліда можна міняти з замовлення: хто редагує замовлення + активна роль «Керівник компанії». */
+    public function canEditProfile(): bool
+    {
+        return ! $this->isReadOnly()
+            || auth()->user()?->getActiveRoleName() === 'Керівник компанії';
+    }
+
+    public function setLeadProfile(?string $profile): void
+    {
+        $profile = $profile === '' ? null : $profile;
+        $lead = $this->getRecord()->lead_id ? \App\Models\Lead::find($this->getRecord()->lead_id) : null;
+
+        if (! $lead || ! $this->canEditProfile()
+            || ($profile !== null && ! array_key_exists($profile, \App\Models\Lead::profileOptions()))) {
+            return;
+        }
+
+        $lead->update(['profile' => $profile]);
+        $this->fillForm();
+    }
+
+    /** @return array<string, mixed> */
+    protected function leadProfileViewData(): array
+    {
+        $lead = $this->getRecord()->lead_id ? \App\Models\Lead::find($this->getRecord()->lead_id) : null;
+        $options = \App\Models\Lead::profileOptions();
+        $groups = ['REHAU' => [], 'Salamander' => [], 'OpenTeck' => [], 'Українські профілі' => [], '' => []];
+        foreach ($options as $key => $label) {
+            $g = match (true) {
+                str_starts_with($key, 'rehau') => 'REHAU',
+                str_starts_with($key, 'salamander') => 'Salamander',
+                str_starts_with($key, 'openteck') => 'OpenTeck',
+                str_starts_with($key, 'ukr') => 'Українські профілі',
+                default => '',
+            };
+            $groups[$g][$key] = $label;
+        }
+
+        return [
+            'hasLead'         => (bool) $lead,
+            'leadProfile'     => $lead?->profile,
+            'profileLabel'    => $lead ? ($options[$lead->profile] ?? null) : null,
+            'profileGroups'   => array_filter($groups),
+            'canEditProfile'  => $this->canEditProfile(),
+        ];
+    }
+
     /**
      * Show a meaningful title in the Filament header bar (where the action
      * buttons also appear). Previously getHeader() replaced the entire
@@ -403,6 +450,19 @@ class EditOrder extends EditRecord
     public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
     {
         return 'Замовлення №' . $this->getRecord()->id;
+    }
+
+    /** Заголовок: «Замовлення №…» + позначка «Є відновлення», якщо лід замовлення по програмі. */
+    public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable
+    {
+        $title = e($this->getTitle());
+        $lead = $this->getRecord()->lead_id ? \App\Models\Lead::find($this->getRecord()->lead_id) : null;
+
+        if ($lead && (int) $lead->is_restoration_program === 1) {
+            $title .= ' <span style="display:inline-block;vertical-align:middle;margin-left:.75rem;padding:.15rem .7rem;border-radius:9999px;background:#dcfce7;color:#166534;font-size:.9rem;font-weight:600;">Є відновлення</span>';
+        }
+
+        return new \Illuminate\Support\HtmlString($title);
     }
 
     /**
@@ -439,6 +499,7 @@ class EditOrder extends EditRecord
                             'canChange'      => ! $this->isReadOnly(),
                             'orderTypeLabel' => Order::orderTypeOptions()[$record->order_type] ?? null,
                             'orderTypeOptions' => Order::orderTypeOptions(),
+                            ...$this->leadProfileViewData(),
                         ])->render()
                     );
                 }),
@@ -568,6 +629,16 @@ class EditOrder extends EditRecord
                             ->options(Order::orderTypeOptions())
                             ->searchable()
                             ->live(),
+
+                        // Постачальник вікон — з довідника наших постачальників.
+                        // Пише в orders.supplier_id (у старій CRM те саме поле, синхронізується
+                        // через suppliers.legacy_id, див. OrdersSyncMapper).
+                        Select::make('supplier_id')
+                            ->label('Постачальник вікон')
+                            ->placeholder('Не вибрано')
+                            ->options(fn () => \App\Models\Supplier::query()->orderBy('name')->pluck('name', 'id'))
+                            ->searchable()
+                            ->live(),
                     ]),
 
                     Grid::make(['default' => 1, '@3xl' => 2])->gridContainer()->schema([
@@ -607,18 +678,8 @@ class EditOrder extends EditRecord
                             ->searchable()->live(),
                     ]),
 
-                    // Deliberately NO supplier_id field here — per explicit
-                    // feedback, a single "постачальник" picker on the Order
-                    // doesn't match reality: an order can involve SEVERAL
-                    // suppliers, and which one matters is really decided by
-                    // each individual "Рахунок від постачальника" (supplier
-                    // invoice), not the order as a whole. Properly modelling
-                    // that means a supplier comes from a future per-invoice
-                    // relation in the Рахунки/Оплати module, not a flat
-                    // field here — see CLAUDE.md "Замовлення" for the full
-                    // reasoning. The `supplier_id` column/relation on Order
-                    // itself is NOT removed — historical synced orders from
-                    // the old system still have it, kept for reference.
+                    // «Постачальник вікон» (supplier_id) — вибір у секції «Замовлення» вище (з 26.11.2026).
+                    // Постачальники окремих рахунків — це окрема майбутня зв'язка в модулі Рахунки/Оплати.
                     // No «Потрібен замір / монтаж» checkboxes any more: the flags are DERIVED from the
                     // pickers above (a person chosen = needed, «Не призначено» = not needed) and still
                     // stored in is_need_measuring / is_need_install — see mutateFormDataBeforeSave().

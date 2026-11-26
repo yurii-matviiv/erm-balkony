@@ -132,6 +132,7 @@ class LeadsSyncMapper extends AbstractSyncMapper
             ['old' => 'comment_callback', 'new' => 'comment_callback', 'note' => '"результат/дія: чому замовив або ні"'],
             ['old' => 'profile, advance_calculation1-3', 'new' => 'profile, advance_calculation1-3', 'note' => 'тип профілю і попередні розрахунки — є в картці ліда старої CRM'],
             ['old' => 'is_restoration_program', 'new' => 'is_restoration_program', 'note' => 'заявка йде по програмі «Відновлення»: пусто = не вказано, 1 = так, 0 = ні'],
+            ['old' => 'restoration_status', 'new' => 'restoration_status', 'note' => 'статус заявки по програмі «Відновлення» (1–7), лише коли програма = 1; у старій БД до розділення полів статус був у is_restoration_program — такі рядки приводяться до нового вигляду'],
             ['old' => 'comment_call', 'new' => 'comment_call', 'note' => '"Що планую робити далі"'],
             ['old' => 'comment_sales_head', 'new' => 'comment_sales_head', 'note' => '"Звернути увагу!"'],
             ['old' => 'address', 'new' => 'site_street', 'note' => 'стара система зберігала повну адресу одним рядком — переноситься в site_street як є; менеджер може розбити на окремі поля вручну'],
@@ -185,6 +186,25 @@ class LeadsSyncMapper extends AbstractSyncMapper
         $hasPriorLead = Lead::where('client_id', $clientId)->exists();
 
         $oldStatus = $oldRow['status'] ?? null;
+
+        // «Програма Відновлення»: програма (NULL / 0 / 1) і окремий статус (1–7).
+        // У старій БД до розділення полів статус лежав у самому is_restoration_program (1–7),
+        // а колонки restoration_status ще не було — такі рядки приводимо до нового вигляду.
+        $restorationProgram = isset($oldRow['is_restoration_program']) && $oldRow['is_restoration_program'] !== ''
+            ? (int) $oldRow['is_restoration_program'] : null;
+        $restorationStatus = isset($oldRow['restoration_status']) && $oldRow['restoration_status'] !== ''
+            ? (int) $oldRow['restoration_status'] : null;
+        if ($restorationProgram !== null && $restorationProgram >= 2 && $restorationStatus === null) {
+            $restorationStatus = $restorationProgram;
+        }
+        if ($restorationProgram !== null && $restorationProgram >= 1) {
+            $restorationProgram = 1;
+        }
+        if ($restorationProgram !== 1) {
+            $restorationStatus = null;
+        } elseif ($restorationStatus === null) {
+            $restorationStatus = 1;
+        }
         [$stage, $status, $lostReason] = self::STATUS_MAP[$oldStatus] ?? ['new', 'open', null];
 
         $comment = trim(implode("\n", array_filter([
@@ -205,8 +225,9 @@ class LeadsSyncMapper extends AbstractSyncMapper
             // and "Звернути увагу!" are their own columns managers know.
             'comment_callback' => ! empty($oldRow['comment_callback']) ? $oldRow['comment_callback'] : null,
             'profile' => ! empty($oldRow['profile']) && $oldRow['profile'] !== 'null' ? $oldRow['profile'] : null,
-            // «Програма Відновлення»: NULL (не вказано) / 0 / 1; у старій БД колонки може ще не бути.
-            'is_restoration_program' => isset($oldRow['is_restoration_program']) && $oldRow['is_restoration_program'] !== '' ? (int) $oldRow['is_restoration_program'] : null,
+            // «Програма Відновлення»: NULL (не вказано) / 0 / 1 і статус по програмі 1–7 (див. вище).
+            'is_restoration_program' => $restorationProgram,
+            'restoration_status' => $restorationStatus,
             'advance_calculation1' => ! empty($oldRow['advance_calculation1']) ? $oldRow['advance_calculation1'] : null,
             'advance_calculation2' => ! empty($oldRow['advance_calculation2']) ? $oldRow['advance_calculation2'] : null,
             'advance_calculation3' => ! empty($oldRow['advance_calculation3']) ? $oldRow['advance_calculation3'] : null,

@@ -22,6 +22,7 @@ use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View as SchemaView;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\View\View;
 
@@ -356,6 +357,16 @@ class EditLead extends EditRecord
                             ->label('Програма «Відновлення»')
                             ->options(Lead::restorationProgramOptions())
                             ->placeholder('не вказано (запитайте клієнта)')
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set): void {
+                                // «так» → статус «нова»; «ні» / не вказано → статус очищаємо
+                                $set('restoration_status', (string) $state === '1' ? 1 : null);
+                            }),
+
+                        Select::make('restoration_status')
+                            ->label('Статус по програмі')
+                            ->options(Lead::restorationStatusOptions())
+                            ->visible(fn (Get $get): bool => (string) $get('is_restoration_program') === '1')
                             ->live(),
 
                         Select::make('stage')

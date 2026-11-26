@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
-    'legacy_id', 'client_id', 'manager_id', 'source', 'application_type', 'stage', 'status', 'lost_reason', 'legacy_status', 'comment', 'comment_call', 'comment_callback', 'comment_sales_head', 'profile', 'is_restoration_program', 'advance_calculation1', 'advance_calculation2', 'advance_calculation3',
+    'legacy_id', 'client_id', 'manager_id', 'source', 'application_type', 'stage', 'status', 'lost_reason', 'legacy_status', 'comment', 'comment_call', 'comment_callback', 'comment_sales_head', 'profile', 'is_restoration_program', 'restoration_status', 'advance_calculation1', 'advance_calculation2', 'advance_calculation3',
     'site_city', 'site_street', 'auto_address', 'site_house_number', 'site_apartment_number', 'site_floor',
 ])]
 class Lead extends Model
@@ -21,8 +21,10 @@ class Lead extends Model
     protected function casts(): array
     {
         return [
-            // NULL = не вказано, 0 = ні, 1–7 = статус по програмі (restorationProgramOptions)
+            // NULL = не вказано, 0 = ні, 1 = так (restorationProgramOptions)
             'is_restoration_program' => 'integer',
+            // NULL, коли програма не «так»; 1–7 — статус по програмі (restorationStatusOptions)
+            'restoration_status' => 'integer',
         ];
     }
 
@@ -136,7 +138,7 @@ class Lead extends Model
     /**
      * «Програма Відновлення» (leads.is_restoration_program). NULL = ще не питали клієнта.
      * Ті самі числа зберігає стара CRM — не змінювати без узгодження з нею.
-     * 0 = звичайне замовлення; 1–7 = заявка по програмі та її статус (далі замовлення ведеться звичайним шляхом).
+     * 0 = звичайне замовлення; 1 = заявка йде по програмі (її статус — у restoration_status).
      *
      * @return array<int, string>
      */
@@ -144,7 +146,20 @@ class Lead extends Model
     {
         return [
             0 => 'ні, не по програмі',
-            1 => 'нова: по програмі, ще не оброблена',
+            1 => 'так, по програмі',
+        ];
+    }
+
+    /**
+     * Статус заявки по програмі (leads.restoration_status), має сенс лише коли is_restoration_program = 1.
+     * Ті самі числа зберігає стара CRM — не змінювати без узгодження з нею.
+     *
+     * @return array<int, string>
+     */
+    public static function restorationStatusOptions(): array
+    {
+        return [
+            1 => 'нова: ще не оброблена',
             2 => 'думає',
             3 => 'чекає комісію або гроші',
             4 => 'в роботі (гроші є)',
@@ -164,7 +179,9 @@ class Lead extends Model
         return [
             'rehau_60' => 'rehau 60', 'rehau_70' => 'rehau 70', 'rehau_80' => 'rehau 80',
             'rehau_sliding' => 'rehau sliding', 'openteck_delux_60' => 'OpenTeck De-Lux 60',
-            'openteck_elite_70' => 'OpenTeck ELITE 70', 'salamander_bluevolution_82' => 'Salamander bluEvolution 82',
+            'openteck_elite_70' => 'OpenTeck ELITE 70', 'openteck_pro_76' => 'OpenTeck Pro 76',
+            'salamander_proevolution_72' => 'Salamander proEvolution 72', 'salamander_bluevolution_82' => 'Salamander bluEvolution 82',
+            'salamander_bluevolution_92' => 'Salamander bluEvolution 92',
             'ukr_teple' => 'ukr teple', 'ukr_holodne' => 'ukr holodne', 'ukr_sliding' => 'ukr sliding',
             'ne_vikna' => 'не вікна',
             // Послуги без профілю (напр. внутрішня обшивка балкону): профілю немає, у полі стоїть «Послуга».

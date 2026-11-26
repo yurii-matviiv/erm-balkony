@@ -18,7 +18,10 @@
                 Лід №{{ $record->lead_id }}
             </a>
         @endif
+    </div>
 
+    {{-- Рядок типів: тип замовлення + тип профілю (профіль береться з ліда). --}}
+    <div style="display:flex;flex-wrap:wrap;align-items:center;column-gap:3rem;row-gap:.5rem;padding:.65rem 1rem;" class="flex flex-wrap items-center rounded-lg bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
         <div style="display:flex; align-items:center; gap:0.5rem;">
             <span>Тип замовлення:</span>
             @if ($canChange)
@@ -32,6 +35,32 @@
                 </select>
             @else
                 <strong class="text-gray-700 dark:text-gray-200">{{ $orderTypeLabel ?? '—' }}</strong>
+            @endif
+        </div>
+
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span>Тип профілю:</span>
+            @if (! $hasLead)
+                <strong class="text-gray-700 dark:text-gray-200">лід не знайдено</strong>
+            @elseif ($canEditProfile)
+                <select wire:change="setLeadProfile($event.target.value)"
+                        style="border:1px solid #cfd8de;border-radius:3px;box-shadow:none;outline:none;min-width:14rem;"
+                        class="bg-white px-2 py-1 text-sm text-gray-800 dark:bg-gray-900 dark:text-gray-100">
+                    <option value="" @selected(! $leadProfile)>— не вказано —</option>
+                    @foreach ($profileGroups as $group => $items)
+                        @if ($group !== '')
+                            <optgroup label="{{ $group }}">
+                        @endif
+                        @foreach ($items as $key => $label)
+                            <option value="{{ $key }}" @selected($leadProfile === $key)>{{ $label }}</option>
+                        @endforeach
+                        @if ($group !== '')
+                            </optgroup>
+                        @endif
+                    @endforeach
+                </select>
+            @else
+                <strong class="text-gray-700 dark:text-gray-200">{{ $profileLabel ?? '—' }}</strong>
             @endif
         </div>
     </div>
